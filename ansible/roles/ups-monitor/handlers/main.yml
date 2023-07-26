@@ -1,0 +1,8 @@
+---
+  - name: Restart NUT services
+    shell: |
+      service nut-server restart
+      service nut-client restart
+      systemctl restart nut-monitor
+      upsdrvctl stop
+      upsdrvctl start

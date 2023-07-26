@@ -1,0 +1,22 @@
+---
+- name: Setup servers
+  hosts: docker-hosts
+  gather_facts: yes
+  become: yes
+  roles:
+    - docker
+    - sys-monitoring
+    - misc-utils
+
+- name: Setup Proxmox server
+  hosts: proxmox
+  gather_facts: yes
+  become: yes
+  vars_files: secrets.yml
+  roles:
+    - sys-monitoring
+    - ups-monitor
+    - proxmox-terraform-setup
+    - power-saving
+    - misc-utils
+...

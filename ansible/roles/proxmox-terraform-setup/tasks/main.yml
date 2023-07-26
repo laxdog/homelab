@@ -1,0 +1,23 @@
+---
+- name: Create a new role for the future terraform user
+  command: >
+    pveum role add TerraformProv -privs "Datastore.AllocateSpace Datastore.Audit Pool.Allocate Sys.Audit Sys.Console Sys.Modify VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.Monitor VM.PowerMgmt"
+  register: role_result
+  failed_when: "'already exists' not in role_result.stderr and role_result.rc != 0"
+
+- name: Create the user "terraform-prov@pve"
+  command: >
+    pveum user add terraform-prov@pve --password "{{ terraform_user_password }}"
+  register: user_result
+  failed_when: "'already exists' not in user_result.stderr and user_result.rc != 0"
+
+- name: Add the TERRAFORM-PROV role to the terraform-prov user
+  command: >
+    pveum aclmod / -user terraform-prov@pve -role TerraformProv
+
+- name: Add Terraform Proxmox environment variables to .bashrc
+  blockinfile:
+    path: /root/.bashrc
+    block: |
+      export PM_API_TOKEN_ID="terraform-prov@pve!mytoken"
+      export PM_API_TOKEN_SECRET="{{ pm_api_token_secret }}"

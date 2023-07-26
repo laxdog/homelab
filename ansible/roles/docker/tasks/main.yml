@@ -1,0 +1,40 @@
+---
+- name: Update apt package index
+  apt:
+    update_cache: yes
+
+- name: Install apt dependencies
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+
+- name: Add Docker's official GPG key
+  ansible.builtin.shell: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+- name: Setup stable Docker repository
+  ansible.builtin.shell: echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+- name: Update apt package index (Again)
+  apt:
+    update_cache: yes
+
+- name: Install Docker Engine
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+
+- name: Make sure Docker service is running
+  service:
+    name: docker
+    state: started
+    enabled: yes
+...
+

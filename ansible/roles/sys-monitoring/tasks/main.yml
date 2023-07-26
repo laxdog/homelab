@@ -1,0 +1,17 @@
+---
+- name: Install system monitoring tools
+  apt:
+    name:
+      - htop
+      - btop
+      - powertop
+      - mlocate
+    state: present
+
+- name: Update mlocate database daily at 6am
+  cron:
+    name: "update mlocate database"
+    minute: "0"
+    hour: "6"
+    user: "root"
+    job: "/usr/bin/updatedb"

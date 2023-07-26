@@ -1,0 +1,38 @@
+- name: Install misc utils
+  apt:
+    name:
+      - git 
+      - tig
+      - tmux
+      - silversearcher-ag
+    state: present
+
+- name: Install bat
+  apt:
+    name: bat
+    state: present
+
+- name: Create bat symlink if necessary
+  file:
+    src: /usr/bin/batcat
+    dest: /usr/local/bin/bat
+    state: link
+    force: yes
+  become: yes
+  when: ansible_distribution_major_version | int >= 20 or (ansible_distribution == "Debian" and ansible_distribution_major_version | int >= 11)
+
+- name: Install vim
+  apt:
+    name:
+      - vim
+    state: present
+
+- name: Create directory for tpope vim plugins
+  file:
+    path: "{{ ansible_env.HOME }}/.vim/pack/tpope/start"
+    state: directory
+
+- name: Clone sensible vim plugin
+  git:
+    repo: 'https://tpope.io/vim/sensible.git'
+    dest: "{{ ansible_env.HOME }}/.vim/pack/tpope/start/sensible"

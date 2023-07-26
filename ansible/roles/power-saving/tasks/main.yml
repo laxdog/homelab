@@ -1,0 +1,34 @@
+---
+- name: Install powertop
+  apt:
+    name: powertop
+    state: present
+
+- name: Create powertop service
+  copy:
+    dest: /etc/systemd/system/powertop.service
+    content: |
+      [Unit]
+      Description=Powertop tunings
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/sbin/powertop --auto-tune
+
+      [Install]
+      WantedBy=multi-user.target
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Enable and start powertop service
+  systemd:
+    name: powertop
+    state: started
+    enabled: yes
+    daemon_reload: yes
+...
+
+

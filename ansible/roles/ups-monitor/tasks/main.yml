@@ -1,0 +1,172 @@
+---
+# This is based on https://www.kreaweb.be/diy-home-server-2021-software-proxmox-ups/#4_DIY_HOME_SERVER_-_PROXMOX_-_NUT_Monitoring 
+- name: Install nut
+  apt:
+    name: nut
+    state: present
+
+- name: Backup original NUT configuration files
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: yes
+  loop:
+    - { src: '/etc/nut/nut.conf', dest: '/etc/nut/nut.example.conf' }
+    - { src: '/etc/nut/ups.conf', dest: '/etc/nut/ups.example.conf' }
+    - { src: '/etc/nut/upsd.conf', dest: '/etc/nut/upsd.example.conf' }
+    - { src: '/etc/nut/upsd.users', dest: '/etc/nut/upsd.example.users' }
+    - { src: '/etc/nut/upsmon.conf', dest: '/etc/nut/upsmon.example.conf' }
+    - { src: '/etc/nut/upssched.conf', dest: '/etc/nut/upssched.example.conf' }
+    - { src: '/usr/bin/upssched-cmd', dest: '/usr/bin/upssched-cmd.example' }
+  when: not ansible_check_mode and not (item.dest is file)
+
+- name: Update /etc/nut/nut.conf
+  copy:
+    dest: /etc/nut/nut.conf
+    content: |
+      MODE=netserver
+  notify: Restart NUT services
+
+- name: Update /etc/nut/ups.conf
+  copy:
+    dest: /etc/nut/ups.conf
+    content: |
+      pollinterval = 15
+      maxretry = 3
+      offdelay = 120
+      ondelay = 240
+
+      [TrippLite]
+      # TrippLite UPS
+      driver = usbhid-ups
+      port = auto
+      desc = "TRIPP LITE SMX1050SLT"
+      vendorid = 09AE
+      productid = 3012
+      serial = 2303BY0SM843200057
+  notify: Restart NUT services
+
+- name: Update /etc/nut/upsd.conf
+  copy:
+    dest: /etc/nut/upsd.conf
+    content: |
+      LISTEN 0.0.0.0 3493
+      LISTEN :: 3493
+  notify: Restart NUT services
+
+- name: Update /etc/nut/upsd.users
+  copy:
+    dest: /etc/nut/upsd.users
+    content: |
+      [upsadmin]
+      password = {{ upsadmin_password }}
+      actions = SET
+      actions = FSD
+      instcmds = ALL
+      upsmon master
+
+      [upsuser]
+      password = {{ upsuser_password }}
+      upsmon slave
+  notify: Restart NUT services
+
+- name: Update /etc/nut/upsmon.conf
+  copy:
+    dest: /etc/nut/upsmon.conf
+    content: |
+      RUN_AS_USER root
+      MONITOR TrippLite@localhost 1 upsadmin {{ upsadmin_password }} master
+
+      MINSUPPLIES 1
+      SHUTDOWNCMD "/sbin/shutdown -h"
+      NOTIFYCMD /usr/sbin/upssched
+      POLLFREQ 4
+      POLLFREQALERT 2
+      HOSTSYNC 15
+      DEADTIME 24
+      MAXAGE 24
+      POWERDOWNFLAG /etc/killpower
+
+      NOTIFYMSG ONLINE "UPS %s on line power"
+      NOTIFYMSG ONBATT "UPS %s on battery"
+      NOTIFYMSG LOWBATT "UPS %s battary is low"
+      NOTIFYMSG FSD "UPS %s: forced shutdown in progress"
+      NOTIFYMSG COMMOK "Communications with UPS %s established"
+      NOTIFYMSG COMMBAD "Communications with UPS %s lost"
+      NOTIFYMSG SHUTDOWN "Auto logout and shutdown proceeding"
+      NOTIFYMSG REPLBATT "UPS %s battery needs to be replaced"
+      NOTIFYMSG NOCOMM "UPS %s is unavailable"
+      NOTIFYMSG NOPARENT "upsmon parent process died - shutdown impossible"
+
+      NOTIFYFLAG ONLINE   SYSLOG+WALL+EXEC
+      NOTIFYFLAG ONBATT   SYSLOG+WALL+EXEC
+      NOTIFYFLAG LOWBATT  SYSLOG+WALL+EXEC
+      NOTIFYFLAG FSD      SYSLOG+WALL+EXEC
+      NOTIFYFLAG COMMOK   SYSLOG+WALL+EXEC
+      NOTIFYFLAG COMMBAD  SYSLOG+WALL+EXEC
+      NOTIFYFLAG SHUTDOWN SYSLOG+WALL+EXEC
+      NOTIFYFLAG REPLBATT SYSLOG+WALL
+      NOTIFYFLAG NOCOMM   SYSLOG+WALL+EXEC
+      NOTIFYFLAG NOPARENT SYSLOG+WALL
+
+      RBWARNTIME 43200
+      NOCOMMWARNTIME 600
+
+      FINALDELAY 5
+
+
+- name: Update /etc/nut/upssched.conf
+  copy:
+    dest: /etc/nut/upssched.conf
+    content: |
+      CMDSCRIPT /etc/nut/upssched-cmd
+      PIPEFN /etc/nut/upssched.pipe
+      LOCKFN /etc/nut/upssched.lock
+
+      AT ONBATT * START-TIMER onbatt 30
+      AT ONLINE * CANCEL-TIMER onbatt online
+      AT ONBATT * START-TIMER earlyshutdown 30
+      AT LOWBATT * EXECUTE onbatt
+      AT COMMBAD * START-TIMER commbad 30
+      AT COMMOK * CANCEL-TIMER commbad commok
+      AT NOCOMM * EXECUTE commbad
+      AT SHUTDOWN * EXECUTE powerdown
+      AT SHUTDOWN * EXECUTE powerdown
+  notify: Restart NUT services
+
+- name: Update /usr/bin/upssched-cmd
+  copy:
+    dest: /usr/bin/upssched-cmd
+    content: |
+      #!/bin/sh
+      case $1 in
+          onbatt)
+             logger -t upssched-cmd "UPS running on battery"
+             ;;
+          earlyshutdown)
+             logger -t upssched-cmd "UPS on battery too long, early shutdown"
+             /usr/sbin/upsmon -c fsd
+             ;;
+          shutdowncritical)
+             logger -t upssched-cmd "UPS on battery critical, forced shutdown"
+             /usr/sbin/upsmon -c fsd
+             ;;
+          upsgone)
+             logger -t upssched-cmd "UPS has been gone too long, can't reach"
+             ;;
+          *)
+             logger -t upssched-cmd "Unrecognized command: $1"
+             ;;
+      esac
+  
+    mode: 0755
+  notify: Restart NUT services
+
+- name: Start NUT service
+  command: upsdrvctl start
+  register: result
+  changed_when: "'Network UPS Tools - UPS driver controller' not in result.stdout"
+
+- name: Display command output
+  debug:
+    msg: "{{ result.stdout }}"
