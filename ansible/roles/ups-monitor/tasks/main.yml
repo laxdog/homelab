@@ -119,7 +119,7 @@
   copy:
     dest: /etc/nut/upssched.conf
     content: |
-      CMDSCRIPT /etc/nut/upssched-cmd
+      CMDSCRIPT /usr/bin/upssched-cmd
       PIPEFN /etc/nut/upssched.pipe
       LOCKFN /etc/nut/upssched.lock
 
@@ -141,26 +141,63 @@
       #!/bin/sh
       case $1 in
           onbatt)
-             logger -t upssched-cmd "UPS running on battery"
+             msg="UPS running on battery"
+             logger -t upssched-cmd $msg
+             /usr/local/bin/ups.py $msg
              ;;
           earlyshutdown)
-             logger -t upssched-cmd "UPS on battery too long, early shutdown"
+             msg="UPS on battery too long, early shutdown"
+             logger -t upssched-cmd $msg
+             /usr/local/bin/ups.py $msg
              /usr/sbin/upsmon -c fsd
              ;;
           shutdowncritical)
-             logger -t upssched-cmd "UPS on battery critical, forced shutdown"
+             msg="UPS on battery critical, forced shutdown"
+             logger -t upssched-cmd $msg
+             /usr/local/bin/ups.py $msg
              /usr/sbin/upsmon -c fsd
              ;;
           upsgone)
-             logger -t upssched-cmd "UPS has been gone too long, can't reach"
+             msg="UPS has been gone too long, can't reach"
+             logger -t upssched-cmd $msg
+             /usr/local/bin/ups.py $msg
              ;;
           *)
-             logger -t upssched-cmd "Unrecognized command: $1"
+             msg="Unrecognized command: $1"
+             logger -t upssched-cmd $msg
+             /usr/local/bin/ups.py $msg
              ;;
       esac
   
     mode: 0755
   notify: Restart NUT services
+
+- name: Ensure pip and venv are installed
+  apt:
+    name:
+      - python3-pip
+      - python3-venv
+    state: present
+
+- name: Create a virtual environment
+  command: python3 -m venv /opt/ups-venv
+  args:
+    creates: /opt/ups-venv
+
+- name: Install discord_webhook module in the virtual environment
+  pip:
+    name: discord-webhook
+    virtualenv: /opt/ups-venv
+    virtualenv_python: python3
+
+- name: Copy the ups.py script to /usr/local/bin
+  copy:
+    src: ups.py
+    dest: /usr/local/bin/ups.py
+    mode: 0755
+    owner: root
+    group: root
+  become: yes
 
 - name: Start NUT service
   command: upsdrvctl start
