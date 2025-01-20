@@ -1,0 +1,29 @@
+- name: Ensure the user exists
+  ansible.builtin.user:
+    name: mrobinson
+    uid: 1001
+    create_home: yes
+    state: present
+    shell: /bin/bash
+
+- name: Add to the sudoers
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/mrobinson
+    content: "mrobinson ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: '0440'
+
+- name: Check if the docker group exists
+  ansible.builtin.getent:
+    database: group
+    key: docker
+  register: docker_group_check
+  ignore_errors: true
+
+- name: Add to the docker group if it exists
+  ansible.builtin.user:
+    name: mrobinson
+    groups: docker
+    append: true
+  when: docker_group_check is defined and docker_group_check is not none

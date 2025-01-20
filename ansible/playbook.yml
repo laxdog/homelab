@@ -1,22 +1,30 @@
----
-- name: Setup servers
+- name: Setup Proxmox server
+  hosts: proxmox
+  gather_facts: true
+  become: true
+  vars_files:
+    - secrets.yml
+  roles:
+    # - sys-monitoring
+    # # - ups-monitor
+    # - proxmox-terraform-setup
+    # - power-saving
+    # - misc-utils
+    - container-dirs
+
+- name: Setup docker hosts
   hosts: docker-hosts
-  gather_facts: yes
-  become: yes
+  gather_facts: true
+  become: true
   roles:
     - docker
     - sys-monitoring
     - misc-utils
+    - users # Needs run after container-dirs
 
-- name: Setup Proxmox server
-  hosts: proxmox
-  gather_facts: yes
-  become: yes
-  vars_files: secrets.yml
+- name: Setup servarr
+  hosts: servarr-hosts
+  gather_facts: true
+  become: true
   roles:
-    - sys-monitoring
-    - ups-monitor
-    - proxmox-terraform-setup
-    - power-saving
-    - misc-utils
-...
+    - servarr

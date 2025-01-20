@@ -5,12 +5,12 @@
       - htop
       - btop
       - powertop
-      - mlocate
+      - plocate
     state: present
 
-- name: Update mlocate database daily at 6am
+- name: Update plocate database daily at 6am
   cron:
-    name: "update mlocate database"
+    name: "update plocate database"
     minute: "0"
     hour: "6"
     user: "root"

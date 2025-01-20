@@ -1,57 +1,67 @@
-terraform {
-  required_providers {
-    proxmox = {
-      source  = "Telmate/proxmox"
-    }
+locals {
+  # Variables
+  ip           = "10.20.30.100"
+  netmask      = "24"
+  hostname     = "servarr"
+  ostemplate   = "local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
+  description  = "Container for Servarr stack"
+  root_disk_gb = 8
+  cores        = 4
+  memory       = 4096
+
+  # Static / computed
+  network_address = "${local.ip}/${local.netmask}"
+}
+
+resource "proxmox_lxc" "basic" {
+  target_node     = "proxmox"
+  hostname        = local.hostname
+  ostemplate      = local.ostemplate
+  password        = var.pm_password
+  unprivileged    = true # Set to true for security
+  start           = true
+  tags            = "terraform;${local.ip}"
+  description     = local.description
+  ssh_public_keys = var.mac_pub_key
+  cores           = local.cores
+  memory          = local.memory
+  onboot          = true
+
+  rootfs {
+    storage = "flash"
+    size    = "${local.root_disk_gb}G"
   }
-}
 
-variable "pm_api_url" {
-  description = "The Proxmox API URL"
-  default     = "https://10.20.30.237:8006/api2/json"
-}
-
-variable "pm_user" {
-  description = "The Proxmox user"
-  default     = "terraform-prov@pve"
-}
-
-variable "pm_password" {
-  description = "The Proxmox password"
-}
-
-provider "proxmox" {
-  pm_api_url  = var.pm_api_url
-  pm_user     = var.pm_user
-  pm_password = var.pm_password
-}
-
-resource "proxmox_vm_qemu" "vm" {
-  name              = "test-vm"
-  target_node       = "pve"
-  iso               = "local:iso/ubuntu-22.04.2-live-server-amd64.iso"
-  full_clone        = true
-  cores             = 2
-  memory            = 2048
-  scsihw            = "virtio-scsi-pci"
-  bootdisk          = "scsi0"
-  os_type           = "cloud-init"
-  disk {
-    slot            = 0
-    size            = "20G"
-    type            = "scsi"
-    storage         = "local-zfs"
-    iothread        = 0
+  mountpoint {
+    key     = "0"
+    slot    = 0
+    storage = "/srv/host/bind-mount-point"
+    volume  = "/tank/container_home"
+    mp      = "/home"
+    size    = "20G"
   }
+
   network {
-    model           = "virtio"
-    bridge          = "vmbr0"
+    name   = "eth0"
+    bridge = "vmbr0"
+    ip     = local.network_address
+    gw     = "10.20.30.1"
   }
 
-  lifecycle {
-    ignore_changes = [
-      disk
+  features {
+    nesting = true # Enable nesting to allow Docker
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "apt update && apt-get upgrade -y"
     ]
+    connection {
+      type        = "ssh"
+      user        = "root"
+      private_key = file("~/.ssh/id_rsa")
+      host        = local.ip
+    }
   }
 }
 

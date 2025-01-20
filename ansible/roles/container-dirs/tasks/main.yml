@@ -1,0 +1,32 @@
+- name: Ensure the mrobinson user exists on Proxmox with a fixed UID
+  ansible.builtin.user:
+    name: mrobinson
+    uid: 1001  # Needs to match the UID used in LXC containers
+    home: /tank/container_home/mrobinson
+    create_home: yes
+    state: present
+    shell: /bin/bash
+
+- name: Ensure the home directory ownership is set correctly
+  ansible.builtin.file:
+    path: /tank/container_home/mrobinson
+    state: directory
+    owner: mrobinson
+    group: mrobinson
+    mode: '0755'
+
+- name: Add mrobinson to the sudoers
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/mrobinson
+    content: "mrobinson ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: '0440'
+
+- name: Ensure the home directory ownership is set correctly
+  ansible.builtin.file:
+    path: /tank/docker_files/
+    state: directory
+    owner: mrobinson
+    group: mrobinson
+    mode: '0755'
