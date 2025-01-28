@@ -1,0 +1,23 @@
+- name: Create application directory
+  ansible.builtin.file:
+    path: "/docker/docker-compose-{{ inventory_hostname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Copy the Docker Compose file
+  ansible.builtin.copy:
+    src: "docker-compose.yaml"
+    dest: "/docker/docker-compose-{{ inventory_hostname }}/docker-compose.yaml"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Deploy the application via Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: /docker/docker-compose-{{ inventory_hostname }}
+    state: present
+    recreate: always
+    pull: always
+    remove_orphans: true

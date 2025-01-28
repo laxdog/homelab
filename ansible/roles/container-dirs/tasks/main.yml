@@ -3,7 +3,7 @@
     name: mrobinson
     uid: 1001  # Needs to match the UID used in LXC containers
     home: /tank/container_home/mrobinson
-    create_home: yes
+    create_home: true
     state: present
     shell: /bin/bash
 

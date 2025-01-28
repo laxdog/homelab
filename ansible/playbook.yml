@@ -5,11 +5,11 @@
   vars_files:
     - secrets.yml
   roles:
-    # - sys-monitoring
+    - sys-monitoring
     # # - ups-monitor
     # - proxmox-terraform-setup
     # - power-saving
-    # - misc-utils
+    - misc-utils
     - container-dirs
 
 - name: Setup docker hosts
@@ -28,3 +28,10 @@
   become: true
   roles:
     - servarr
+
+- name: Setup nginx-proxy-manager
+  hosts: nginx-proxy-manager-hosts
+  gather_facts: true
+  become: true
+  roles:
+    - nginx-proxy-manager
