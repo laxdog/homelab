@@ -1,32 +1,43 @@
 - name: Ensure the mrobinson user exists on Proxmox with a fixed UID
   ansible.builtin.user:
     name: mrobinson
-    uid: 1001  # Needs to match the UID used in LXC containers
-    home: /tank/container_home/mrobinson
-    create_home: true
+    uid: 1001  # This UID must match the one used inside LXC containers to avoid permission issues
+    home: /flash/container_home/mrobinson  # The home directory is bind-mounted into LXC containers
+    create_home: true  # Ensures the home directory is created if it doesn't exist
     state: present
-    shell: /bin/bash
+    shell: /bin/bash  # Sets the default shell
 
-- name: Ensure the home directory ownership is set correctly
+- name: Ensure the home directory exists and has correct ownership
   ansible.builtin.file:
-    path: /tank/container_home/mrobinson
+    path: /flash/container_home/mrobinson
     state: directory
     owner: mrobinson
     group: mrobinson
-    mode: '0755'
+    mode: '0755'  # Owner can read/write/execute; others can read/execute
+  # Home directory is stored on SSD (/flash) for faster access inside LXC containers.
 
-- name: Add mrobinson to the sudoers
+- name: Add mrobinson to sudoers with passwordless sudo
   ansible.builtin.copy:
     dest: /etc/sudoers.d/mrobinson
     content: "mrobinson ALL=(ALL) NOPASSWD:ALL\n"
     owner: root
     group: root
-    mode: '0440'
+    mode: '0440'  # Secure permissions to prevent unauthorized edits
 
-- name: Ensure the home directory ownership is set correctly
+- name: Ensure the Docker shared directory exists and has correct ownership
   ansible.builtin.file:
-    path: /tank/docker_files/
+    path: /flash/docker_files/
     state: directory
     owner: mrobinson
     group: mrobinson
-    mode: '0755'
+    mode: '0755'  # Ensures correct access permissions for Docker-related data
+  # Docker files are stored on SSD (/flash) to avoid I/O slowdowns inside LXC containers.
+
+- name: Ensure the media directory exists and has correct ownership
+  ansible.builtin.file:
+    path: /tank/media_root/
+    state: directory
+    owner: mrobinson
+    group: mrobinson
+    mode: '0755'  # Media files should be readable by other users, execute allows directory traversal
+  # Media files are stored on HDD (/tank) since they are large but not latency-sensitive.

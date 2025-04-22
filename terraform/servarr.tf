@@ -1,3 +1,8 @@
+# Define which mount points this LXC should have
+locals {
+  servarr_mounts = ["home", "docker", "media"]
+}
+
 resource "proxmox_lxc" "servarr" {
   # Changes
   hostname        = "servarr"
@@ -20,13 +25,16 @@ resource "proxmox_lxc" "servarr" {
     size    = "8G" # Changes
   }
 
-  mountpoint {
-    key     = "0"
-    slot    = 0
-    storage = "/srv/host/bind-mount-point"
-    volume  = "/tank/container_home"
-    mp      = "/home"
-    size    = "20G"
+  dynamic "mountpoint" {
+    for_each = { for k, v in local.mounts : k => v if contains(local.servarr_mounts, k) }
+    content {
+      key     = mountpoint.value.key
+      slot    = mountpoint.value.slot
+      storage = mountpoint.value.storage
+      volume  = mountpoint.value.volume
+      mp      = mountpoint.value.mp
+      size    = mountpoint.value.size
+    }
   }
 
   network {

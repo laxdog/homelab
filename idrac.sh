@@ -38,7 +38,7 @@ execute_choice() {
             ;;
         4)
             echo "Checking power status..."
-            $SSH_CMD racadm serveraction powerstatus
+            $SSH_CMD racadm serveraction powerstatus | grep --color -e ON -e OFF
             ;;
         5)
             echo "Resetting iDRAC (this may take a few minutes)..."
