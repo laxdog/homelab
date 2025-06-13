@@ -30,7 +30,7 @@ execute_choice() {
             ;;
         2)
             echo "Shutting down the server (force off)..."
-            $SSH_CMD racadm serveraction poweroff
+            $SSH_CMD racadm serveraction powerdown
             ;;
         3)
             echo "Powering on the server..."
