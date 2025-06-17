@@ -17,8 +17,16 @@ show_menu() {
     echo "4) Check Power Status"
     echo "5) Reset iDRAC (Fix Web UI Login Issues)"
     echo "6) Exit"
+    echo "7) Hard Reset (Force Reboot)"
+    echo "8) Show System Information"
+    echo "9) View System Event Log"
+    echo "10) View Sensor Readings (Temps/Fans/PSU)"
+    echo "11) View Job Queue"
+    echo "12) Collect Tech Support Report (TSR)"
+    echo "13) RAID Physical Disk Info"
+
     echo "============================"
-    read -p "Enter your choice [1-6]: " choice
+    read -p "Enter your choice [1-13]: " choice
 }
 
 # Function to execute selected command
@@ -48,6 +56,35 @@ execute_choice() {
         6)
             echo "Exiting."
             exit 0
+            ;;
+        7)
+            echo "Performing a HARD reset (cold reboot)..."
+            $SSH_CMD racadm serveraction hardreset
+            ;;
+        8)
+            echo "System information:"
+            $SSH_CMD racadm getsysinfo
+            ;;
+        9)
+            echo "System Event Log (SEL):"
+            $SSH_CMD racadm getsel | less   # pipe to less for paging
+            ;;
+        10)
+            echo "Live sensor readings:"
+            $SSH_CMD racadm getsensorinfo
+            ;;
+        11)
+            echo "Lifecycle-Controller Job Queue:"
+            $SSH_CMD racadm jobqueue view
+            ;;
+        12)
+            echo "Collecting Tech-Support Report (may take several minutes)..."
+            JOBID=$($SSH_CMD racadm techsupreport collect -t SysInfo,TTYLog | awk '/JID_/ {print $NF}')
+            echo "TSR collection started (Job ID: $JOBID). Track progress with option 11."
+            ;;
+        13)
+            echo "RAID physical-disk information:"
+            $SSH_CMD racadm raid get pdisks -o | less
             ;;
         *)
             echo "Invalid choice, please try again."
