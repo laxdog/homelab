@@ -1,4 +1,3 @@
-# .gitignore
-# This is just for things like tree --gitignore and silversearcher
-.git/
-
+ansible/inventory.yml
+ansible/*.retry
+.terraform/
