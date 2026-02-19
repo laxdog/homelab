@@ -90,6 +90,10 @@ resource "proxmox_virtual_environment_vm" "vms" {
   }
 
   initialization {
+    datastore_id = local.storage.vm_disk
+    interface    = "ide2"
+    type         = "nocloud"
+
     ip_config {
       ipv4 {
         address = "${each.value.ip}/24"
