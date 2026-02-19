@@ -147,6 +147,7 @@ def cmd_validate() -> None:
     cfg = load_config()
     inventory_path = write_inventory(cfg)
     print(f"Inventory written to {inventory_path}")
+    ansible_playbook("validate.yml")
 
 
 def build_parser() -> argparse.ArgumentParser:

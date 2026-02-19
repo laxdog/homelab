@@ -1,0 +1,80 @@
+---
+- name: Validate Proxmox host
+  hosts: proxmox_hosts
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../config/homelab.yaml"
+  tasks:
+    - name: Check Proxmox version
+      ansible.builtin.command: pveversion -v
+      changed_when: false
+
+    - name: Read ZFS datasets
+      ansible.builtin.command: zfs list -H -o name
+      register: zfs_list
+      changed_when: false
+
+    - name: Assert expected datasets exist
+      ansible.builtin.assert:
+        that:
+          - item.name in zfs_list.stdout_lines
+        fail_msg: "Missing ZFS dataset: {{ item.name }}"
+      loop: "{{ storage.zfs.datasets }}"
+
+    - name: Read Proxmox storage status
+      ansible.builtin.command: pvesm status
+      register: pvesm_status
+      changed_when: false
+
+    - name: Assert expected storages exist
+      ansible.builtin.assert:
+        that:
+          - item in pvesm_status.stdout
+        fail_msg: "Missing Proxmox storage ID: {{ item }}"
+      loop: "{{ proxmox.storages.values() | list }}"
+
+- name: Validate guest access
+  hosts: guests
+  gather_facts: false
+  tasks:
+    - name: Ensure SSH reachable
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 22
+        timeout: 5
+
+- name: Validate Docker hosts
+  hosts: docker_hosts
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Check Docker service
+      ansible.builtin.command: systemctl is-active --quiet docker
+      changed_when: false
+
+    - name: Check Docker CLI
+      ansible.builtin.command: docker info
+      changed_when: false
+
+- name: Validate media stack
+  hosts: media_hosts
+  gather_facts: false
+  tasks:
+    - name: Verify compose file installed
+      ansible.builtin.stat:
+        path: /opt/media-stack/docker-compose.yaml
+      register: media_compose
+
+    - name: Assert compose file present
+      ansible.builtin.assert:
+        that:
+          - media_compose.stat.exists
+        fail_msg: "Media stack compose file missing at /opt/media-stack/docker-compose.yaml"
+
+- name: Validate AdGuard Home
+  hosts: adguard_hosts
+  gather_facts: false
+  tasks:
+    - name: Check AdGuard Home service
+      ansible.builtin.command: systemctl is-active --quiet AdGuardHome
+      changed_when: false
