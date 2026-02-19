@@ -8,4 +8,4 @@
 
 - name: Ensure role assignment for terraform-prov
   ansible.builtin.command: >
-    pveum aclmod / -user terraform-prov@pve -role PVEAdmin
+    pveum aclmod / -user terraform-prov@pve -role Administrator
