@@ -1,0 +1,59 @@
+---
+- name: Install NUT packages
+  ansible.builtin.apt:
+    name:
+      - nut-server
+      - nut-client
+    state: present
+    update_cache: true
+
+- name: Configure NUT mode
+  ansible.builtin.copy:
+    dest: /etc/nut/nut.conf
+    content: |
+      MODE=netserver
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Configure UPS driver (placeholder until USB attached)
+  ansible.builtin.copy:
+    dest: /etc/nut/ups.conf
+    content: |
+      [ups]
+        driver = usbhid-ups
+        port = auto
+        desc = "{{ config.ups.vendor }} {{ config.ups.model }}"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Configure NUT listeners
+  ansible.builtin.copy:
+    dest: /etc/nut/upsd.conf
+    content: |
+      LISTEN 127.0.0.1 3493
+      LISTEN {{ config.ups.bind_host }} 3493
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Configure NUT users
+  ansible.builtin.copy:
+    dest: /etc/nut/upsd.users
+    content: |
+      [admin]
+        password = {{ nut_admin_password | default('changeme') }}
+        actions = SET
+        instcmds = ALL
+    owner: root
+    group: root
+    mode: '0640'
+  no_log: true
+
+- name: Enable NUT server services
+  ansible.builtin.service:
+    name: nut-server
+    state: restarted
+    enabled: true
+  failed_when: false

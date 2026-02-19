@@ -1,0 +1,12 @@
+- name: Configure Proxmox host
+  hosts: proxmox-hosts
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../secrets.yml
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - proxmox-host
+    - proxmox-storage
+    - nut-server

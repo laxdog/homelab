@@ -1,0 +1,37 @@
+---
+- name: Read existing ZFS datasets
+  ansible.builtin.command: zfs list -H -o name
+  register: zfs_list
+  changed_when: false
+
+- name: Create missing datasets
+  ansible.builtin.command: >
+    zfs create -o compression=zstd -o atime=off {{ item.name }}
+  loop: "{{ config.storage.zfs.datasets }}"
+  when: item.name not in zfs_list.stdout_lines
+
+- name: Ensure dataset mountpoints
+  ansible.builtin.command: >
+    zfs set mountpoint={{ item.mountpoint }} {{ item.name }}
+  loop: "{{ config.storage.zfs.datasets }}"
+  when: item.mountpoint is defined
+
+- name: Read Proxmox storage configuration
+  ansible.builtin.slurp:
+    src: /etc/pve/storage.cfg
+  register: storage_cfg
+
+- name: Ensure tank-backups storage exists
+  ansible.builtin.command: >
+    pvesm add dir {{ config.proxmox.storages.backups_dir }}
+    --path /tank/backups
+    --content backup
+    --prune-backups keep-all=1
+  when: (storage_cfg.content | b64decode) is not search('dir: ' ~ config.proxmox.storages.backups_dir)
+
+- name: Ensure tank-templates storage exists
+  ansible.builtin.command: >
+    pvesm add dir {{ config.proxmox.storages.templates_dir }}
+    --path /tank/templates
+    --content iso,vztmpl,import,snippets
+  when: (storage_cfg.content | b64decode) is not search('dir: ' ~ config.proxmox.storages.templates_dir)
