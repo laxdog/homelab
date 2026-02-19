@@ -80,7 +80,7 @@ resource "proxmox_virtual_environment_vm" "vms" {
 
   disk {
     datastore_id = local.storage.vm_disk
-    import_from  = "${local.storage.templates_dir}:iso/${local.config.proxmox.templates.vm.file_name}"
+    import_from  = "${local.storage.templates_dir}:import/${local.config.proxmox.templates.vm.file_name}"
     interface    = "scsi0"
     size         = try(each.value.disk_gb, local.defaults.vm.disk_gb)
   }
