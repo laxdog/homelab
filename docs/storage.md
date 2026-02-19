@@ -21,3 +21,7 @@ Source of truth: `config/homelab.yaml`.
 ## Appdata
 - Appdata lives on NVMe (VM/CT disks)
 - Appdata backups land in `/tank/backups`
+
+## Proxmox storage IDs
+- `tank-backups` -> `/tank/backups` (backup content)
+- `tank-templates` -> `/tank/templates` (iso, templates, import, snippets)
