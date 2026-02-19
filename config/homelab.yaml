@@ -41,7 +41,7 @@ proxmox:
   templates:
     lxc:
       url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64-root.tar.xz
-      file_name: ubuntu-24.04-root.tar.xz
+      file_name: ubuntu-24.04-standard_24.04-2_amd64.tar.zst
     vm:
       url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
       file_name: ubuntu-24.04-cloudimg-amd64.qcow2
