@@ -7,7 +7,6 @@ resource "proxmox_virtual_environment_container" "lxcs" {
 
   node_name = local.node
   vm_id     = each.value.id
-  hostname  = each.key
   tags      = ["terraform"]
 
   unprivileged = try(each.value.unprivileged, local.defaults.lxc.unprivileged)
@@ -18,6 +17,8 @@ resource "proxmox_virtual_environment_container" "lxcs" {
   }
 
   initialization {
+    hostname = each.key
+
     ip_config {
       ipv4 {
         address = "${each.value.ip}/24"
