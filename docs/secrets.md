@@ -13,3 +13,4 @@ Recommended: `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`
 
 ## Variables expected in vault
 - `nut_admin_password`
+- `terraform_user_password`
