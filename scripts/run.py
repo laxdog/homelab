@@ -97,7 +97,6 @@ def ansible_playbook(playbook: str) -> None:
     (tmp_root / "tmp").mkdir(parents=True, exist_ok=True)
     (tmp_root / "collections").mkdir(parents=True, exist_ok=True)
     env = {
-        "HOME": str(tmp_root),
         "ANSIBLE_HOME": str(tmp_root),
         "ANSIBLE_LOCAL_TMP": str(tmp_root / "tmp"),
         "ANSIBLE_COLLECTIONS_PATHS": str(tmp_root / "collections"),
