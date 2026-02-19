@@ -95,8 +95,8 @@ def ansible_playbook(playbook: str) -> None:
 def cmd_apply() -> None:
     cfg = load_config()
     write_inventory(cfg)
-    terraform_apply()
     ansible_playbook("host.yml")
+    terraform_apply()
     ansible_playbook("guests.yml")
 
 
