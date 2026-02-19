@@ -23,8 +23,11 @@ def load_config() -> dict:
         return yaml.safe_load(fh)
 
 
-def run(cmd: List[str], cwd: Optional[Path] = None) -> None:
-    subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=True)
+def run(cmd: List[str], cwd: Optional[Path] = None, env: Optional[dict] = None) -> None:
+    merged_env = os.environ.copy()
+    if env:
+        merged_env.update(env)
+    subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=True, env=merged_env)
 
 
 def write_inventory(cfg: dict) -> Path:
@@ -57,7 +60,7 @@ def write_inventory(cfg: dict) -> Path:
         }
         inventory["vms"]["hosts"][name] = inventory["guests"]["hosts"][name]
         for role in meta.get("roles", []):
-            group = f"{role}-hosts"
+            group = f"{role.replace('-', '_')}-hosts"
             inventory.setdefault(group, {"hosts": {}})
             inventory[group]["hosts"][name] = inventory["guests"]["hosts"][name]
 
@@ -69,7 +72,7 @@ def write_inventory(cfg: dict) -> Path:
         }
         inventory["lxcs"]["hosts"][name] = inventory["guests"]["hosts"][name]
         for role in meta.get("roles", []):
-            group = f"{role}-hosts"
+            group = f"{role.replace('-', '_')}-hosts"
             inventory.setdefault(group, {"hosts": {}})
             inventory[group]["hosts"][name] = inventory["guests"]["hosts"][name]
 
@@ -90,7 +93,11 @@ def ansible_playbook(playbook: str) -> None:
     playbook_path = repo_root() / "ansible" / "playbooks" / playbook
     if not playbook_path.exists():
         raise FileNotFoundError(playbook_path)
-    run(["ansible-playbook", str(playbook_path)], cwd=repo_root())
+    env = {
+        "ANSIBLE_HOME": "/tmp/ansible",
+        "ANSIBLE_LOCAL_TMP": "/tmp/ansible/tmp",
+    }
+    run(["ansible-playbook", str(playbook_path)], cwd=repo_root(), env=env)
 
 
 def cmd_apply() -> None:
