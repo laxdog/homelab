@@ -10,21 +10,36 @@
   loop: "{{ config.storage.zfs.datasets }}"
   when: item.name not in zfs_list.stdout_lines
 
+- name: Read dataset mountpoints
+  ansible.builtin.command: zfs get -H -o value mountpoint {{ item.name }}
+  loop: "{{ config.storage.zfs.datasets }}"
+  register: zfs_mounts
+  changed_when: false
+
 - name: Ensure dataset mountpoints
   ansible.builtin.command: >
     zfs set mountpoint={{ item.mountpoint }} {{ item.name }}
   loop: "{{ config.storage.zfs.datasets }}"
-  when: item.mountpoint is defined
+  loop_control:
+    index_var: dataset_index
+  when:
+    - item.mountpoint is defined
+    - zfs_mounts.results[dataset_index].stdout != item.mountpoint
 
 - name: Read Proxmox storage configuration
   ansible.builtin.slurp:
     src: /etc/pve/storage.cfg
   register: storage_cfg
 
+- name: Read Proxmox storage status
+  ansible.builtin.command: pvesm status
+  register: pvesm_status
+  changed_when: false
+
 - name: Ensure tank-backups storage exists
   ansible.builtin.shell: "pvesm add dir {{ config.proxmox.storages.backups_dir }} --path /tank/backups --content backup"
-  when: (storage_cfg.content | b64decode | regex_search('dir\\s+' ~ config.proxmox.storages.backups_dir)) is none
+  when: pvesm_status.stdout is not search('^' ~ config.proxmox.storages.backups_dir ~ '\\s', multiline=True)
 
 - name: Ensure tank-templates storage exists
   ansible.builtin.shell: "pvesm add dir {{ config.proxmox.storages.templates_dir }} --path /tank/templates --content iso,vztmpl,import,snippets"
-  when: (storage_cfg.content | b64decode | regex_search('dir\\s+' ~ config.proxmox.storages.templates_dir)) is none
+  when: pvesm_status.stdout is not search('^' ~ config.proxmox.storages.templates_dir ~ '\\s', multiline=True)
