@@ -93,9 +93,14 @@ def ansible_playbook(playbook: str) -> None:
     playbook_path = repo_root() / "ansible" / "playbooks" / playbook
     if not playbook_path.exists():
         raise FileNotFoundError(playbook_path)
+    tmp_root = Path("/tmp/ansible")
+    (tmp_root / "tmp").mkdir(parents=True, exist_ok=True)
+    (tmp_root / "collections").mkdir(parents=True, exist_ok=True)
     env = {
-        "ANSIBLE_HOME": "/tmp/ansible",
-        "ANSIBLE_LOCAL_TMP": "/tmp/ansible/tmp",
+        "HOME": str(tmp_root),
+        "ANSIBLE_HOME": str(tmp_root),
+        "ANSIBLE_LOCAL_TMP": str(tmp_root / "tmp"),
+        "ANSIBLE_COLLECTIONS_PATHS": str(tmp_root / "collections"),
     }
     run(["ansible-playbook", str(playbook_path)], cwd=repo_root(), env=env)
 
