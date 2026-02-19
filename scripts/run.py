@@ -88,6 +88,21 @@ def terraform_apply() -> None:
     run(["terraform", "-chdir=terraform", "init"], cwd=repo_root())
     run(["terraform", "-chdir=terraform", "apply", "-auto-approve"], cwd=repo_root())
 
+def check_terraform_creds() -> None:
+    has_user = bool(os.environ.get("TF_VAR_proxmox_username"))
+    has_pass = bool(os.environ.get("TF_VAR_proxmox_password"))
+    has_token = bool(os.environ.get("TF_VAR_proxmox_api_token"))
+
+    if has_token:
+        return
+    if has_user and has_pass:
+        return
+
+    raise SystemExit(
+        "Terraform credentials missing. Set TF_VAR_proxmox_username + "
+        "TF_VAR_proxmox_password or TF_VAR_proxmox_api_token."
+    )
+
 
 def ansible_playbook(playbook: str) -> None:
     playbook_path = repo_root() / "ansible" / "playbooks" / playbook
@@ -108,6 +123,7 @@ def cmd_apply() -> None:
     cfg = load_config()
     write_inventory(cfg)
     ansible_playbook("host.yml")
+    check_terraform_creds()
     terraform_apply()
     ansible_playbook("guests.yml")
 
