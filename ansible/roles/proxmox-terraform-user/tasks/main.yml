@@ -6,6 +6,13 @@
   failed_when: "'already exists' not in user_result.stderr and user_result.rc != 0"
   changed_when: "'already exists' not in user_result.stderr"
 
+- name: Check terraform-prov permissions
+  ansible.builtin.command: pveum user permissions terraform-prov@pve
+  register: terraform_perm
+  changed_when: false
+  failed_when: false
+
 - name: Ensure role assignment for terraform-prov
   ansible.builtin.command: >
     pveum aclmod / -user terraform-prov@pve -role Administrator
+  when: terraform_perm.stdout is not search('Sys.Modify')
