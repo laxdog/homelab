@@ -54,6 +54,6 @@
 - name: Enable NUT server services
   ansible.builtin.service:
     name: nut-server
-    state: restarted
+    state: started
     enabled: true
   failed_when: false
