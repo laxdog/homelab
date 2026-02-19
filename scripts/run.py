@@ -57,7 +57,7 @@ def write_inventory(cfg: dict) -> Path:
             continue
         inventory["guests"]["hosts"][name] = {
             "ansible_host": meta["ip"],
-            "ansible_ssh_user": "root",
+            "ansible_ssh_user": "ubuntu",
             "ansible_ssh_private_key_file": proxmox["ssh_private_key_path"],
         }
         inventory["vms"]["hosts"][name] = inventory["guests"]["hosts"][name]
