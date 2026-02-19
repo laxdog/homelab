@@ -1,0 +1,4 @@
+---
+- name: Placeholder for NFS server setup
+  ansible.builtin.debug:
+    msg: "NFS server role placeholder - storage attachment strategy still needed"

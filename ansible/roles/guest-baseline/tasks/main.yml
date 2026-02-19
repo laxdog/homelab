@@ -1,0 +1,20 @@
+---
+- name: Read current timezone
+  ansible.builtin.command: timedatectl show -p Timezone --value
+  register: current_tz
+  changed_when: false
+
+- name: Set timezone
+  ansible.builtin.command: timedatectl set-timezone {{ config.homelab.timezone }}
+  when: current_tz.stdout != config.homelab.timezone
+
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - jq
+      - tmux
+      - vim
+    state: present
+    update_cache: true

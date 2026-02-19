@@ -1,4 +1,4 @@
-- name: Configure guests
+- name: Configure guest baseline
   hosts: guests
   become: true
   gather_facts: true
@@ -6,7 +6,38 @@
     - ../secrets.yml
   vars:
     config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
-  tasks:
-    - name: Placeholder for guest roles
-      ansible.builtin.debug:
-        msg: "Guest configuration not implemented yet"
+  roles:
+    - guest-baseline
+
+- name: Configure Docker hosts
+  hosts: docker-hosts
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../secrets.yml
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - docker-host
+
+- name: Configure media stack
+  hosts: media-hosts
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../secrets.yml
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - media-stack
+
+- name: Configure NFS server
+  hosts: nfs-hosts
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../secrets.yml
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - nfs-server

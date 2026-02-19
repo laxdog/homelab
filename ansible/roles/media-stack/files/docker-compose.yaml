@@ -1,0 +1,3 @@
+services:
+  # TODO: define full media stack
+  # jellyfin, radarr, sonarr, bazarr, prowlarr, sabnzbd, qbittorrent, gluetun, etc.

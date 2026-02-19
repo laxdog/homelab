@@ -1,0 +1,16 @@
+---
+- name: Create media stack directory
+  ansible.builtin.file:
+    path: /opt/media-stack
+    state: directory
+    mode: '0755'
+
+- name: Install compose file
+  ansible.builtin.copy:
+    src: docker-compose.yaml
+    dest: /opt/media-stack/docker-compose.yaml
+    mode: '0644'
+
+- name: Note that compose is not applied yet
+  ansible.builtin.debug:
+    msg: "Media stack compose file installed at /opt/media-stack/docker-compose.yaml"
