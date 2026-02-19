@@ -38,7 +38,7 @@ def write_inventory(cfg: dict) -> Path:
     guests = cfg["services"]
 
     inventory = {
-        "proxmox-hosts": {
+        "proxmox_hosts": {
             "hosts": {
                 "proxmox": {
                     "ansible_host": proxmox["ssh_host"],

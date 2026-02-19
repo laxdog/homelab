@@ -1,5 +1,5 @@
 - name: Configure Proxmox host
-  hosts: proxmox-hosts
+  hosts: proxmox_hosts
   become: true
   gather_facts: true
   vars:
