@@ -5,6 +5,7 @@ locals {
   bridge  = local.config.network.bridge
   storage = local.config.proxmox.storages
 
-  vms  = local.config.services.vms
-  lxcs = local.config.services.lxcs
+  defaults = local.config.services.defaults
+  vms      = local.config.services.vms
+  lxcs     = local.config.services.lxcs
 }
