@@ -18,6 +18,7 @@
   roles:
     - proxmox-host
     - proxmox-storage
+    - proxmox-templates
     - role: proxmox-terraform-user
       when: terraform_user_password is defined
     - nut-server

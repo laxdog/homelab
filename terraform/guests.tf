@@ -12,7 +12,7 @@ resource "proxmox_virtual_environment_container" "lxcs" {
   unprivileged = try(each.value.unprivileged, local.defaults.lxc.unprivileged)
 
   operating_system {
-    template_file_id = proxmox_virtual_environment_download_file.ubuntu_lxc.id
+    template_file_id = "${local.storage.templates_dir}:vztmpl/${local.config.proxmox.templates.lxc.file_name}"
     type             = "ubuntu"
   }
 
@@ -80,7 +80,7 @@ resource "proxmox_virtual_environment_vm" "vms" {
 
   disk {
     datastore_id = local.storage.vm_disk
-    import_from  = proxmox_virtual_environment_download_file.ubuntu_cloud_image.id
+    import_from  = "${local.storage.templates_dir}:iso/${local.config.proxmox.templates.vm.file_name}"
     interface    = "scsi0"
     size         = try(each.value.disk_gb, local.defaults.vm.disk_gb)
   }
