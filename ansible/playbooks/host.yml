@@ -9,4 +9,5 @@
   roles:
     - proxmox-host
     - proxmox-storage
+    - proxmox-terraform-user
     - nut-server

@@ -1,0 +1,18 @@
+---
+- name: Ensure Terraform role exists
+  ansible.builtin.command: >
+    pveum role add TerraformProv -privs "Datastore.AllocateSpace Datastore.Audit Pool.Allocate Sys.Audit Sys.Console Sys.Modify VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.Monitor VM.PowerMgmt"
+  register: role_result
+  failed_when: "'already exists' not in role_result.stderr and role_result.rc != 0"
+  changed_when: "'already exists' not in role_result.stderr"
+
+- name: Ensure terraform-prov user exists
+  ansible.builtin.command: >
+    pveum user add terraform-prov@pve --password "{{ terraform_user_password }}"
+  register: user_result
+  failed_when: "'already exists' not in user_result.stderr and user_result.rc != 0"
+  changed_when: "'already exists' not in user_result.stderr"
+
+- name: Ensure role assignment for terraform-prov
+  ansible.builtin.command: >
+    pveum aclmod / -user terraform-prov@pve -role TerraformProv
