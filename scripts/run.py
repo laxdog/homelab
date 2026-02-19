@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import List, Optional
 
 try:
     import yaml
@@ -22,7 +23,7 @@ def load_config() -> dict:
         return yaml.safe_load(fh)
 
 
-def run(cmd: list[str], cwd: Path | None = None) -> None:
+def run(cmd: List[str], cwd: Optional[Path] = None) -> None:
     subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=True)
 
 
