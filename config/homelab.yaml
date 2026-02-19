@@ -8,7 +8,7 @@ network:
   bridge: vmbr0
   reserved:
     router: 10.20.30.1
-    adguard: 10.20.30.53
+    adguard: 10.20.30.153
     proxmox: 10.20.30.46
   ranges:
     guests:
@@ -121,7 +121,7 @@ services:
   lxcs:
     adguard:
       id: 153
-      ip: 10.20.30.53
+      ip: 10.20.30.153
       roles: [adguard]
     nginx-proxy-manager:
       id: 154
