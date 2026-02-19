@@ -31,7 +31,8 @@ proxmox:
   api_url: https://10.20.30.46:8006/api2/json
   ssh_host: 10.20.30.46
   ssh_user: root
-  ssh_key_path: /home/mrobinson/.ssh/id_rsa.pub
+  ssh_public_key_path: /home/mrobinson/.ssh/id_rsa.pub
+  ssh_private_key_path: /home/mrobinson/.ssh/id_rsa
   storages:
     vm_disk: local-lvm
     local_dir: local
