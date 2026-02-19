@@ -23,8 +23,8 @@
 
 - name: Ensure tank-backups storage exists
   ansible.builtin.shell: "pvesm add dir {{ config.proxmox.storages.backups_dir }} --path /tank/backups --content backup"
-  when: (storage_cfg.content | b64decode) is not search('dir: ' ~ config.proxmox.storages.backups_dir)
+  when: (storage_cfg.content | b64decode | regex_search('dir\\s+' ~ config.proxmox.storages.backups_dir)) is none
 
 - name: Ensure tank-templates storage exists
   ansible.builtin.shell: "pvesm add dir {{ config.proxmox.storages.templates_dir }} --path /tank/templates --content iso,vztmpl,import,snippets"
-  when: (storage_cfg.content | b64decode) is not search('dir: ' ~ config.proxmox.storages.templates_dir)
+  when: (storage_cfg.content | b64decode | regex_search('dir\\s+' ~ config.proxmox.storages.templates_dir)) is none
