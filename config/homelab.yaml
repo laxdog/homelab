@@ -1,0 +1,142 @@
+homelab:
+  name: homelab
+  timezone: America/Los_Angeles
+
+network:
+  subnet: 10.20.30.0/24
+  gateway: 10.20.30.1
+  bridge: vmbr0
+  reserved:
+    router: 10.20.30.1
+    adguard: 10.20.30.53
+    proxmox: 10.20.30.46
+  ranges:
+    guests:
+      start: 10.20.30.100
+      end: 10.20.30.199
+      convention: ctid_equals_last_octet
+    dhcp:
+      start: 10.20.30.200
+      end: 10.20.30.249
+  legacy_hosts:
+    old_servarr: 10.20.30.74
+    nas_old: 10.20.30.151
+    old_server: 10.20.30.155
+  optional:
+    unifi_nano_beam_1: 10.20.30.50
+    unifi_nano_beam_2: 10.20.30.51
+
+proxmox:
+  node: pve
+  api_url: https://10.20.30.46:8006/api2/json
+  ssh_host: 10.20.30.46
+  ssh_user: root
+  ssh_key_path: /home/mrobinson/.ssh/id_rsa.pub
+  storages:
+    vm_disk: local-lvm
+    local_dir: local
+    backups_dir: tank-backups
+  templates:
+    lxc: local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst
+    vm_cloud_init: ubuntu-24.04
+
+storage:
+  zfs:
+    pool: tank
+    datasets:
+      - name: tank/media
+        mountpoint: /tank/media
+      - name: tank/downloads
+        mountpoint: /tank/downloads
+      - name: tank/personal
+        mountpoint: /tank/personal
+      - name: tank/backups
+        mountpoint: /tank/backups
+      - name: tank/templates
+        mountpoint: /tank/templates
+      - name: tank/scratch
+        mountpoint: /tank/scratch
+    backups_dataset: tank/backups
+    appdata_location: nvme
+
+naming:
+  domains:
+    external: lax.dog
+    internal: laxdog.uk
+
+ups:
+  enabled: true
+  vendor: APC
+  model: Back-UPS ES BE850G2
+  usb_attached: false
+  bind_host: 10.20.30.46
+
+services:
+  vms:
+    media-stack:
+      id: 120
+      ip: 10.20.30.120
+      roles: [docker, media]
+      mounts:
+        - /tank/media:/mnt/media
+        - /tank/downloads:/mnt/downloads
+    nfs-server:
+      id: 121
+      ip: 10.20.30.121
+      roles: [nfs]
+      mounts:
+        - /tank/personal:/mnt/personal
+        - /tank/media:/mnt/media
+        - /tank/downloads:/mnt/downloads
+    home-assistant:
+      id: 122
+      ip: 10.20.30.122
+      roles: [haos]
+  lxcs:
+    adguard:
+      id: 53
+      ip: 10.20.30.53
+      roles: [adguard]
+    nginx-proxy-manager:
+      id: 154
+      ip: 10.20.30.154
+      roles: [nginx_proxy_manager]
+    couchdb:
+      id: 165
+      ip: 10.20.30.165
+      roles: [couchdb]
+    apt-cacher-ng:
+      id: 156
+      ip: 10.20.30.156
+      roles: [apt_cacher]
+    freshrss:
+      id: 157
+      ip: 10.20.30.157
+      roles: [freshrss]
+    netalertx:
+      id: 158
+      ip: 10.20.30.158
+      roles: [netalertx]
+    healthchecks:
+      id: 159
+      ip: 10.20.30.159
+      roles: [healthchecks]
+    dashboard:
+      id: 160
+      ip: 10.20.30.160
+      roles: [dashboard]
+    static-sites:
+      id: 161
+      ip: 10.20.30.161
+      roles: [static_sites]
+    browser:
+      id: 162
+      ip: 10.20.30.162
+      roles: [browser]
+    python-bot:
+      id: 163
+      ip: 10.20.30.163
+      roles: [python_bot]
+
+security:
+  ansible_vault: true
