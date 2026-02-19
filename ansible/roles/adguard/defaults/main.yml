@@ -1,0 +1,4 @@
+---
+adguard_download_url: https://static.adguard.com/adguardhome/release/AdGuardHome_linux_amd64.tar.gz
+adguard_install_dir: /opt/AdGuardHome
+adguard_config_path: /opt/AdGuardHome/AdGuardHome.yaml

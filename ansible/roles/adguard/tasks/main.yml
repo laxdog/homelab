@@ -1,0 +1,90 @@
+---
+- name: Install AdGuardHome dependencies
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - tar
+    state: present
+    update_cache: true
+
+- name: Disable systemd-resolved stub listener
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/resolved.conf
+    regexp: '^DNSStubListener='
+    line: DNSStubListener=no
+    create: true
+    mode: '0644'
+
+- name: Stop and disable systemd-resolved
+  ansible.builtin.service:
+    name: systemd-resolved
+    state: stopped
+    enabled: false
+
+- name: Remove systemd-resolved resolv.conf symlink
+  ansible.builtin.file:
+    path: /etc/resolv.conf
+    state: absent
+
+- name: Write resolv.conf with upstream DNS
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    content: "nameserver {{ config.adguard.dns.upstream_dns[0] }}\n"
+    mode: '0644'
+
+- name: Ensure AdGuardHome install directory exists
+  ansible.builtin.file:
+    path: "{{ adguard_install_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Download AdGuardHome release archive
+  ansible.builtin.command:
+    cmd: "curl -fsSL {{ adguard_download_url }} -o /tmp/adguardhome.tar.gz"
+    creates: /tmp/adguardhome.tar.gz
+
+- name: Extract AdGuardHome release
+  ansible.builtin.unarchive:
+    src: /tmp/adguardhome.tar.gz
+    dest: /opt
+    remote_src: true
+    creates: "{{ adguard_install_dir }}/AdGuardHome"
+
+- name: Ensure AdGuardHome binary is executable
+  ansible.builtin.file:
+    path: "{{ adguard_install_dir }}/AdGuardHome"
+    mode: '0755'
+
+- name: Check AdGuardHome service installation
+  ansible.builtin.stat:
+    path: /etc/systemd/system/AdGuardHome.service
+  register: adguard_service
+
+- name: Install AdGuardHome systemd service
+  ansible.builtin.command:
+    cmd: "{{ adguard_install_dir }}/AdGuardHome -s install"
+  when: not adguard_service.stat.exists
+
+- name: Re-check AdGuardHome service installation
+  ansible.builtin.stat:
+    path: /etc/systemd/system/AdGuardHome.service
+  register: adguard_service_after
+
+- name: Stop AdGuardHome before applying config
+  ansible.builtin.service:
+    name: AdGuardHome
+    state: stopped
+  when: adguard_service_after.stat.exists
+
+- name: Render AdGuardHome configuration
+  ansible.builtin.template:
+    src: AdGuardHome.yaml.j2
+    dest: "{{ adguard_config_path }}"
+    mode: '0644'
+
+- name: Ensure AdGuardHome service is enabled and running
+  ansible.builtin.service:
+    name: AdGuardHome
+    state: started
+    enabled: true

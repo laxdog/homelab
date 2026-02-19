@@ -1,0 +1,34 @@
+http:
+  address: "{{ config.adguard.bind_host }}:{{ config.adguard.bind_port }}"
+
+users:
+  - name: "{{ config.adguard.admin_user }}"
+    password: "{{ adguard_admin_password_hash }}"
+
+auth_attempts: 5
+block_auth_min: 15
+
+dns:
+  bind_hosts:
+{% for host in config.adguard.dns.bind_hosts %}
+    - {{ host }}
+{% endfor %}
+  port: {{ config.adguard.dns.port }}
+  protection_enabled: true
+  filtering_enabled: true
+  blocking_mode: default
+  blocked_response_ttl: 10
+  upstream_dns:
+{% for upstream in config.adguard.dns.upstream_dns %}
+    - {{ upstream }}
+{% endfor %}
+  bootstrap_dns: "{{ config.adguard.dns.bootstrap_dns | first }}"
+
+filters:
+{% set all_filters = config.adguard.filters.blocklists + config.adguard.filters.allowlists %}
+{% for filt in all_filters %}
+  - enabled: {{ filt.enabled | bool | lower }}
+    url: "{{ filt.url }}"
+    name: "{{ filt.name }}"
+    id: {{ loop.index }}
+{% endfor %}
