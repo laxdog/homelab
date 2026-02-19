@@ -22,3 +22,7 @@ Source of truth: `config/homelab.yaml`.
 
 ## Host-level
 - NUT server (UPS USB)
+
+## Notes
+- Media stack compose is a placeholder and needs service definitions added.
+- NFS server role is a placeholder pending storage attachment strategy.

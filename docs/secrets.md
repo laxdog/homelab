@@ -9,6 +9,7 @@ Secrets are managed with Ansible Vault.
 
 ## Vault password
 Use a local password file (not committed) and configure the orchestrator to pass it.
+Recommended: `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`
 
 ## Variables expected in vault
 - `nut_admin_password`
