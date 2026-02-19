@@ -53,6 +53,8 @@ def write_inventory(cfg: dict) -> Path:
     }
 
     for name, meta in guests.get("vms", {}).items():
+        if meta.get("os") != "ubuntu":
+            continue
         inventory["guests"]["hosts"][name] = {
             "ansible_host": meta["ip"],
             "ansible_ssh_user": "root",
