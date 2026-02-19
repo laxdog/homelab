@@ -125,6 +125,7 @@ def cmd_apply() -> None:
     ansible_playbook("host.yml")
     check_terraform_creds()
     terraform_apply()
+    ansible_playbook("post-terraform.yml")
     ansible_playbook("guests.yml")
 
 

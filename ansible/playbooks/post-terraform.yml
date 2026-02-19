@@ -1,0 +1,8 @@
+- name: Configure Proxmox guest access
+  hosts: proxmox_hosts
+  become: true
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - proxmox-container-ssh
