@@ -77,6 +77,31 @@ ups:
   usb_attached: false
   bind_host: 10.20.30.46
 
+adguard:
+  admin_user: admin
+  bind_host: 0.0.0.0
+  bind_port: 80
+  dns:
+    bind_hosts:
+      - 0.0.0.0
+    port: 53
+    upstream_dns:
+      - 1.1.1.1
+    bootstrap_dns:
+      - 1.1.1.1
+  filters:
+    blocklists:
+      - name: Hagezi Pro++
+        url: https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.plus.txt
+        enabled: true
+      - name: Hagezi TIF
+        url: https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/tif.txt
+        enabled: true
+    allowlists:
+      - name: Hagezi Allowlist Referral
+        url: https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/whitelist-referral.txt
+        enabled: true
+
 services:
   defaults:
     vm:
