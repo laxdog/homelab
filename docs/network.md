@@ -8,7 +8,7 @@ Source of truth: `config/homelab.yaml`.
 - Proxmox host: 10.20.30.46 (vmbr0)
 
 ## Reserved
-- AdGuard/DNS: 10.20.30.53
+- AdGuard/DNS: 10.20.30.153 (temporary; .53 already in use)
 
 ## Guest IPs
 - 10.20.30.100-199 reserved for Proxmox guests
