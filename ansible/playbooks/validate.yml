@@ -74,7 +74,21 @@
 - name: Validate AdGuard Home
   hosts: adguard_hosts
   gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
   tasks:
     - name: Check AdGuard Home service
       ansible.builtin.command: systemctl is-active --quiet AdGuardHome
       changed_when: false
+
+    - name: Check AdGuard DNS port
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: "{{ config.adguard.dns.port }}"
+        timeout: 5
+
+    - name: Check AdGuard HTTP port
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: "{{ config.adguard.bind_port }}"
+        timeout: 5
