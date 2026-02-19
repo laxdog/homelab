@@ -10,8 +10,14 @@
         file: ../secrets.yml
       no_log: true
       when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+
+    - name: Warn when terraform_user_password is missing
+      ansible.builtin.debug:
+        msg: "terraform_user_password not set; skipping terraform user creation"
+      when: terraform_user_password is not defined
   roles:
     - proxmox-host
     - proxmox-storage
-    - proxmox-terraform-user
+    - role: proxmox-terraform-user
+      when: terraform_user_password is defined
     - nut-server
