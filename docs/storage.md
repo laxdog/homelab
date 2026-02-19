@@ -25,3 +25,6 @@ Source of truth: `config/homelab.yaml`.
 ## Proxmox storage IDs
 - `tank-backups` -> `/tank/backups` (backup content)
 - `tank-templates` -> `/tank/templates` (iso, templates, import, snippets)
+
+## TODO
+- Set `prune-backups keep-all=1` for `tank-backups` storage via Ansible (currently omitted due to syntax check issues).
