@@ -14,7 +14,7 @@
     - guest-baseline
 
 - name: Configure Docker hosts
-  hosts: docker-hosts
+  hosts: docker_hosts
   become: true
   gather_facts: true
   vars:
@@ -29,7 +29,7 @@
     - docker-host
 
 - name: Configure media stack
-  hosts: media-hosts
+  hosts: media_hosts
   become: true
   gather_facts: true
   vars:
@@ -44,7 +44,7 @@
     - media-stack
 
 - name: Configure NFS server
-  hosts: nfs-hosts
+  hosts: nfs_hosts
   become: true
   gather_facts: true
   vars:

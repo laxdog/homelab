@@ -60,7 +60,7 @@ def write_inventory(cfg: dict) -> Path:
         }
         inventory["vms"]["hosts"][name] = inventory["guests"]["hosts"][name]
         for role in meta.get("roles", []):
-            group = f"{role.replace('-', '_')}-hosts"
+            group = f"{role.replace('-', '_')}_hosts"
             inventory.setdefault(group, {"hosts": {}})
             inventory[group]["hosts"][name] = inventory["guests"]["hosts"][name]
 
@@ -72,7 +72,7 @@ def write_inventory(cfg: dict) -> Path:
         }
         inventory["lxcs"]["hosts"][name] = inventory["guests"]["hosts"][name]
         for role in meta.get("roles", []):
-            group = f"{role.replace('-', '_')}-hosts"
+            group = f"{role.replace('-', '_')}_hosts"
             inventory.setdefault(group, {"hosts": {}})
             inventory[group]["hosts"][name] = inventory["guests"]["hosts"][name]
 
