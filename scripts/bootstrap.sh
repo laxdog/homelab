@@ -11,8 +11,19 @@ require_cmd() {
 
 install_pkg_debian() {
   local pkgs=("$@")
-  sudo apt-get update -y
-  sudo apt-get install -y "${pkgs[@]}"
+  if [ "$(id -u)" -eq 0 ]; then
+    apt-get update -y
+    apt-get install -y "${pkgs[@]}"
+    return 0
+  fi
+
+  if sudo -n true 2>/dev/null; then
+    sudo apt-get update -y
+    sudo apt-get install -y "${pkgs[@]}"
+    return 0
+  fi
+
+  return 1
 }
 
 ensure_python() {
@@ -20,8 +31,9 @@ ensure_python() {
     return 0
   fi
   if require_cmd apt-get; then
-    install_pkg_debian python3
-    return 0
+    if install_pkg_debian python3; then
+      return 0
+    fi
   fi
   echo "python3 not found and no supported package manager detected" >&2
   exit 1
@@ -32,8 +44,9 @@ ensure_pip() {
     return 0
   fi
   if require_cmd apt-get; then
-    install_pkg_debian python3-pip
-    return 0
+    if install_pkg_debian python3-pip; then
+      return 0
+    fi
   fi
   echo "pip3 not found and no supported package manager detected" >&2
   exit 1
@@ -44,8 +57,9 @@ ensure_ansible() {
     return 0
   fi
   if require_cmd apt-get; then
-    install_pkg_debian ansible
-    return 0
+    if install_pkg_debian ansible; then
+      return 0
+    fi
   fi
   pip3 install --user ansible
 }
