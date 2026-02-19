@@ -25,8 +25,8 @@
   register: cloud_image_stat
 
 - name: Download VM cloud image if missing
-  ansible.builtin.get_url:
-    url: "{{ config.proxmox.templates.vm.url }}"
-    dest: "{{ cloud_image_path.stdout }}"
-    mode: '0644'
+  ansible.builtin.command: >
+    curl -L -o {{ cloud_image_path.stdout }} {{ config.proxmox.templates.vm.url }}
+  args:
+    creates: "{{ cloud_image_path.stdout }}"
   when: not cloud_image_stat.stat.exists
