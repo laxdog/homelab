@@ -1,0 +1,35 @@
+- name: Resolve access list
+  ansible.builtin.set_fact:
+    npm_access_list_current: >-
+      {{ (npm_access_list_items
+          | selectattr('name', 'equalto', access_list.name)
+          | list
+          | first) | default({}) }}
+
+- name: Create access list when missing
+  ansible.builtin.uri:
+    url: http://127.0.0.1:81/api/nginx/access-lists
+    method: POST
+    body_format: json
+    status_code: [200, 201]
+    headers:
+      Authorization: "Bearer {{ npm_api_token }}"
+    body:
+      name: "{{ access_list.name }}"
+      satisfy_any: false
+      pass_auth: "{{ access_list.auth == 'basic' }}"
+      items: >-
+        {{ ([{'username': config.npm.access_user, 'password': npm_access_password}]
+           if access_list.auth == 'basic' else []) }}
+      clients: []
+  when: npm_access_list_current | length == 0
+  register: npm_access_list_created
+
+- name: Store access list ID
+  ansible.builtin.set_fact:
+    npm_access_list_map: >-
+      {{ npm_access_list_map | combine({
+         access_list.name: (npm_access_list_current.id
+           if (npm_access_list_current | length > 0)
+           else npm_access_list_created.json.id)
+       }) }}

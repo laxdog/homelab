@@ -17,6 +17,10 @@ Source of truth: `config/homelab.yaml`.
 ## DHCP
 - 10.20.30.200-249
 
+## Domains
+- External: `lax.dog` (Cloudflare)
+- Internal: `laxdog.uk` (AdGuard rewrites -> NPM)
+
 ## Legacy/temporary
 - Old servarr: 10.20.30.74
 - Old NAS: 10.20.30.151

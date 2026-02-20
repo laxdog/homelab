@@ -160,6 +160,19 @@
           - (adguard_bad_query.stdout_lines | first | default('')) in ['', '0.0.0.0', '::']
         fail_msg: "Expected {{ config.adguard.tests.bad_domain }} to be blocked via AdGuard"
 
+    - name: Resolve internal rewrites through AdGuard
+      ansible.builtin.command: "dig +short @{{ ansible_host }} {{ item.domain }}"
+      register: adguard_rewrite_queries
+      changed_when: false
+      loop: "{{ config.adguard.rewrites | default([]) }}"
+
+    - name: Assert AdGuard rewrites resolve to expected IP
+      ansible.builtin.assert:
+        that:
+          - item.item.answer in (item.stdout_lines | default([]))
+        fail_msg: "Expected {{ item.item.domain }} to resolve to {{ item.item.answer }} via AdGuard"
+      loop: "{{ adguard_rewrite_queries.results | default([]) }}"
+
 - name: Validate Nginx Proxy Manager configuration
   hosts: nginx_proxy_manager_hosts
   gather_facts: false
@@ -201,23 +214,18 @@
       ansible.builtin.set_fact:
         npm_access_list_items: "{{ npm_access_lists.json.data | default(npm_access_lists.json) }}"
 
-    - name: Resolve AdGuard access list
+    - name: Build access list ID map
       ansible.builtin.set_fact:
-        npm_access_list: >-
-          {{ (npm_access_list_items
-              | selectattr('name', 'equalto', 'AdGuard Access')
-              | list
-              | first) | default({}) }}
+        npm_access_list_map: >-
+          {{ dict(npm_access_list_items | map(attribute='name') | list
+             | zip(npm_access_list_items | map(attribute='id') | list)) }}
 
-    - name: Assert AdGuard access list exists
+    - name: Assert expected access lists exist
       ansible.builtin.assert:
         that:
-          - npm_access_list.id is defined
-        fail_msg: "NPM access list 'AdGuard Access' not found."
-
-    - name: Store AdGuard access list ID
-      ansible.builtin.set_fact:
-        npm_access_list_id: "{{ npm_access_list.id | int }}"
+          - npm_access_list_map[item.name] is defined
+        fail_msg: "NPM access list '{{ item.name }}' not found."
+      loop: "{{ config.npm.access_lists }}"
 
     - name: Read NPM proxy hosts
       ansible.builtin.uri:
@@ -231,33 +239,29 @@
       ansible.builtin.set_fact:
         npm_proxy_host_items: "{{ npm_proxy_hosts.json.data | default(npm_proxy_hosts.json) }}"
 
-    - name: Filter expected proxy host
+    - name: Resolve expected proxy host
       ansible.builtin.set_fact:
-        npm_proxy_hosts_filtered: >-
-          {{ npm_proxy_host_items
-             | selectattr('domain_names', 'contains', config.npm.proxy_hosts[0].domain)
-             | list }}
-
-    - name: Assert NPM proxy host exists
-      ansible.builtin.assert:
-        that:
-          - (npm_proxy_hosts_filtered | length) > 0
-        fail_msg: "NPM proxy host missing for {{ config.npm.proxy_hosts[0].domain }}"
-
-    - name: Capture proxy host access list ID
-      ansible.builtin.set_fact:
-        npm_proxy_host_access_list_id: >-
-          {{ (npm_proxy_hosts_filtered
-              | map(attribute='access_list_id')
+        npm_proxy_host: >-
+          {{ (npm_proxy_host_items
+              | selectattr('domain_names', 'contains', item.domain)
               | list
-              | first
-              | default(0)) | int }}
+              | first) | default({}) }}
+      loop: "{{ config.npm.proxy_hosts }}"
+      register: npm_proxy_host_results
 
-    - name: Assert NPM proxy host uses access list
+    - name: Assert NPM proxy hosts exist
       ansible.builtin.assert:
         that:
-          - npm_proxy_host_access_list_id == npm_access_list_id
-        fail_msg: "NPM proxy host missing access list for {{ config.npm.proxy_hosts[0].domain }}"
+          - item.ansible_facts.npm_proxy_host | length > 0
+        fail_msg: "NPM proxy host missing for {{ item.item.domain }}"
+      loop: "{{ npm_proxy_host_results.results }}"
+
+    - name: Assert NPM proxy hosts use access lists
+      ansible.builtin.assert:
+        that:
+          - (item.ansible_facts.npm_proxy_host.access_list_id | int) == (npm_access_list_map[item.item.access_list] | int)
+        fail_msg: "NPM proxy host missing access list for {{ item.item.domain }}"
+      loop: "{{ npm_proxy_host_results.results }}"
 
 - name: Validate Cloudflare DNS records
   hosts: localhost
@@ -308,3 +312,23 @@
           - item.json.result[0].content == item.item.content
         fail_msg: "Cloudflare DNS record mismatch for {{ item.item.name }}"
       loop: "{{ cloudflare_record_lookup.results }}"
+
+- name: Validate Organizr
+  hosts: organizr_hosts
+  gather_facts: false
+  tasks:
+    - name: Check Organizr HTTP port
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 80
+        timeout: 10
+
+- name: Validate Heimdall
+  hosts: heimdall_hosts
+  gather_facts: false
+  tasks:
+    - name: Check Heimdall HTTP port
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 80
+        timeout: 10

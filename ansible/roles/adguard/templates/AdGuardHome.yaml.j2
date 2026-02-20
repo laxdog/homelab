@@ -32,3 +32,11 @@ filters:
     name: "{{ filt.name }}"
     id: {{ loop.index }}
 {% endfor %}
+
+filtering:
+  rewrites_enabled: true
+  rewrites:
+{% for rewrite in config.adguard.rewrites | default([]) %}
+    - domain: "{{ rewrite.domain }}"
+      answer: "{{ rewrite.answer }}"
+{% endfor %}

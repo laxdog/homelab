@@ -89,3 +89,69 @@
     name: AdGuardHome
     state: started
     enabled: true
+
+- name: Wait for AdGuard Home API
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/status"
+    method: GET
+    user: "{{ config.adguard.admin_user }}"
+    password: "{{ adguard_admin_password }}"
+    force_basic_auth: true
+    status_code: 200
+  register: adguard_status
+  retries: 10
+  delay: 3
+  until: adguard_status.status == 200
+  when: config.adguard.rewrites | default([]) | length > 0
+
+- name: Read existing AdGuard rewrites
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/rewrite/list"
+    method: GET
+    user: "{{ config.adguard.admin_user }}"
+    password: "{{ adguard_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    status_code: 200
+  register: adguard_rewrite_list
+  when: config.adguard.rewrites | default([]) | length > 0
+
+- name: Normalize existing AdGuard rewrites
+  ansible.builtin.set_fact:
+    adguard_existing_rewrites: "{{ adguard_rewrite_list.json | default([]) }}"
+  when: config.adguard.rewrites | default([]) | length > 0
+
+- name: Remove conflicting AdGuard rewrites
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/rewrite/delete"
+    method: POST
+    user: "{{ config.adguard.admin_user }}"
+    password: "{{ adguard_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      domain: "{{ item.domain }}"
+      answer: "{{ (adguard_existing_rewrites | selectattr('domain', 'equalto', item.domain) | map(attribute='answer') | first) }}"
+    status_code: 200
+  loop: "{{ config.adguard.rewrites | default([]) }}"
+  when:
+    - config.adguard.rewrites | default([]) | length > 0
+    - (adguard_existing_rewrites | selectattr('domain', 'equalto', item.domain) | list | length) > 0
+    - (adguard_existing_rewrites | selectattr('domain', 'equalto', item.domain) | selectattr('answer', 'equalto', item.answer) | list | length) == 0
+
+- name: Ensure AdGuard rewrites exist
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/rewrite/add"
+    method: POST
+    user: "{{ config.adguard.admin_user }}"
+    password: "{{ adguard_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      domain: "{{ item.domain }}"
+      answer: "{{ item.answer }}"
+    status_code: 200
+  loop: "{{ config.adguard.rewrites | default([]) }}"
+  when:
+    - config.adguard.rewrites | default([]) | length > 0
+    - (adguard_existing_rewrites | selectattr('domain', 'equalto', item.domain) | selectattr('answer', 'equalto', item.answer) | list | length) == 0

@@ -104,6 +104,29 @@ adguard:
       - name: Hagezi Allowlist Referral
         url: https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/whitelist-referral.txt
         enabled: true
+  rewrites:
+    - domain: dns.laxdog.uk
+      answer: 10.20.30.154
+    - domain: npm.laxdog.uk
+      answer: 10.20.30.154
+    - domain: organizr.laxdog.uk
+      answer: 10.20.30.154
+    - domain: heimdall.laxdog.uk
+      answer: 10.20.30.154
+    - domain: rss.laxdog.uk
+      answer: 10.20.30.154
+    - domain: netalertx.laxdog.uk
+      answer: 10.20.30.154
+    - domain: health.laxdog.uk
+      answer: 10.20.30.154
+    - domain: couchdb.laxdog.uk
+      answer: 10.20.30.154
+    - domain: browser.laxdog.uk
+      answer: 10.20.30.154
+    - domain: apt.laxdog.uk
+      answer: 10.20.30.154
+    - domain: sites.laxdog.uk
+      answer: 10.20.30.154
 
 services:
   defaults:
@@ -191,6 +214,14 @@ services:
       id: 163
       ip: 10.20.30.163
       roles: [python_bot]
+    organizr:
+      id: 164
+      ip: 10.20.30.164
+      roles: [docker, organizr]
+    heimdall:
+      id: 166
+      ip: 10.20.30.166
+      roles: [docker, heimdall]
 
 security:
   ansible_vault: true
@@ -199,16 +230,88 @@ npm:
   admin_email: admin@example.com
   api_email: automation@lax.dog
   access_user: adguard
+  access_lists:
+    - name: Internal Access
+      auth: none
+    - name: External Protected
+      auth: basic
+    - name: External Public
+      auth: none
   proxy_hosts:
-    - name: AdGuard
+    - name: AdGuard External
       domain: dns.lax.dog
       forward_host: 10.20.30.153
       forward_port: 80
+      access_list: External Protected
+    - name: AdGuard Internal
+      domain: dns.laxdog.uk
+      forward_host: 10.20.30.153
+      forward_port: 80
+      access_list: Internal Access
+    - name: NPM
+      domain: npm.laxdog.uk
+      forward_host: 10.20.30.154
+      forward_port: 81
+      access_list: Internal Access
+    - name: Organizr
+      domain: organizr.laxdog.uk
+      forward_host: 10.20.30.164
+      forward_port: 80
+      access_list: Internal Access
+    - name: Heimdall
+      domain: heimdall.laxdog.uk
+      forward_host: 10.20.30.166
+      forward_port: 80
+      access_list: Internal Access
+    - name: FreshRSS
+      domain: rss.laxdog.uk
+      forward_host: 10.20.30.157
+      forward_port: 80
+      access_list: Internal Access
+    - name: NetAlertX
+      domain: netalertx.laxdog.uk
+      forward_host: 10.20.30.158
+      forward_port: 20211
+      access_list: Internal Access
+    - name: Healthchecks
+      domain: health.laxdog.uk
+      forward_host: 10.20.30.159
+      forward_port: 8000
+      access_list: Internal Access
+    - name: CouchDB
+      domain: couchdb.laxdog.uk
+      forward_host: 10.20.30.165
+      forward_port: 5984
+      access_list: Internal Access
+    - name: Browser
+      domain: browser.laxdog.uk
+      forward_host: 10.20.30.162
+      forward_port: 5800
+      access_list: Internal Access
+    - name: Apt Cacher
+      domain: apt.laxdog.uk
+      forward_host: 10.20.30.156
+      forward_port: 3142
+      access_list: Internal Access
+    - name: Static Sites Internal
+      domain: sites.laxdog.uk
+      forward_host: 10.20.30.161
+      forward_port: 80
+      access_list: Internal Access
+    - name: Static Sites External
+      domain: sites.lax.dog
+      forward_host: 10.20.30.161
+      forward_port: 80
+      access_list: External Public
 
 cloudflare:
   zone: lax.dog
   records:
     - name: dns.lax.dog
+      type: A
+      content: 10.20.30.154
+      proxied: false
+    - name: sites.lax.dog
       type: A
       content: 10.20.30.154
       proxied: false

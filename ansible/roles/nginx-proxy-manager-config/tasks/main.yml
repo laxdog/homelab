@@ -40,21 +40,28 @@
           if (npm_login_api.status is defined and npm_login_api.status in [200, 201])
           else npm_login_admin.json.token) }}
 
+- name: Store NPM admin token when available
+  ansible.builtin.set_fact:
+    npm_admin_token: "{{ npm_login_admin.json.token }}"
+  when:
+    - npm_login_admin is defined
+    - npm_login_admin.status is defined and npm_login_admin.status in [200, 201]
+
 - name: Read NPM users with admin token
   ansible.builtin.uri:
     url: http://127.0.0.1:81/api/users
     method: GET
     headers:
-      Authorization: "Bearer {{ npm_login_admin.json.token }}"
+      Authorization: "Bearer {{ npm_admin_token }}"
   register: npm_users
-  when:
-    - npm_login_api.status is not defined or npm_login_api.status not in [200, 201]
-    - npm_login_admin.status is defined and npm_login_admin.status in [200, 201]
+  when: npm_admin_token is defined
 
 - name: Normalize NPM users response
   ansible.builtin.set_fact:
-    npm_user_items: "{{ npm_users.json.data | default(npm_users.json) }}"
-  when: npm_users is defined
+    npm_user_items: >-
+      {{ (npm_users.json.data | default(npm_users.json))
+         if (npm_users is defined and npm_users.json is defined)
+         else [] }}
 
 - name: Resolve automation user
   ansible.builtin.set_fact:
@@ -72,7 +79,7 @@
     status_code: [200, 201]
     body_format: json
     headers:
-      Authorization: "Bearer {{ npm_login_admin.json.token }}"
+      Authorization: "Bearer {{ npm_admin_token }}"
     body:
       name: "Automation"
       nickname: "Automation"
@@ -83,7 +90,7 @@
         type: password
         secret: "{{ npm_api_password }}"
   when:
-    - npm_users is defined
+    - npm_admin_token is defined
     - npm_automation_user | length == 0
 
 - name: Login to NPM API with automation credentials (post-create)
@@ -128,39 +135,28 @@
   ansible.builtin.set_fact:
     npm_access_list_items: "{{ npm_access_lists.json.data | default(npm_access_lists.json) }}"
 
-- name: Resolve AdGuard access list
+- name: Initialize access list map
   ansible.builtin.set_fact:
-    npm_access_list: >-
-      {{ (npm_access_list_items
-          | selectattr('name', 'equalto', 'AdGuard Access')
-          | list
-          | first) | default({}) }}
+    npm_access_list_map: {}
 
-- name: Create AdGuard access list when missing
-  ansible.builtin.uri:
-    url: http://127.0.0.1:81/api/nginx/access-lists
-    method: POST
-    body_format: json
-    status_code: [200, 201]
-    headers:
-      Authorization: "Bearer {{ npm_api_token }}"
-    body:
-      name: AdGuard Access
-      satisfy_any: false
-      pass_auth: true
-      items:
-        - username: "{{ config.npm.access_user }}"
-          password: "{{ npm_access_password }}"
-      clients: []
-  when: npm_access_list | length == 0
-  register: npm_access_list_created
+- name: Ensure access lists exist
+  ansible.builtin.include_tasks: access-list.yml
+  loop: "{{ config.npm.access_lists }}"
+  loop_control:
+    loop_var: access_list
 
-- name: Store AdGuard access list ID
-  ansible.builtin.set_fact:
-    npm_access_list_id: >-
-      {{ (npm_access_list.id
-          if (npm_access_list | length > 0)
-          else npm_access_list_created.json.id) }}
+- name: Assert access list map populated
+  ansible.builtin.assert:
+    that:
+      - npm_access_list_map | length > 0
+    fail_msg: "No NPM access lists available after provisioning."
+
+- name: Assert proxy host access lists exist
+  ansible.builtin.assert:
+    that:
+      - npm_access_list_map[item.access_list] is defined
+    fail_msg: "Access list '{{ item.access_list }}' not defined for {{ item.domain }}."
+  loop: "{{ config.npm.proxy_hosts }}"
 
 - name: Read existing NPM proxy hosts
   ansible.builtin.uri:
@@ -174,7 +170,7 @@
   ansible.builtin.set_fact:
     npm_proxy_host_items: "{{ npm_proxy_hosts.json.data | default(npm_proxy_hosts.json) }}"
 
-- name: Update AdGuard proxy host access list when needed
+- name: Update proxy host when needed
   ansible.builtin.uri:
     url: "http://127.0.0.1:81/api/nginx/proxy-hosts/{{ current_host.id }}"
     method: PUT
@@ -188,7 +184,7 @@
       forward_scheme: http
       forward_host: "{{ item.forward_host }}"
       forward_port: "{{ item.forward_port }}"
-      access_list_id: "{{ npm_access_list_id }}"
+      access_list_id: "{{ desired_access_list_id }}"
       allow_websocket_upgrade: true
       block_exploits: true
       caching_enabled: false
@@ -207,9 +203,10 @@
           | selectattr('domain_names', 'contains', item.domain)
           | list
           | first) | default({}) }}
+    desired_access_list_id: "{{ npm_access_list_map[item.access_list] }}"
   when:
     - current_host | length > 0
-    - current_host.access_list_id != npm_access_list_id
+    - current_host.access_list_id != desired_access_list_id
 
 - name: Create AdGuard proxy host when missing
   ansible.builtin.uri:
@@ -225,7 +222,7 @@
       forward_scheme: http
       forward_host: "{{ item.forward_host }}"
       forward_port: "{{ item.forward_port }}"
-      access_list_id: "{{ npm_access_list_id }}"
+      access_list_id: "{{ npm_access_list_map[item.access_list] }}"
       allow_websocket_upgrade: true
       block_exploits: true
       caching_enabled: false
