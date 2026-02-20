@@ -89,6 +89,9 @@ adguard:
       - 1.1.1.1
     bootstrap_dns:
       - 1.1.1.1
+  tests:
+    good_domain: example.com
+    bad_domain: doubleclick.net
   filters:
     blocklists:
       - name: Hagezi Pro++
@@ -151,7 +154,7 @@ services:
     nginx-proxy-manager:
       id: 154
       ip: 10.20.30.154
-      roles: [nginx_proxy_manager]
+      roles: [docker, nginx_proxy_manager]
     couchdb:
       id: 165
       ip: 10.20.30.165
@@ -191,3 +194,12 @@ services:
 
 security:
   ansible_vault: true
+
+npm:
+  admin_email: admin@example.com
+  access_user: adguard
+  proxy_hosts:
+    - name: AdGuard
+      domain: adguard.lax.dog
+      forward_host: 10.20.30.153
+      forward_port: 80
