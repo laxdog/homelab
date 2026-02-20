@@ -33,6 +33,51 @@
         fail_msg: "Missing Proxmox storage ID: {{ item }}"
       loop: "{{ proxmox.storages.values() | list }}"
 
+    - name: Scan subnet for live hosts
+      ansible.builtin.command: "nmap -sn {{ network.subnet }} -oG -"
+      register: nmap_scan
+      changed_when: false
+
+    - name: Extract live IPs
+      ansible.builtin.set_fact:
+        live_ips: >-
+          {{ nmap_scan.stdout_lines
+             | select('match', '^Host: [0-9.]+')
+             | map('regex_replace', '^Host: ([0-9.]+).*', '\\1')
+             | list }}
+
+    - name: Build guest IP range list
+      ansible.builtin.set_fact:
+        subnet_base: "{{ network.subnet.split('/')[0].split('.')[0:3] | join('.') }}"
+
+    - name: Build guest IP range list (continued)
+      ansible.builtin.set_fact:
+        guest_ip_range: >-
+          {{ range(network.ranges.guests.start | int, (network.ranges.guests.end | int) + 1)
+             | map('string')
+             | map('regex_replace', '^(.*)$', subnet_base ~ '.\\1')
+             | list }}
+
+    - name: Collect expected guest IPs
+      ansible.builtin.set_fact:
+        expected_guest_ips: >-
+          {{ (services.vms | dict2items | map(attribute='value.ip') | list)
+             + (services.lxcs | dict2items | map(attribute='value.ip') | list) }}
+
+    - name: Find unexpected live IPs in guest range
+      ansible.builtin.set_fact:
+        unexpected_guest_ips: >-
+          {{ live_ips
+             | select('in', guest_ip_range)
+             | reject('in', expected_guest_ips)
+             | list }}
+
+    - name: Assert no unexpected live IPs in guest range
+      ansible.builtin.assert:
+        that:
+          - unexpected_guest_ips | length == 0
+        fail_msg: "Unexpected live IPs in guest range: {{ unexpected_guest_ips | join(', ') }}"
+
 - name: Validate guest access
   hosts: guests
   gather_facts: false
@@ -114,3 +159,152 @@
         that:
           - (adguard_bad_query.stdout_lines | first | default('')) in ['', '0.0.0.0', '::']
         fail_msg: "Expected {{ config.adguard.tests.bad_domain }} to be blocked via AdGuard"
+
+- name: Validate Nginx Proxy Manager configuration
+  hosts: nginx_proxy_manager_hosts
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+  tasks:
+    - name: Login to NPM API
+      ansible.builtin.uri:
+        url: http://127.0.0.1:81/api/tokens
+        method: POST
+        body_format: json
+        body:
+          identity: "{{ config.npm.api_email }}"
+          secret: "{{ npm_api_password }}"
+      register: npm_login
+
+    - name: Assert NPM API login succeeded
+      ansible.builtin.assert:
+        that:
+          - npm_login.status in [200, 201]
+          - npm_login.json.token is defined
+        fail_msg: "Unable to authenticate to NPM API."
+
+    - name: Read NPM access lists
+      ansible.builtin.uri:
+        url: http://127.0.0.1:81/api/nginx/access-lists
+        method: GET
+        headers:
+          Authorization: "Bearer {{ npm_login.json.token }}"
+      register: npm_access_lists
+
+    - name: Normalize NPM access list response
+      ansible.builtin.set_fact:
+        npm_access_list_items: "{{ npm_access_lists.json.data | default(npm_access_lists.json) }}"
+
+    - name: Resolve AdGuard access list
+      ansible.builtin.set_fact:
+        npm_access_list: >-
+          {{ (npm_access_list_items
+              | selectattr('name', 'equalto', 'AdGuard Access')
+              | list
+              | first) | default({}) }}
+
+    - name: Assert AdGuard access list exists
+      ansible.builtin.assert:
+        that:
+          - npm_access_list.id is defined
+        fail_msg: "NPM access list 'AdGuard Access' not found."
+
+    - name: Store AdGuard access list ID
+      ansible.builtin.set_fact:
+        npm_access_list_id: "{{ npm_access_list.id | int }}"
+
+    - name: Read NPM proxy hosts
+      ansible.builtin.uri:
+        url: http://127.0.0.1:81/api/nginx/proxy-hosts
+        method: GET
+        headers:
+          Authorization: "Bearer {{ npm_login.json.token }}"
+      register: npm_proxy_hosts
+
+    - name: Normalize NPM proxy host response
+      ansible.builtin.set_fact:
+        npm_proxy_host_items: "{{ npm_proxy_hosts.json.data | default(npm_proxy_hosts.json) }}"
+
+    - name: Filter expected proxy host
+      ansible.builtin.set_fact:
+        npm_proxy_hosts_filtered: >-
+          {{ npm_proxy_host_items
+             | selectattr('domain_names', 'contains', config.npm.proxy_hosts[0].domain)
+             | list }}
+
+    - name: Assert NPM proxy host exists
+      ansible.builtin.assert:
+        that:
+          - (npm_proxy_hosts_filtered | length) > 0
+        fail_msg: "NPM proxy host missing for {{ config.npm.proxy_hosts[0].domain }}"
+
+    - name: Capture proxy host access list ID
+      ansible.builtin.set_fact:
+        npm_proxy_host_access_list_id: >-
+          {{ (npm_proxy_hosts_filtered
+              | map(attribute='access_list_id')
+              | list
+              | first
+              | default(0)) | int }}
+
+    - name: Assert NPM proxy host uses access list
+      ansible.builtin.assert:
+        that:
+          - npm_proxy_host_access_list_id == npm_access_list_id
+        fail_msg: "NPM proxy host missing access list for {{ config.npm.proxy_hosts[0].domain }}"
+
+- name: Validate Cloudflare DNS records
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+  tasks:
+    - name: Read Cloudflare zones
+      ansible.builtin.uri:
+        url: "https://api.cloudflare.com/client/v4/zones?name={{ config.cloudflare.zone }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ cloudflare_api_token }}"
+          Content-Type: application/json
+      register: cloudflare_zones
+
+    - name: Assert Cloudflare zone found
+      ansible.builtin.assert:
+        that:
+          - cloudflare_zones.json.result | length > 0
+        fail_msg: "Cloudflare zone not found for {{ config.cloudflare.zone }}"
+
+    - name: Select Cloudflare zone ID
+      ansible.builtin.set_fact:
+        cloudflare_zone_id: "{{ cloudflare_zones.json.result[0].id }}"
+
+    - name: Validate Cloudflare DNS records
+      ansible.builtin.uri:
+        url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?type={{ item.type }}&name={{ item.name }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ cloudflare_api_token }}"
+          Content-Type: application/json
+      register: cloudflare_record_lookup
+      loop: "{{ config.cloudflare.records }}"
+
+    - name: Assert Cloudflare DNS records match expected content
+      ansible.builtin.assert:
+        that:
+          - item.json.result | length > 0
+          - item.json.result[0].content == item.item.content
+        fail_msg: "Cloudflare DNS record mismatch for {{ item.item.name }}"
+      loop: "{{ cloudflare_record_lookup.results }}"
