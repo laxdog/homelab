@@ -1,0 +1,13 @@
+services:
+  organizr:
+    image: organizr/organizr:latest
+    container_name: organizr
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ={{ config.homelab.timezone }}
+    volumes:
+      - ./config:/config
+    ports:
+      - "80:80"
+    restart: unless-stopped

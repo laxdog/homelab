@@ -1,0 +1,22 @@
+- name: Create application directory
+  ansible.builtin.file:
+    path: "/docker/docker-compose-{{ inventory_hostname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Copy the Docker Compose file
+  ansible.builtin.template:
+    src: "docker-compose.yaml.j2"
+    dest: "/docker/docker-compose-{{ inventory_hostname }}/docker-compose.yaml"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Deploy the application via Docker Compose
+  ansible.builtin.command:
+    cmd: docker compose up -d
+  args:
+    chdir: /docker/docker-compose-{{ inventory_hostname }}
+  changed_when: false

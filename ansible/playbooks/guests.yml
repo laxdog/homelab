@@ -58,6 +58,36 @@
   roles:
     - nginx-proxy-manager-config
 
+- name: Configure Organizr
+  hosts: organizr_hosts
+  become: true
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+  roles:
+    - organizr
+
+- name: Configure Heimdall
+  hosts: heimdall_hosts
+  become: true
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+  roles:
+    - heimdall
+
 - name: Configure Cloudflare DNS records
   hosts: localhost
   connection: local
