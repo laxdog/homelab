@@ -92,3 +92,25 @@
         host: "{{ ansible_host }}"
         port: "{{ config.adguard.bind_port }}"
         timeout: 5
+
+    - name: Resolve known good domain through AdGuard
+      ansible.builtin.command: "dig +short @{{ ansible_host }} {{ config.adguard.tests.good_domain }}"
+      register: adguard_good_query
+      changed_when: false
+
+    - name: Assert known good domain resolves
+      ansible.builtin.assert:
+        that:
+          - adguard_good_query.stdout_lines | length > 0
+        fail_msg: "Expected {{ config.adguard.tests.good_domain }} to resolve via AdGuard"
+
+    - name: Resolve known bad domain through AdGuard
+      ansible.builtin.command: "dig +short @{{ ansible_host }} {{ config.adguard.tests.bad_domain }}"
+      register: adguard_bad_query
+      changed_when: false
+
+    - name: Assert known bad domain is blocked
+      ansible.builtin.assert:
+        that:
+          - (adguard_bad_query.stdout_lines | first | default('')) in ['', '0.0.0.0', '::']
+        fail_msg: "Expected {{ config.adguard.tests.bad_domain }} to be blocked via AdGuard"

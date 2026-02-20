@@ -4,6 +4,7 @@
     name:
       - ca-certificates
       - curl
+      - dnsutils
       - tar
     state: present
     update_cache: true
@@ -37,7 +38,7 @@
   ansible.builtin.file:
     path: "{{ adguard_install_dir }}"
     state: directory
-    mode: '0755'
+    mode: '0700'
 
 - name: Download AdGuardHome release archive
   ansible.builtin.command:
