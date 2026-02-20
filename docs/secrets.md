@@ -25,3 +25,6 @@ Recommended: `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`
 - `cloudflare_api_token`
 - `root_password`
 - `root_password_hash`
+
+Notes:
+- `scripts/run.py apply` will use `terraform_user_password` when `ANSIBLE_VAULT_PASSWORD_FILE` is set.

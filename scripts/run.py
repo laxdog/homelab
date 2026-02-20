@@ -85,24 +85,73 @@ def write_inventory(cfg: dict) -> Path:
     return inventory_path
 
 
-def terraform_apply() -> None:
+def terraform_apply(env: Optional[dict] = None) -> None:
     tf_dir = repo_root() / "terraform"
-    run(["terraform", "-chdir=terraform", "init"], cwd=repo_root())
-    run(["terraform", "-chdir=terraform", "apply", "-auto-approve"], cwd=repo_root())
+    run(["terraform", "-chdir=terraform", "init"], cwd=repo_root(), env=env)
+    run(["terraform", "-chdir=terraform", "apply", "-auto-approve"], cwd=repo_root(), env=env)
 
-def check_terraform_creds() -> None:
-    has_user = bool(os.environ.get("TF_VAR_proxmox_username"))
-    has_pass = bool(os.environ.get("TF_VAR_proxmox_password"))
-    has_token = bool(os.environ.get("TF_VAR_proxmox_api_token"))
+def read_vault_var(var_name: str) -> Optional[str]:
+    vault_pass = os.environ.get("ANSIBLE_VAULT_PASSWORD_FILE")
+    if not vault_pass:
+        return None
+    secrets_path = repo_root() / "ansible" / "secrets.yml"
+    cmd = [
+        "ansible",
+        "localhost",
+        "-c",
+        "local",
+        "-m",
+        "ansible.builtin.debug",
+        "-a",
+        f"var={var_name}",
+        "-e",
+        f"@{secrets_path}",
+        "--vault-password-file",
+        vault_pass,
+    ]
+    result = subprocess.run(
+        cmd,
+        cwd=str(repo_root()),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    marker = f'"{var_name}":'
+    for line in result.stdout.splitlines():
+        if marker in line:
+            _, value = line.split(marker, 1)
+            value = value.strip().strip('"')
+            return value
+    return None
 
-    if has_token:
-        return
+
+def resolve_terraform_env(cfg: dict) -> dict:
+    env: dict = {}
+    if os.environ.get("TF_VAR_proxmox_api_token"):
+        return env
+
+    username = os.environ.get("TF_VAR_proxmox_username")
+    if not username:
+        username = cfg.get("proxmox", {}).get("terraform_user")
+    if username:
+        env["TF_VAR_proxmox_username"] = username
+
+    if not os.environ.get("TF_VAR_proxmox_password"):
+        password = read_vault_var("terraform_user_password")
+        if password:
+            env["TF_VAR_proxmox_password"] = password
+
+    has_user = bool(os.environ.get("TF_VAR_proxmox_username") or env.get("TF_VAR_proxmox_username"))
+    has_pass = bool(os.environ.get("TF_VAR_proxmox_password") or env.get("TF_VAR_proxmox_password"))
     if has_user and has_pass:
-        return
+        return env
 
     raise SystemExit(
         "Terraform credentials missing. Set TF_VAR_proxmox_username + "
-        "TF_VAR_proxmox_password or TF_VAR_proxmox_api_token."
+        "TF_VAR_proxmox_password or TF_VAR_proxmox_api_token, or add "
+        "terraform_user_password to ansible/secrets.yml with ANSIBLE_VAULT_PASSWORD_FILE."
     )
 
 
@@ -125,8 +174,8 @@ def cmd_apply() -> None:
     cfg = load_config()
     write_inventory(cfg)
     ansible_playbook("host.yml")
-    check_terraform_creds()
-    terraform_apply()
+    tf_env = resolve_terraform_env(cfg)
+    terraform_apply(env=tf_env)
     ansible_playbook("post-terraform.yml")
     ansible_playbook("guests.yml")
 

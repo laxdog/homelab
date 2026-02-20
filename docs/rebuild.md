@@ -7,7 +7,9 @@
 
 ## Repo-driven rebuild
 1. Install Python deps: `pip install -r scripts/requirements.txt`
-2. Export Terraform credentials: `TF_VAR_proxmox_username` + `TF_VAR_proxmox_password` (or `TF_VAR_proxmox_api_token`)
+2. Terraform credentials:
+   - Either export `TF_VAR_proxmox_username` + `TF_VAR_proxmox_password` (or `TF_VAR_proxmox_api_token`), or
+   - Ensure `terraform_user_password` is in `ansible/secrets.yml` and `ANSIBLE_VAULT_PASSWORD_FILE` is set.
 3. Provide vault password (e.g. `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`)
 4. Run orchestrator: `scripts/run.py apply`
 5. Host baseline is applied first, then guests.
