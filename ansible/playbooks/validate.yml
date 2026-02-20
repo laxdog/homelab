@@ -239,6 +239,13 @@
       ansible.builtin.set_fact:
         npm_proxy_host_items: "{{ npm_proxy_hosts.json.data | default(npm_proxy_hosts.json) }}"
 
+    - name: Assert unwanted proxy hosts are absent
+      ansible.builtin.assert:
+        that:
+          - (npm_proxy_host_items | selectattr('domain_names', 'contains', item) | list | length) == 0
+        fail_msg: "NPM proxy host still present for {{ item }}"
+      loop: "{{ config.npm.remove_proxy_hosts | default([]) }}"
+
     - name: Resolve expected proxy host
       ansible.builtin.set_fact:
         npm_proxy_host: >-
@@ -312,6 +319,23 @@
           - item.json.result[0].content == item.item.content
         fail_msg: "Cloudflare DNS record mismatch for {{ item.item.name }}"
       loop: "{{ cloudflare_record_lookup.results }}"
+
+    - name: Look up Cloudflare records that should be removed
+      ansible.builtin.uri:
+        url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ item }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ cloudflare_api_token }}"
+          Content-Type: application/json
+      register: cloudflare_remove_lookup
+      loop: "{{ config.cloudflare.remove_records | default([]) }}"
+
+    - name: Assert Cloudflare removed records are absent
+      ansible.builtin.assert:
+        that:
+          - item.json.result | length == 0
+        fail_msg: "Cloudflare DNS record still present for {{ item.item }}"
+      loop: "{{ cloudflare_remove_lookup.results | default([]) }}"
 
 - name: Validate Organizr
   hosts: organizr_hosts

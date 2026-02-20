@@ -31,6 +31,7 @@ proxmox:
   endpoint: https://10.20.30.46:8006/
   ssh_host: 10.20.30.46
   ssh_user: root
+  terraform_user: terraform-prov@pve
   ssh_public_key_path: /home/mrobinson/.ssh/id_rsa.pub
   ssh_private_key_path: /home/mrobinson/.ssh/id_rsa
   storages:
@@ -230,6 +231,8 @@ npm:
   admin_email: admin@example.com
   api_email: automation@lax.dog
   access_user: adguard
+  remove_proxy_hosts:
+    - dns.lax.dog
   access_lists:
     - name: Internal Access
       auth: none
@@ -238,11 +241,6 @@ npm:
     - name: External Public
       auth: none
   proxy_hosts:
-    - name: AdGuard External
-      domain: dns.lax.dog
-      forward_host: 10.20.30.153
-      forward_port: 80
-      access_list: External Protected
     - name: AdGuard Internal
       domain: dns.laxdog.uk
       forward_host: 10.20.30.153
@@ -303,15 +301,58 @@ npm:
       forward_host: 10.20.30.161
       forward_port: 80
       access_list: External Public
+    - name: Organizr External
+      domain: organizr.lax.dog
+      forward_host: 10.20.30.164
+      forward_port: 80
+      access_list: External Protected
+    - name: Heimdall External
+      domain: heimdall.lax.dog
+      forward_host: 10.20.30.166
+      forward_port: 80
+      access_list: External Protected
+    - name: FreshRSS External
+      domain: rss.lax.dog
+      forward_host: 10.20.30.157
+      forward_port: 80
+      access_list: External Protected
+    - name: CouchDB External
+      domain: couchdb.lax.dog
+      forward_host: 10.20.30.165
+      forward_port: 5984
+      access_list: External Protected
+    - name: Browser External
+      domain: browser.lax.dog
+      forward_host: 10.20.30.162
+      forward_port: 5800
+      access_list: External Protected
 
 cloudflare:
   zone: lax.dog
+  remove_records:
+    - dns.lax.dog
   records:
-    - name: dns.lax.dog
+    - name: sites.lax.dog
       type: A
       content: 10.20.30.154
       proxied: false
-    - name: sites.lax.dog
+    - name: organizr.lax.dog
+      type: A
+      content: 10.20.30.154
+      proxied: false
+    - name: heimdall.lax.dog
+      type: A
+      content: 10.20.30.154
+      proxied: false
+    - name: rss.lax.dog
+      type: A
+      content: 10.20.30.154
+      proxied: false
+    - name: couchdb.lax.dog
+      type: A
+      content: 10.20.30.154
+      proxied: false
+    - name: browser.lax.dog
       type: A
       content: 10.20.30.154
       proxied: false

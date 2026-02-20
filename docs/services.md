@@ -27,8 +27,12 @@ Source of truth: `config/homelab.yaml`.
 
 ## NPM Hostnames
 External (`lax.dog`):
-- `dns.lax.dog` -> AdGuard UI (auth)
 - `sites.lax.dog` -> static-sites (public)
+- `organizr.lax.dog` (auth)
+- `heimdall.lax.dog` (auth)
+- `rss.lax.dog` (auth)
+- `couchdb.lax.dog` (auth)
+- `browser.lax.dog` (auth)
 
 Internal (`laxdog.uk`):
 - `dns.laxdog.uk` -> AdGuard UI

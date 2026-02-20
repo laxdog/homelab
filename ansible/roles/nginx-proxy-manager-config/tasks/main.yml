@@ -170,6 +170,22 @@
   ansible.builtin.set_fact:
     npm_proxy_host_items: "{{ npm_proxy_hosts.json.data | default(npm_proxy_hosts.json) }}"
 
+- name: Remove unwanted proxy hosts
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:81/api/nginx/proxy-hosts/{{ current_host.id }}"
+    method: DELETE
+    status_code: [200, 204]
+    headers:
+      Authorization: "Bearer {{ npm_api_token }}"
+  loop: "{{ config.npm.remove_proxy_hosts | default([]) }}"
+  vars:
+    current_host: >-
+      {{ (npm_proxy_host_items
+          | selectattr('domain_names', 'contains', item)
+          | list
+          | first) | default({}) }}
+  when: current_host | length > 0
+
 - name: Update proxy host when needed
   ansible.builtin.uri:
     url: "http://127.0.0.1:81/api/nginx/proxy-hosts/{{ current_host.id }}"
