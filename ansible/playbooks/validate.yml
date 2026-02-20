@@ -320,6 +320,19 @@
         fail_msg: "Cloudflare DNS record mismatch for {{ item.item.name }}"
       loop: "{{ cloudflare_record_lookup.results }}"
 
+    - name: Resolve external DNS records via public resolver
+      ansible.builtin.command: "dig +short @1.1.1.1 {{ item.name }}"
+      register: external_dns_queries
+      changed_when: false
+      loop: "{{ config.cloudflare.records }}"
+
+    - name: Assert external DNS records resolve to expected content
+      ansible.builtin.assert:
+        that:
+          - item.item.content in (item.stdout_lines | default([]))
+        fail_msg: "Expected {{ item.item.name }} to resolve to {{ item.item.content }} via public DNS"
+      loop: "{{ external_dns_queries.results | default([]) }}"
+
     - name: Look up Cloudflare records that should be removed
       ansible.builtin.uri:
         url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ item }}"
@@ -356,3 +369,17 @@
         host: "{{ ansible_host }}"
         port: 80
         timeout: 10
+
+- name: Validate service ports
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  tasks:
+    - name: Check service port
+      ansible.builtin.wait_for:
+        host: "{{ item.host }}"
+        port: "{{ item.port }}"
+        timeout: 10
+      loop: "{{ config.validation.service_ports | default([]) }}"

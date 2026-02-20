@@ -34,3 +34,9 @@
      grep -qxF '{{ ssh_public_key }}' /root/.ssh/authorized_keys || echo '{{ ssh_public_key }}' >> /root/.ssh/authorized_keys"
   loop: "{{ lxc_key_check.results }}"
   when: item.rc != 0
+
+- name: Ensure SSH service enabled and running in LXCs
+  ansible.builtin.command: >
+    pct exec {{ item.value.id }} -- bash -lc
+    "systemctl enable --now ssh || systemctl enable --now sshd"
+  loop: "{{ config.services.lxcs | dict2items }}"

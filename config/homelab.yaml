@@ -356,3 +356,42 @@ cloudflare:
       type: A
       content: 10.20.30.154
       proxied: false
+
+validation:
+  service_ports:
+    - name: adguard-http
+      host: 10.20.30.153
+      port: 80
+    - name: adguard-dns
+      host: 10.20.30.153
+      port: 53
+    - name: nginx-proxy-manager
+      host: 10.20.30.154
+      port: 81
+    - name: organizr
+      host: 10.20.30.164
+      port: 80
+    - name: heimdall
+      host: 10.20.30.166
+      port: 80
+    - name: freshrss
+      host: 10.20.30.157
+      port: 80
+    - name: netalertx
+      host: 10.20.30.158
+      port: 20211
+    - name: healthchecks
+      host: 10.20.30.159
+      port: 8000
+    - name: couchdb
+      host: 10.20.30.165
+      port: 5984
+    - name: browser
+      host: 10.20.30.162
+      port: 5800
+    - name: apt-cacher-ng
+      host: 10.20.30.156
+      port: 3142
+    - name: static-sites
+      host: 10.20.30.161
+      port: 80
