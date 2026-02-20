@@ -1,0 +1,142 @@
+---
+- name: Wait for NPM API to be reachable
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 81
+    timeout: 30
+
+- name: Login to NPM API with configured credentials
+  ansible.builtin.uri:
+    url: http://127.0.0.1:81/api/tokens
+    method: POST
+    body_format: json
+    body:
+      identity: "{{ config.npm.admin_email }}"
+      secret: "{{ npm_admin_password }}"
+  register: npm_login
+  retries: 12
+  delay: 5
+  until: npm_login.status is defined and npm_login.status != 502
+  failed_when: false
+
+- name: Login to NPM API with default credentials
+  ansible.builtin.uri:
+    url: http://127.0.0.1:81/api/tokens
+    method: POST
+    body_format: json
+    body:
+      identity: admin@example.com
+      secret: changeme
+  register: npm_login_default
+  retries: 12
+  delay: 5
+  until: npm_login_default.status is defined and npm_login_default.status != 502
+  when: npm_login.status is not defined or npm_login.status not in [200, 201]
+
+- name: Select NPM API token
+  ansible.builtin.set_fact:
+    npm_api_token: >-
+      {{ (npm_login.json.token
+          if (npm_login.status is defined and npm_login.status in [200, 201])
+          else npm_login_default.json.token) }}
+
+- name: Assert NPM API token available
+  ansible.builtin.assert:
+    that:
+      - npm_api_token is defined
+      - npm_api_token | length > 0
+    fail_msg: "Unable to authenticate to NPM API; update npm.admin_email/npm_admin_password."
+
+- name: Read existing NPM access lists
+  ansible.builtin.uri:
+    url: http://127.0.0.1:81/api/nginx/access-lists
+    method: GET
+    headers:
+      Authorization: "Bearer {{ npm_api_token }}"
+  register: npm_access_lists
+
+- name: Normalize access list response
+  ansible.builtin.set_fact:
+    npm_access_list_items: "{{ npm_access_lists.json.data | default(npm_access_lists.json) }}"
+
+- name: Resolve AdGuard access list
+  ansible.builtin.set_fact:
+    npm_access_list: >-
+      {{ (npm_access_list_items
+          | selectattr('name', 'equalto', 'AdGuard Access')
+          | list
+          | first) | default({}) }}
+
+- name: Create AdGuard access list when missing
+  ansible.builtin.uri:
+    url: http://127.0.0.1:81/api/nginx/access-lists
+    method: POST
+    body_format: json
+    status_code: [200, 201]
+    headers:
+      Authorization: "Bearer {{ npm_api_token }}"
+    body:
+      name: AdGuard Access
+      satisfy_any: false
+      pass_auth: true
+      items:
+        - username: "{{ config.npm.access_user }}"
+          password: "{{ npm_access_password }}"
+      clients: []
+  when: npm_access_list | length == 0
+  register: npm_access_list_created
+
+- name: Store AdGuard access list ID
+  ansible.builtin.set_fact:
+    npm_access_list_id: >-
+      {{ (npm_access_list.id
+          if (npm_access_list | length > 0)
+          else npm_access_list_created.json.id) }}
+
+- name: Read existing NPM proxy hosts
+  ansible.builtin.uri:
+    url: http://127.0.0.1:81/api/nginx/proxy-hosts
+    method: GET
+    headers:
+      Authorization: "Bearer {{ npm_api_token }}"
+  register: npm_proxy_hosts
+
+- name: Normalize proxy host response
+  ansible.builtin.set_fact:
+    npm_proxy_host_items: "{{ npm_proxy_hosts.json.data | default(npm_proxy_hosts.json) }}"
+
+- name: Create AdGuard proxy host when missing
+  ansible.builtin.uri:
+    url: http://127.0.0.1:81/api/nginx/proxy-hosts
+    method: POST
+    body_format: json
+    status_code: [200, 201]
+    headers:
+      Authorization: "Bearer {{ npm_api_token }}"
+    body:
+      domain_names:
+        - "{{ item.domain }}"
+      forward_scheme: http
+      forward_host: "{{ item.forward_host }}"
+      forward_port: "{{ item.forward_port }}"
+      access_list_id: "{{ npm_access_list_id }}"
+      allow_websocket_upgrade: true
+      block_exploits: true
+      caching_enabled: false
+      certificate_id: 0
+      ssl_forced: false
+      http2_support: false
+      hsts_enabled: false
+      hsts_subdomains: false
+      advanced_config: ""
+      meta:
+        letsencrypt_agree: false
+        dns_challenge: false
+        letsencrypt_email: ""
+      locations: []
+  loop: "{{ config.npm.proxy_hosts }}"
+  when: >-
+    (npm_proxy_host_items
+      | selectattr('domain_names', 'contains', item.domain)
+      | list
+      | length) == 0

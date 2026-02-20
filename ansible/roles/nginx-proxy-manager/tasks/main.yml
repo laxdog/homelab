@@ -7,17 +7,16 @@
     mode: '0755'
 
 - name: Copy the Docker Compose file
-  ansible.builtin.copy:
-    src: "docker-compose.yaml"
+  ansible.builtin.template:
+    src: "docker-compose.yaml.j2"
     dest: "/docker/docker-compose-{{ inventory_hostname }}/docker-compose.yaml"
     owner: root
     group: root
     mode: '0644'
 
 - name: Deploy the application via Docker Compose
-  community.docker.docker_compose_v2:
-    project_src: /docker/docker-compose-{{ inventory_hostname }}
-    state: present
-    recreate: always
-    pull: always
-    remove_orphans: true
+  ansible.builtin.command:
+    cmd: docker compose up -d
+  args:
+    chdir: /docker/docker-compose-{{ inventory_hostname }}
+  changed_when: false

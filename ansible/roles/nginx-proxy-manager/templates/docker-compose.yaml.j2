@@ -1,18 +1,16 @@
 services:
   proxy:
-    image: 'jc21/nginx-proxy-manager:latest'
+    image: jc21/nginx-proxy-manager:latest
     container_name: nginx-proxy-manager
     restart: unless-stopped
+    ports:
+      - "80:80"
+      - "81:81"
+      - "443:443"
     environment:
-      - PUID=1000
-      - PGID=1000
       - TZ=America/Los_Angeles
-     network_mode: host
+      - INITIAL_ADMIN_EMAIL={{ config.npm.admin_email }}
+      - INITIAL_ADMIN_PASSWORD={{ npm_admin_password }}
     volumes:
       - /docker/nginx-proxy-manager:/data
       - /docker/nginx-proxy-manager/letsencrypt:/etc/letsencrypt
-    healthcheck:
-      test: ["CMD", "/usr/bin/check-health"]
-      interval: 10s
-      timeout: 3s
-

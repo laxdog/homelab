@@ -28,6 +28,36 @@
   roles:
     - docker-host
 
+- name: Configure Nginx Proxy Manager
+  hosts: nginx_proxy_manager_hosts
+  become: true
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+  roles:
+    - nginx-proxy-manager
+
+- name: Configure Nginx Proxy Manager proxy hosts
+  hosts: nginx_proxy_manager_hosts
+  become: false
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+  roles:
+    - nginx-proxy-manager-config
+
 - name: Configure AdGuard Home
   hosts: adguard_hosts
   become: true
