@@ -197,9 +197,18 @@ security:
 
 npm:
   admin_email: admin@example.com
+  api_email: automation@lax.dog
   access_user: adguard
   proxy_hosts:
     - name: AdGuard
-      domain: adguard.lax.dog
+      domain: dns.lax.dog
       forward_host: 10.20.30.153
       forward_port: 80
+
+cloudflare:
+  zone: lax.dog
+  records:
+    - name: dns.lax.dog
+      type: A
+      content: 10.20.30.154
+      proxied: false

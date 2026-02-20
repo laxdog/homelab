@@ -58,6 +58,21 @@
   roles:
     - nginx-proxy-manager-config
 
+- name: Configure Cloudflare DNS records
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+  roles:
+    - cloudflare-dns
+
 - name: Configure AdGuard Home
   hosts: adguard_hosts
   become: true

@@ -5,7 +5,21 @@
     port: 81
     timeout: 30
 
-- name: Login to NPM API with configured credentials
+- name: Login to NPM API with automation credentials
+  ansible.builtin.uri:
+    url: http://127.0.0.1:81/api/tokens
+    method: POST
+    body_format: json
+    body:
+      identity: "{{ config.npm.api_email }}"
+      secret: "{{ npm_api_password }}"
+  register: npm_login_api
+  retries: 12
+  delay: 5
+  until: npm_login_api.status is defined and npm_login_api.status != 502
+  failed_when: false
+
+- name: Login to NPM API with admin credentials
   ansible.builtin.uri:
     url: http://127.0.0.1:81/api/tokens
     method: POST
@@ -13,32 +27,87 @@
     body:
       identity: "{{ config.npm.admin_email }}"
       secret: "{{ npm_admin_password }}"
-  register: npm_login
+  register: npm_login_admin
   retries: 12
   delay: 5
-  until: npm_login.status is defined and npm_login.status != 502
-  failed_when: false
+  until: npm_login_admin.status is defined and npm_login_admin.status != 502
+  when: npm_login_api.status is not defined or npm_login_api.status not in [200, 201]
 
-- name: Login to NPM API with default credentials
+- name: Select NPM API token
+  ansible.builtin.set_fact:
+    npm_api_token: >-
+      {{ (npm_login_api.json.token
+          if (npm_login_api.status is defined and npm_login_api.status in [200, 201])
+          else npm_login_admin.json.token) }}
+
+- name: Read NPM users with admin token
+  ansible.builtin.uri:
+    url: http://127.0.0.1:81/api/users
+    method: GET
+    headers:
+      Authorization: "Bearer {{ npm_login_admin.json.token }}"
+  register: npm_users
+  when:
+    - npm_login_api.status is not defined or npm_login_api.status not in [200, 201]
+    - npm_login_admin.status is defined and npm_login_admin.status in [200, 201]
+
+- name: Normalize NPM users response
+  ansible.builtin.set_fact:
+    npm_user_items: "{{ npm_users.json.data | default(npm_users.json) }}"
+  when: npm_users is defined
+
+- name: Resolve automation user
+  ansible.builtin.set_fact:
+    npm_automation_user: >-
+      {{ (npm_user_items
+          | selectattr('email', 'equalto', config.npm.api_email)
+          | list
+          | first) | default({}) }}
+  when: npm_users is defined
+
+- name: Create automation user when missing
+  ansible.builtin.uri:
+    url: http://127.0.0.1:81/api/users
+    method: POST
+    status_code: [200, 201]
+    body_format: json
+    headers:
+      Authorization: "Bearer {{ npm_login_admin.json.token }}"
+    body:
+      name: "Automation"
+      nickname: "Automation"
+      email: "{{ config.npm.api_email }}"
+      roles:
+        - admin
+      auth:
+        type: password
+        secret: "{{ npm_api_password }}"
+  when:
+    - npm_users is defined
+    - npm_automation_user | length == 0
+
+- name: Login to NPM API with automation credentials (post-create)
   ansible.builtin.uri:
     url: http://127.0.0.1:81/api/tokens
     method: POST
     body_format: json
     body:
-      identity: admin@example.com
-      secret: changeme
-  register: npm_login_default
+      identity: "{{ config.npm.api_email }}"
+      secret: "{{ npm_api_password }}"
+  register: npm_login_api_post
   retries: 12
   delay: 5
-  until: npm_login_default.status is defined and npm_login_default.status != 502
-  when: npm_login.status is not defined or npm_login.status not in [200, 201]
+  until: npm_login_api_post.status is defined and npm_login_api_post.status != 502
+  when:
+    - npm_login_api.status is not defined or npm_login_api.status not in [200, 201]
+    - npm_users is defined
 
-- name: Select NPM API token
+- name: Update NPM API token after automation login
   ansible.builtin.set_fact:
-    npm_api_token: >-
-      {{ (npm_login.json.token
-          if (npm_login.status is defined and npm_login.status in [200, 201])
-          else npm_login_default.json.token) }}
+    npm_api_token: "{{ npm_login_api_post.json.token }}"
+  when:
+    - npm_login_api_post is defined
+    - npm_login_api_post.status is defined and npm_login_api_post.status in [200, 201]
 
 - name: Assert NPM API token available
   ansible.builtin.assert:
@@ -104,6 +173,43 @@
 - name: Normalize proxy host response
   ansible.builtin.set_fact:
     npm_proxy_host_items: "{{ npm_proxy_hosts.json.data | default(npm_proxy_hosts.json) }}"
+
+- name: Update AdGuard proxy host access list when needed
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:81/api/nginx/proxy-hosts/{{ current_host.id }}"
+    method: PUT
+    body_format: json
+    status_code: [200, 201]
+    headers:
+      Authorization: "Bearer {{ npm_api_token }}"
+    body:
+      domain_names:
+        - "{{ item.domain }}"
+      forward_scheme: http
+      forward_host: "{{ item.forward_host }}"
+      forward_port: "{{ item.forward_port }}"
+      access_list_id: "{{ npm_access_list_id }}"
+      allow_websocket_upgrade: true
+      block_exploits: true
+      caching_enabled: false
+      certificate_id: "{{ current_host.certificate_id | default(0) }}"
+      ssl_forced: "{{ current_host.ssl_forced | default(false) }}"
+      http2_support: "{{ current_host.http2_support | default(false) }}"
+      hsts_enabled: "{{ current_host.hsts_enabled | default(false) }}"
+      hsts_subdomains: "{{ current_host.hsts_subdomains | default(false) }}"
+      advanced_config: "{{ current_host.advanced_config | default('') }}"
+      meta: "{{ current_host.meta | default({'letsencrypt_agree': false, 'dns_challenge': false, 'letsencrypt_email': ''}) }}"
+      locations: "{{ current_host.locations | default([]) }}"
+  loop: "{{ config.npm.proxy_hosts }}"
+  vars:
+    current_host: >-
+      {{ (npm_proxy_host_items
+          | selectattr('domain_names', 'contains', item.domain)
+          | list
+          | first) | default({}) }}
+  when:
+    - current_host | length > 0
+    - current_host.access_list_id != npm_access_list_id
 
 - name: Create AdGuard proxy host when missing
   ansible.builtin.uri:

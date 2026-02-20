@@ -1,0 +1,43 @@
+---
+- name: Look up existing DNS record
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?type={{ record.type }}&name={{ record.name }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: application/json
+  register: cloudflare_record_lookup
+
+- name: Create DNS record when missing
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records"
+    method: POST
+    status_code: [200, 201]
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: application/json
+    body_format: json
+    body:
+      type: "{{ record.type }}"
+      name: "{{ record.name }}"
+      content: "{{ record.content }}"
+      proxied: "{{ record.proxied | default(false) }}"
+  when: cloudflare_record_lookup.json.result | length == 0
+
+- name: Update DNS record when content differs
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records/{{ cloudflare_record_lookup.json.result[0].id }}"
+    method: PUT
+    status_code: [200, 201]
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: application/json
+    body_format: json
+    body:
+      type: "{{ record.type }}"
+      name: "{{ record.name }}"
+      content: "{{ record.content }}"
+      proxied: "{{ record.proxied | default(false) }}"
+  when:
+    - cloudflare_record_lookup.json.result | length > 0
+    - cloudflare_record_lookup.json.result[0].content != record.content
