@@ -4,6 +4,14 @@
   register: current_tz
   changed_when: false
 
+- name: Set root password (vaulted)
+  ansible.builtin.user:
+    name: root
+    password: "{{ root_password_hash }}"
+    update_password: always
+  when: root_password_hash is defined
+  no_log: true
+
 - name: Set timezone
   ansible.builtin.command: timedatectl set-timezone {{ config.homelab.timezone }}
   when: current_tz.stdout != config.homelab.timezone

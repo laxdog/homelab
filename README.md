@@ -14,7 +14,8 @@ Source of truth: `config/homelab.yaml`.
 
 ## Run
 1. `pip install -r scripts/requirements.txt`
-2. `scripts/run.py apply`
+2. Provide vault password (e.g. `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`)
+3. `scripts/run.py apply`
 
 ## Repo layout
 - `config/`: single source-of-truth
