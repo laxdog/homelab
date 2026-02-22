@@ -31,6 +31,9 @@ Recommended: `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`
 - `organizr_hash_key`
 - `organizr_registration_password`
 - `organizr_api_key`
+- `authentik_admin_password`
+- `authentik_postgres_password`
+- `authentik_secret_key`
 
 Notes:
 - `scripts/run.py apply` will use `terraform_user_password` when `ANSIBLE_VAULT_PASSWORD_FILE` is set.
