@@ -35,8 +35,19 @@
   loop: "{{ lxc_key_check.results }}"
   when: item.rc != 0
 
-- name: Ensure SSH service enabled and running in LXCs
+- name: Check SSH service status in LXCs
   ansible.builtin.command: >
     pct exec {{ item.value.id }} -- bash -lc
-    "systemctl enable --now ssh || systemctl enable --now sshd"
+    "if systemctl list-unit-files | grep -q '^ssh.service'; then svc=ssh; else svc=sshd; fi;
+     systemctl is-enabled ${svc} >/dev/null 2>&1 && systemctl is-active ${svc} >/dev/null 2>&1"
   loop: "{{ config.services.lxcs | dict2items }}"
+  register: lxc_ssh_service_check
+  failed_when: false
+  changed_when: false
+
+- name: Ensure SSH service enabled and running in LXCs
+  ansible.builtin.command: >
+    pct exec {{ item.item.value.id }} -- bash -lc
+    "systemctl enable --now ssh || systemctl enable --now sshd"
+  loop: "{{ lxc_ssh_service_check.results }}"
+  when: item.rc != 0
