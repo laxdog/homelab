@@ -21,13 +21,15 @@ Source of truth: `config/homelab.yaml`.
 - python-bot
 - organizr
 - heimdall
+- authentik
 
 ## Host-level
 - NUT server (UPS USB)
 
 ## NPM Hostnames
 External (`lax.dog`):
-- External access is currently disabled (will be re-enabled behind Authentik).
+- External access is enabled behind Authentik.
+- `auth.lax.dog` -> Authentik
 
 Internal (`laxdog.uk`):
 - `dns.laxdog.uk` -> AdGuard UI
@@ -42,6 +44,7 @@ Internal (`laxdog.uk`):
 - `browser.laxdog.uk`
 - `apt.laxdog.uk`
 - `sites.laxdog.uk`
+- `auth.laxdog.uk`
 
 ## Notes
 - Media stack compose is a placeholder and needs service definitions added.
