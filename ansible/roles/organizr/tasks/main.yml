@@ -86,6 +86,22 @@
     timeout: 60
   when: not organizr_config.stat.exists
 
+- name: Ensure Organizr API secrets match vault
+  ansible.builtin.lineinfile:
+    path: "{{ organizr_config_path }}"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    backrefs: false
+  loop:
+    - regexp: "^\\s*'organizrAPI'\\s*=>.*$"
+      line: "\t'organizrAPI' => '{{ organizr_api_key }}',"
+    - regexp: "^\\s*'organizrHash'\\s*=>.*$"
+      line: "\t'organizrHash' => '{{ organizr_hash_key }}',"
+    - regexp: "^\\s*'registrationPassword'\\s*=>.*$"
+      line: "\t'registrationPassword' => '{{ organizr_registration_password }}',"
+  when: organizr_config.stat.exists
+  no_log: true
+
 - name: Build Organizr tab icon map
   ansible.builtin.set_fact:
     organizr_tab_icon_map:
@@ -119,7 +135,15 @@
 
 - name: Build existing Organizr tab name list
   ansible.builtin.set_fact:
-    organizr_existing_tab_names: "{{ (organizr_tabs_response.json.data | default([])) | map(attribute='name') | list }}"
+    organizr_existing_tab_names: >-
+      {{
+        (
+          organizr_tabs_response.json.response.data.tabs
+          | default(organizr_tabs_response.json.data.tabs | default([]))
+        )
+        | map(attribute='name')
+        | list
+      }}
 
 - name: Create Organizr tabs for proxy hosts
   ansible.builtin.uri:
