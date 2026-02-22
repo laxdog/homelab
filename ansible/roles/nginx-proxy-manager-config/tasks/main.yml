@@ -123,6 +123,17 @@
       - npm_api_token | length > 0
     fail_msg: "Unable to authenticate to NPM API; update npm.admin_email/npm_admin_password."
 
+- name: Build effective proxy host list
+  ansible.builtin.set_fact:
+    npm_proxy_hosts_effective: >-
+      {{ config.npm.proxy_hosts
+         + ((config.npm.external_proxy_hosts | default([]))
+            if (config.npm.external_enabled | default(false)) else []) }}
+
+- name: Build Authentik forward-auth snippet
+  ansible.builtin.set_fact:
+    authentik_forward_auth_snippet: "{{ lookup('template', 'authentik_forward_auth.conf.j2') }}"
+
 - name: Read existing NPM access lists
   ansible.builtin.uri:
     url: http://127.0.0.1:81/api/nginx/access-lists
@@ -138,6 +149,10 @@
 - name: Initialize access list map
   ansible.builtin.set_fact:
     npm_access_list_map: {}
+
+- name: Initialize certificate map
+  ansible.builtin.set_fact:
+    npm_certificate_map: {}
 
 - name: Ensure access lists exist
   ansible.builtin.include_tasks: access-list.yml
@@ -156,7 +171,65 @@
     that:
       - npm_access_list_map[item.access_list] is defined
     fail_msg: "Access list '{{ item.access_list }}' not defined for {{ item.domain }}."
-  loop: "{{ config.npm.proxy_hosts }}"
+  loop: "{{ npm_proxy_hosts_effective }}"
+
+- name: Read existing NPM certificates
+  ansible.builtin.uri:
+    url: http://127.0.0.1:81/api/nginx/certificates
+    method: GET
+    headers:
+      Authorization: "Bearer {{ npm_api_token }}"
+  register: npm_certificates
+
+- name: Normalize certificate response
+  ansible.builtin.set_fact:
+    npm_certificate_items: "{{ npm_certificates.json.data | default(npm_certificates.json) }}"
+
+- name: Build certificate map by name
+  ansible.builtin.set_fact:
+    npm_certificate_map: >-
+      {{ dict(npm_certificate_items | map(attribute='nice_name') | list
+         | zip(npm_certificate_items | map(attribute='id') | list)) }}
+
+- name: Build certificate map by domain set
+  ansible.builtin.set_fact:
+    npm_certificate_domains_map: >-
+      {{ npm_certificate_domains_map | default({}) | combine({
+         (item.domain_names | sort | join(',')): item.id
+      }) }}
+  loop: "{{ npm_certificate_items }}"
+  when: item.domain_names is defined
+
+- name: Build certificate config map
+  ansible.builtin.set_fact:
+    npm_certificate_config_map: >-
+      {{ dict((config.npm.certificates | default([])) | map(attribute='name') | list
+         | zip(config.npm.certificates | default([]))) }}
+
+- name: Ensure certificates exist
+  ansible.builtin.include_tasks: certificate.yml
+  loop: "{{ config.npm.certificates | default([]) }}"
+  loop_control:
+    loop_var: certificate
+  no_log: true
+
+- name: Refresh certificate list after creation
+  ansible.builtin.uri:
+    url: http://127.0.0.1:81/api/nginx/certificates
+    method: GET
+    headers:
+      Authorization: "Bearer {{ npm_api_token }}"
+  register: npm_certificates_refresh
+  when: config.npm.certificates | default([]) | length > 0
+
+- name: Update certificate map after creation
+  ansible.builtin.set_fact:
+    npm_certificate_map: >-
+      {{ dict((npm_certificates_refresh.json.data | default(npm_certificates_refresh.json))
+         | map(attribute='nice_name') | list
+         | zip((npm_certificates_refresh.json.data | default(npm_certificates_refresh.json))
+         | map(attribute='id') | list)) }}
+  when: config.npm.certificates | default([]) | length > 0
 
 - name: Read existing NPM proxy hosts
   ansible.builtin.uri:
@@ -197,22 +270,22 @@
     body:
       domain_names:
         - "{{ item.domain }}"
-      forward_scheme: http
+      forward_scheme: "{{ item.forward_scheme | default('http') }}"
       forward_host: "{{ item.forward_host }}"
       forward_port: "{{ item.forward_port }}"
       access_list_id: "{{ desired_access_list_id }}"
       allow_websocket_upgrade: true
       block_exploits: true
       caching_enabled: false
-      certificate_id: "{{ current_host.certificate_id | default(0) }}"
-      ssl_forced: "{{ current_host.ssl_forced | default(false) }}"
-      http2_support: "{{ current_host.http2_support | default(false) }}"
+      certificate_id: "{{ desired_certificate_id }}"
+      ssl_forced: "{{ desired_ssl_forced }}"
+      http2_support: "{{ desired_http2_support }}"
       hsts_enabled: "{{ current_host.hsts_enabled | default(false) }}"
       hsts_subdomains: "{{ current_host.hsts_subdomains | default(false) }}"
-      advanced_config: "{{ current_host.advanced_config | default('') }}"
+      advanced_config: "{{ desired_advanced_config }}"
       meta: "{{ current_host.meta | default({'letsencrypt_agree': false, 'dns_challenge': false, 'letsencrypt_email': ''}) }}"
       locations: "{{ current_host.locations | default([]) }}"
-  loop: "{{ config.npm.proxy_hosts }}"
+  loop: "{{ npm_proxy_hosts_effective }}"
   vars:
     current_host: >-
       {{ (npm_proxy_host_items
@@ -220,9 +293,41 @@
           | list
           | first) | default({}) }}
     desired_access_list_id: "{{ npm_access_list_map[item.access_list] }}"
+    desired_certificate_id: >-
+      {% if item.ssl | default(false) and item.certificate is defined %}
+      {% set cert_cfg = (npm_certificate_config_map[item.certificate] | default({})) %}
+      {% if cert_cfg and cert_cfg.type == 'letsencrypt' %}
+      {{ npm_certificate_domains_map[(cert_cfg.domains | sort | join(','))] | default(0) }}
+      {% else %}
+      {{ npm_certificate_map[item.certificate] | default(0) }}
+      {% endif %}
+      {% else %}
+      0
+      {% endif %}
+    desired_ssl_forced: "{{ item.ssl | default(false) }}"
+    desired_http2_support: "{{ item.ssl | default(false) }}"
+    desired_forward_scheme: "{{ item.forward_scheme | default('http') }}"
+    desired_advanced_config: >-
+      {% set base_config = (item.advanced_config
+         if item.advanced_config is defined
+         else (current_host.advanced_config | default(''))) %}
+      {% if item.authentik_protect | default(false) %}
+      {{ (base_config | trim) ~ '\n' if (base_config | trim) else '' }}{{ authentik_forward_auth_snippet | trim }}
+      {% else %}
+      {{ base_config }}
+      {% endif %}
+    needs_update: >-
+      {{ (current_host.access_list_id | default(0)) != desired_access_list_id
+         or (current_host.certificate_id | default(0)) != desired_certificate_id
+         or (current_host.ssl_forced | default(false)) != desired_ssl_forced
+         or (current_host.http2_support | default(false)) != desired_http2_support
+         or (current_host.forward_scheme | default('http')) != desired_forward_scheme
+         or (current_host.advanced_config | default('')) != desired_advanced_config
+         or (current_host.meta.nginx_online is defined and not current_host.meta.nginx_online)
+         or (npm_certificates_changed | default(false)) }}
   when:
     - current_host | length > 0
-    - current_host.access_list_id != desired_access_list_id
+    - needs_update
 
 - name: Create AdGuard proxy host when missing
   ansible.builtin.uri:
@@ -235,25 +340,43 @@
     body:
       domain_names:
         - "{{ item.domain }}"
-      forward_scheme: http
+      forward_scheme: "{{ item.forward_scheme | default('http') }}"
       forward_host: "{{ item.forward_host }}"
       forward_port: "{{ item.forward_port }}"
       access_list_id: "{{ npm_access_list_map[item.access_list] }}"
       allow_websocket_upgrade: true
       block_exploits: true
       caching_enabled: false
-      certificate_id: 0
-      ssl_forced: false
-      http2_support: false
+      certificate_id: "{{ desired_certificate_id }}"
+      ssl_forced: "{{ item.ssl | default(false) }}"
+      http2_support: "{{ item.ssl | default(false) }}"
       hsts_enabled: false
       hsts_subdomains: false
-      advanced_config: ""
+      advanced_config: >-
+        {% if item.authentik_protect | default(false) %}
+        {{ (item.advanced_config | default('') | trim) ~ '\n'
+           if (item.advanced_config | default('') | trim) else '' }}{{ authentik_forward_auth_snippet | trim }}
+        {% else %}
+        {{ item.advanced_config | default('') }}
+        {% endif %}
       meta:
         letsencrypt_agree: false
         dns_challenge: false
         letsencrypt_email: ""
       locations: []
-  loop: "{{ config.npm.proxy_hosts }}"
+  loop: "{{ npm_proxy_hosts_effective }}"
+  vars:
+    desired_certificate_id: >-
+      {% if item.ssl | default(false) and item.certificate is defined %}
+      {% set cert_cfg = (npm_certificate_config_map[item.certificate] | default({})) %}
+      {% if cert_cfg and cert_cfg.type == 'letsencrypt' %}
+      {{ npm_certificate_domains_map[(cert_cfg.domains | sort | join(','))] | default(0) }}
+      {% else %}
+      {{ npm_certificate_map[item.certificate] | default(0) }}
+      {% endif %}
+      {% else %}
+      0
+      {% endif %}
   when: >-
     (npm_proxy_host_items
       | selectattr('domain_names', 'contains', item.domain)
