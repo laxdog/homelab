@@ -110,6 +110,8 @@ adguard:
       answer: 10.20.30.154
     - domain: npm.laxdog.uk
       answer: 10.20.30.154
+    - domain: proxmox.laxdog.uk
+      answer: 10.20.30.154
     - domain: organizr.laxdog.uk
       answer: 10.20.30.154
     - domain: heimdall.laxdog.uk
@@ -127,6 +129,8 @@ adguard:
     - domain: apt.laxdog.uk
       answer: 10.20.30.154
     - domain: sites.laxdog.uk
+      answer: 10.20.30.154
+    - domain: auth.laxdog.uk
       answer: 10.20.30.154
 
 services:
@@ -223,6 +227,10 @@ services:
       id: 166
       ip: 10.20.30.166
       roles: [docker, heimdall]
+    authentik:
+      id: 170
+      ip: 10.20.30.170
+      roles: [docker, authentik]
 
 security:
   ansible_vault: true
@@ -231,131 +239,187 @@ npm:
   admin_email: admin@example.com
   api_email: automation@lax.dog
   access_user: adguard
+  external_enabled: true
   remove_proxy_hosts:
     - dns.lax.dog
+    - sites.lax.dog
+    - organizr.lax.dog
+    - heimdall.lax.dog
+    - rss.lax.dog
+    - couchdb.lax.dog
+    - browser.lax.dog
   access_lists:
     - name: Internal Access
       auth: none
+      clients:
+        - address: 10.20.30.0/24
+          directive: allow
     - name: External Protected
       auth: basic
+      clients:
+        - address: 0.0.0.0/0
+          directive: allow
     - name: External Public
       auth: none
+      clients:
+        - address: 0.0.0.0/0
+          directive: allow
+  certificates:
+    - name: laxdog-internal-le
+      type: letsencrypt
+      dns_provider: cloudflare
+      domains:
+        - dns.laxdog.uk
+        - npm.laxdog.uk
+        - proxmox.laxdog.uk
+        - organizr.laxdog.uk
+        - heimdall.laxdog.uk
+        - rss.laxdog.uk
+        - netalertx.laxdog.uk
+        - health.laxdog.uk
+        - couchdb.laxdog.uk
+        - browser.laxdog.uk
+        - apt.laxdog.uk
+        - sites.laxdog.uk
+        - auth.laxdog.uk
+    - name: laxdog-external-le
+      type: letsencrypt
+      dns_provider: cloudflare
+      domains:
+        - auth.lax.dog
   proxy_hosts:
     - name: AdGuard Internal
       domain: dns.laxdog.uk
       forward_host: 10.20.30.153
       forward_port: 80
       access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
     - name: NPM
       domain: npm.laxdog.uk
       forward_host: 10.20.30.154
       forward_port: 81
       access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
+    - name: Proxmox
+      domain: proxmox.laxdog.uk
+      forward_scheme: https
+      forward_host: 10.20.30.46
+      forward_port: 8006
+      access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
     - name: Organizr
       domain: organizr.laxdog.uk
       forward_host: 10.20.30.164
       forward_port: 80
       access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
     - name: Heimdall
       domain: heimdall.laxdog.uk
       forward_host: 10.20.30.166
       forward_port: 80
       access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
     - name: FreshRSS
       domain: rss.laxdog.uk
       forward_host: 10.20.30.157
       forward_port: 80
       access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
     - name: NetAlertX
       domain: netalertx.laxdog.uk
       forward_host: 10.20.30.158
       forward_port: 20211
       access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
     - name: Healthchecks
       domain: health.laxdog.uk
       forward_host: 10.20.30.159
       forward_port: 8000
       access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
     - name: CouchDB
       domain: couchdb.laxdog.uk
       forward_host: 10.20.30.165
       forward_port: 5984
       access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
     - name: Browser
       domain: browser.laxdog.uk
       forward_host: 10.20.30.162
       forward_port: 5800
       access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
     - name: Apt Cacher
       domain: apt.laxdog.uk
       forward_host: 10.20.30.156
       forward_port: 3142
       access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
     - name: Static Sites Internal
       domain: sites.laxdog.uk
       forward_host: 10.20.30.161
       forward_port: 80
       access_list: Internal Access
-    - name: Static Sites External
-      domain: sites.lax.dog
-      forward_host: 10.20.30.161
-      forward_port: 80
+      ssl: true
+      certificate: laxdog-internal-le
+    - name: Authentik Internal
+      domain: auth.laxdog.uk
+      forward_host: 10.20.30.170
+      forward_port: 9000
+      access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
+  external_proxy_hosts:
+    - name: Authentik External
+      domain: auth.lax.dog
+      forward_host: 10.20.30.170
+      forward_port: 9000
       access_list: External Public
-    - name: Organizr External
-      domain: organizr.lax.dog
-      forward_host: 10.20.30.164
-      forward_port: 80
-      access_list: External Protected
-    - name: Heimdall External
-      domain: heimdall.lax.dog
-      forward_host: 10.20.30.166
-      forward_port: 80
-      access_list: External Protected
-    - name: FreshRSS External
-      domain: rss.lax.dog
-      forward_host: 10.20.30.157
-      forward_port: 80
-      access_list: External Protected
-    - name: CouchDB External
-      domain: couchdb.lax.dog
-      forward_host: 10.20.30.165
-      forward_port: 5984
-      access_list: External Protected
-    - name: Browser External
-      domain: browser.lax.dog
-      forward_host: 10.20.30.162
-      forward_port: 5800
-      access_list: External Protected
+      ssl: true
+      certificate: laxdog-external-le
+
+organizr:
+  admin_user: admin
+  admin_email: admin@laxdog.uk
+  license: personal
+  db_name: organizr.db
+  db_path: /config/www/organizr/data/db/
+
+authentik:
+  admin_email: admin@laxdog.uk
+  admin_user: akadmin
+  version: 2025.2.1
+  port: 9000
+  internal_domain: auth.laxdog.uk
+  external_domain: auth.lax.dog
 
 cloudflare:
   zone: lax.dog
+  public_ip: auto
   remove_records:
     - dns.lax.dog
+    - sites.lax.dog
+    - organizr.lax.dog
+    - heimdall.lax.dog
+    - rss.lax.dog
+    - couchdb.lax.dog
+    - browser.lax.dog
   records:
-    - name: sites.lax.dog
-      type: A
-      content: 10.20.30.154
-      proxied: false
-    - name: organizr.lax.dog
-      type: A
-      content: 10.20.30.154
-      proxied: false
-    - name: heimdall.lax.dog
-      type: A
-      content: 10.20.30.154
-      proxied: false
-    - name: rss.lax.dog
-      type: A
-      content: 10.20.30.154
-      proxied: false
-    - name: couchdb.lax.dog
-      type: A
-      content: 10.20.30.154
-      proxied: false
-    - name: browser.lax.dog
-      type: A
-      content: 10.20.30.154
-      proxied: false
+    - type: A
+      name: auth.lax.dog
+      content: public_ip
+      proxied: true
 
 validation:
   service_ports:
@@ -368,6 +432,12 @@ validation:
     - name: nginx-proxy-manager
       host: 10.20.30.154
       port: 81
+    - name: nginx-proxy-manager-https
+      host: 10.20.30.154
+      port: 443
+    - name: proxmox
+      host: 10.20.30.46
+      port: 8006
     - name: organizr
       host: 10.20.30.164
       port: 80
@@ -395,3 +465,6 @@ validation:
     - name: static-sites
       host: 10.20.30.161
       port: 80
+    - name: authentik
+      host: 10.20.30.170
+      port: 9000
