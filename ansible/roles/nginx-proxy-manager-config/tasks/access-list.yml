@@ -6,6 +6,17 @@
           | list
           | first) | default({}) }}
 
+- name: Build desired access list payload
+  ansible.builtin.set_fact:
+    npm_access_list_payload:
+      name: "{{ access_list.name }}"
+      satisfy_any: false
+      pass_auth: "{{ access_list.auth == 'basic' }}"
+      items: >-
+        {{ ([{'username': config.npm.access_user, 'password': npm_access_password}]
+           if access_list.auth == 'basic' else []) }}
+      clients: "{{ access_list.clients | default([]) }}"
+
 - name: Create access list when missing
   ansible.builtin.uri:
     url: http://127.0.0.1:81/api/nginx/access-lists
@@ -14,16 +25,25 @@
     status_code: [200, 201]
     headers:
       Authorization: "Bearer {{ npm_api_token }}"
-    body:
-      name: "{{ access_list.name }}"
-      satisfy_any: false
-      pass_auth: "{{ access_list.auth == 'basic' }}"
-      items: >-
-        {{ ([{'username': config.npm.access_user, 'password': npm_access_password}]
-           if access_list.auth == 'basic' else []) }}
-      clients: []
+    body: "{{ npm_access_list_payload }}"
   when: npm_access_list_current | length == 0
   register: npm_access_list_created
+
+- name: Update access list when settings drift
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:81/api/nginx/access-lists/{{ npm_access_list_current.id }}"
+    method: PUT
+    body_format: json
+    status_code: [200, 201]
+    headers:
+      Authorization: "Bearer {{ npm_api_token }}"
+    body: "{{ npm_access_list_payload }}"
+  when:
+    - npm_access_list_current | length > 0
+    - npm_access_list_current.pass_auth | default(false) != (access_list.auth == 'basic')
+      or (npm_access_list_current.satisfy_any | default(false)) != false
+      or (npm_access_list_current.items | default([])) != (npm_access_list_payload.items | default([]))
+      or (npm_access_list_current.clients | default([])) != (npm_access_list_payload.clients | default([]))
 
 - name: Store access list ID
   ansible.builtin.set_fact:

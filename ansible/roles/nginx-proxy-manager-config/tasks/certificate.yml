@@ -1,0 +1,93 @@
+---
+- name: Build certificate domain key
+  ansible.builtin.set_fact:
+    certificate_domain_key: "{{ certificate.domains | sort | join(',') }}"
+
+- name: Build certificate payload
+  ansible.builtin.set_fact:
+    npm_certificate_payload: >-
+      {{ (certificate.type == 'letsencrypt')
+         | ternary(
+            {
+              'provider': 'letsencrypt',
+              'domain_names': certificate.domains,
+              'meta': {
+                'dns_challenge': true,
+                'dns_provider': certificate.dns_provider,
+                'dns_provider_credentials': (certificate.dns_provider_credentials
+                  if certificate.dns_provider_credentials is defined
+                  else ('dns_cloudflare_api_token=' ~ cloudflare_api_token)),
+                'propagation_seconds': (certificate.propagation_seconds | default(60))
+              }
+            },
+            {
+              'provider': 'other',
+              'nice_name': certificate.name,
+              'domain_names': certificate.domains
+            }
+         ) }}
+
+- name: Set certificate existence flag
+  ansible.builtin.set_fact:
+    npm_certificate_exists: >-
+      {{ (certificate.type == 'letsencrypt' and (npm_certificate_domains_map[certificate_domain_key] | default(0)) | int > 0)
+         or (certificate.type != 'letsencrypt' and (npm_certificate_map[certificate.name] | default(0)) | int > 0) }}
+
+- name: Create certificate entry when missing
+  ansible.builtin.uri:
+    url: http://127.0.0.1:81/api/nginx/certificates
+    method: POST
+    body_format: json
+    status_code: [200, 201]
+    timeout: 300
+    headers:
+      Authorization: "Bearer {{ npm_api_token }}"
+    body: "{{ npm_certificate_payload }}"
+  register: npm_cert_create
+  when: not npm_certificate_exists
+  retries: 2
+  delay: 5
+  until: npm_cert_create.status is defined and npm_cert_create.status in [200, 201]
+
+- name: Mark certificates as changed when created
+  ansible.builtin.set_fact:
+    npm_certificates_changed: true
+  when:
+    - npm_cert_create is defined
+    - npm_cert_create.status is defined and npm_cert_create.status in [200, 201]
+
+- name: Create local temp directory for certificates
+  ansible.builtin.file:
+    path: "/tmp/npm-certs"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  when:
+    - certificate.type == 'self_signed'
+    - not npm_certificate_exists
+
+- name: Generate self-signed certificate
+  ansible.builtin.command: >
+    openssl req -x509 -nodes -newkey rsa:2048 -days 825
+    -subj "/CN={{ certificate.domains[0] }}"
+    -addext "subjectAltName={{ certificate.domains | map('regex_replace', '^', 'DNS:') | join(',') }}"
+    -keyout /tmp/npm-certs/{{ certificate.name }}.key
+    -out /tmp/npm-certs/{{ certificate.name }}.crt
+  args:
+    creates: "/tmp/npm-certs/{{ certificate.name }}.crt"
+  delegate_to: localhost
+  when:
+    - certificate.type == 'self_signed'
+    - not npm_certificate_exists
+
+- name: Upload self-signed certificate to NPM
+  ansible.builtin.command: >
+    curl -fsSL -X POST
+    -H "Authorization: Bearer {{ npm_api_token }}"
+    -F "certificate=@/tmp/npm-certs/{{ certificate.name }}.crt"
+    -F "certificate_key=@/tmp/npm-certs/{{ certificate.name }}.key"
+    http://{{ ansible_host }}:81/api/nginx/certificates/{{ (npm_cert_create.json.id | default(npm_cert_create.json.data.id)) }}/upload
+  delegate_to: localhost
+  when:
+    - certificate.type == 'self_signed'
+    - not npm_certificate_exists
