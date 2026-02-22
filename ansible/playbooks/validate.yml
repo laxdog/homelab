@@ -5,6 +5,21 @@
   vars_files:
     - "{{ playbook_dir }}/../../config/homelab.yaml"
   tasks:
+    - name: Determine if public IP lookup is required
+      ansible.builtin.set_fact:
+        cloudflare_public_ip_required: "{{ (config.cloudflare.records | default([]) | selectattr('content', 'equalto', 'public_ip') | list | length) > 0 }}"
+
+    - name: Fetch public IP for Cloudflare validation
+      ansible.builtin.uri:
+        url: https://api.ipify.org?format=json
+        method: GET
+      register: cloudflare_public_ip
+      when: cloudflare_public_ip_required | bool
+
+    - name: Set Cloudflare public IP fact
+      ansible.builtin.set_fact:
+        cloudflare_public_ip_value: "{{ cloudflare_public_ip.json.ip }}"
+      when: cloudflare_public_ip_required | bool
     - name: Check Proxmox version
       ansible.builtin.command: pveversion -v
       changed_when: false
@@ -220,6 +235,13 @@
           {{ dict(npm_access_list_items | map(attribute='name') | list
              | zip(npm_access_list_items | map(attribute='id') | list)) }}
 
+    - name: Build effective proxy host list
+      ansible.builtin.set_fact:
+        npm_proxy_hosts_effective: >-
+          {{ config.npm.proxy_hosts
+             + ((config.npm.external_proxy_hosts | default([]))
+                if (config.npm.external_enabled | default(false)) else []) }}
+
     - name: Assert expected access lists exist
       ansible.builtin.assert:
         that:
@@ -253,7 +275,7 @@
               | selectattr('domain_names', 'contains', item.domain)
               | list
               | first) | default({}) }}
-      loop: "{{ config.npm.proxy_hosts }}"
+      loop: "{{ npm_proxy_hosts_effective }}"
       register: npm_proxy_host_results
 
     - name: Assert NPM proxy hosts exist
@@ -291,6 +313,13 @@
   vars:
     config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
   tasks:
+    - name: Build effective proxy host list
+      ansible.builtin.set_fact:
+        npm_proxy_hosts_effective: >-
+          {{ config.npm.proxy_hosts
+             + ((config.npm.external_proxy_hosts | default([]))
+                if (config.npm.external_enabled | default(false)) else []) }}
+
     - name: Check HTTPS response via NPM for internal domains
       ansible.builtin.command: >-
         curl -k -s -o /dev/null -w "%{http_code}"
@@ -298,7 +327,7 @@
         https://{{ item.domain }}
       register: npm_https_checks
       changed_when: false
-      loop: "{{ config.npm.proxy_hosts | selectattr('ssl', 'defined') | selectattr('ssl') | list }}"
+      loop: "{{ npm_proxy_hosts_effective | selectattr('ssl', 'defined') | selectattr('ssl') | list }}"
 
     - name: Assert NPM HTTPS endpoints are reachable
       ansible.builtin.assert:
@@ -314,7 +343,7 @@
         http://{{ item.domain }}
       register: npm_http_checks
       changed_when: false
-      loop: "{{ config.npm.proxy_hosts | selectattr('ssl', 'defined') | selectattr('ssl') | list }}"
+      loop: "{{ npm_proxy_hosts_effective | selectattr('ssl', 'defined') | selectattr('ssl') | list }}"
 
     - name: Assert HTTP redirects to HTTPS
       ansible.builtin.assert:
@@ -322,6 +351,43 @@
           - item.stdout | int in [301, 302]
         fail_msg: "Expected HTTP redirect to HTTPS for {{ item.item.domain }}, got {{ item.stdout }}"
       loop: "{{ npm_http_checks.results | default([]) }}"
+
+    - name: Check Authentik internal endpoint via NPM
+      ansible.builtin.command: >-
+        curl -k -s -o /dev/null -w "%{http_code}"
+        --resolve {{ config.authentik.internal_domain }}:443:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
+        https://{{ config.authentik.internal_domain }}
+      register: authentik_internal_check
+      changed_when: false
+
+    - name: Check Authentik external endpoint via NPM
+      ansible.builtin.command: >-
+        curl -k -s -o /dev/null -w "%{http_code}"
+        --resolve {{ config.authentik.external_domain }}:443:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
+        https://{{ config.authentik.external_domain }}
+      register: authentik_external_check
+      changed_when: false
+
+    - name: Assert Authentik endpoints reachable
+      ansible.builtin.assert:
+        that:
+          - authentik_internal_check.stdout | int in [200, 302]
+          - authentik_external_check.stdout | int in [200, 302]
+        fail_msg: "Authentik endpoint checks failed (internal {{ authentik_internal_check.stdout }}, external {{ authentik_external_check.stdout }})"
+
+    - name: Check Authentik outpost ping via NPM
+      ansible.builtin.command: >-
+        curl -k -s -o /dev/null -w "%{http_code}"
+        --resolve {{ config.authentik.external_domain }}:443:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
+        https://{{ config.authentik.external_domain }}/outpost.goauthentik.io/ping
+      register: authentik_outpost_ping
+      changed_when: false
+
+    - name: Assert Authentik outpost ping reachable
+      ansible.builtin.assert:
+        that:
+          - authentik_outpost_ping.stdout | int in [200, 204]
+        fail_msg: "Authentik outpost ping failed with {{ authentik_outpost_ping.stdout }}"
 
 - name: Validate Cloudflare DNS records
   hosts: localhost
@@ -369,7 +435,7 @@
       ansible.builtin.assert:
         that:
           - item.json.result | length > 0
-          - item.json.result[0].content == item.item.content
+          - item.json.result[0].content == (cloudflare_public_ip_value if item.item.content == 'public_ip' else item.item.content)
         fail_msg: "Cloudflare DNS record mismatch for {{ item.item.name }}"
       loop: "{{ cloudflare_record_lookup.results }}"
 
