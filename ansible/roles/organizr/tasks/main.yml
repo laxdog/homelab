@@ -1,15 +1,31 @@
+- name: Set Organizr paths
+  ansible.builtin.set_fact:
+    organizr_compose_dir: "/docker/docker-compose-{{ inventory_hostname }}"
+    organizr_config_dir: "/docker/docker-compose-{{ inventory_hostname }}/config"
+    organizr_config_path: "/docker/docker-compose-{{ inventory_hostname }}/config/www/organizr/data/config/config.php"
+    organizr_db_host_path: >-
+      /docker/docker-compose-{{ inventory_hostname }}/config{{ config.organizr.db_path | regex_replace('^/config', '') }}
+
 - name: Create application directory
   ansible.builtin.file:
-    path: "/docker/docker-compose-{{ inventory_hostname }}"
+    path: "{{ organizr_compose_dir }}"
     state: directory
     owner: root
     group: root
     mode: '0755'
 
+- name: Create Organizr config directory
+  ansible.builtin.file:
+    path: "{{ organizr_config_dir }}"
+    state: directory
+    owner: "1000"
+    group: "1000"
+    mode: '0755'
+
 - name: Copy the Docker Compose file
   ansible.builtin.template:
     src: "docker-compose.yaml.j2"
-    dest: "/docker/docker-compose-{{ inventory_hostname }}/docker-compose.yaml"
+    dest: "{{ organizr_compose_dir }}/docker-compose.yaml"
     owner: root
     group: root
     mode: '0644'
@@ -18,5 +34,111 @@
   ansible.builtin.command:
     cmd: docker compose up -d
   args:
-    chdir: /docker/docker-compose-{{ inventory_hostname }}
+    chdir: "{{ organizr_compose_dir }}"
   changed_when: false
+
+- name: Ensure Organizr database directory exists
+  ansible.builtin.file:
+    path: "{{ organizr_db_host_path }}"
+    state: directory
+    owner: "1000"
+    group: "1000"
+    mode: '0755'
+
+- name: Check for Organizr config file
+  ansible.builtin.stat:
+    path: "{{ organizr_config_path }}"
+  register: organizr_config
+
+- name: Wait for Organizr API to be reachable
+  ansible.builtin.uri:
+    url: http://127.0.0.1/api/v2/status
+    method: GET
+    status_code: [200]
+  register: organizr_status
+  retries: 12
+  delay: 5
+  until: organizr_status.status == 200
+
+- name: Run Organizr setup wizard when not configured
+  ansible.builtin.uri:
+    url: http://127.0.0.1/api/v2/wizard
+    method: POST
+    body_format: json
+    status_code: [200, 201]
+    body:
+      license: "{{ config.organizr.license }}"
+      username: "{{ config.organizr.admin_user }}"
+      email: "{{ config.organizr.admin_email }}"
+      password: "{{ organizr_admin_password }}"
+      hashKey: "{{ organizr_hash_key }}"
+      registrationPassword: "{{ organizr_registration_password }}"
+      api: "{{ organizr_api_key }}"
+      driver: sqlite3
+      dbName: "{{ config.organizr.db_name }}"
+      dbPath: "{{ config.organizr.db_path }}"
+  when: not organizr_config.stat.exists
+  no_log: true
+
+- name: Wait for Organizr config file
+  ansible.builtin.wait_for:
+    path: "{{ organizr_config_path }}"
+    timeout: 60
+  when: not organizr_config.stat.exists
+
+- name: Build Organizr tab icon map
+  ansible.builtin.set_fact:
+    organizr_tab_icon_map:
+      dns.laxdog.uk: AdGuardHome.png
+      npm.laxdog.uk: nginxproxymanager.png
+      proxmox.laxdog.uk: proxmox.png
+      rss.laxdog.uk: rsscrawler.png
+      health.laxdog.uk: healthchecks.png
+      browser.laxdog.uk: filebrowser.png
+      couchdb.laxdog.uk: couchpotato.png
+
+- name: Build Organizr tab list from proxy hosts
+  ansible.builtin.set_fact:
+    organizr_tabs: "{{ organizr_tabs | default([]) + [tab_entry] }}"
+  vars:
+    icon_name: "{{ organizr_tab_icon_map[item.domain] | default('HTML5.png') }}"
+    tab_entry:
+      name: "{{ item.name }}"
+      url: "https://{{ item.domain }}"
+      image: "plugins/images/tabs/{{ icon_name }}"
+  loop: "{{ config.npm.proxy_hosts }}"
+
+- name: Read existing Organizr tabs
+  ansible.builtin.uri:
+    url: http://127.0.0.1/api/v2/tabs
+    method: GET
+    headers:
+      token: "{{ organizr_api_key }}"
+  register: organizr_tabs_response
+  no_log: true
+
+- name: Build existing Organizr tab name list
+  ansible.builtin.set_fact:
+    organizr_existing_tab_names: "{{ (organizr_tabs_response.json.data | default([])) | map(attribute='name') | list }}"
+
+- name: Create Organizr tabs for proxy hosts
+  ansible.builtin.uri:
+    url: http://127.0.0.1/api/v2/tabs
+    method: POST
+    body_format: json
+    status_code: [200, 201]
+    headers:
+      token: "{{ organizr_api_key }}"
+    body:
+      name: "{{ item.name }}"
+      url: "{{ item.url }}"
+      image: "{{ item.image }}"
+      enabled: 1
+      default: 0
+      type: 1
+      order: "{{ index + 1 }}"
+  loop: "{{ organizr_tabs | default([]) }}"
+  loop_control:
+    index_var: index
+  when: item.name not in organizr_existing_tab_names
+  no_log: true
