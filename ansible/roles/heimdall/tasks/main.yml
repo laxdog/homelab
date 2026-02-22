@@ -2,6 +2,13 @@
   ansible.builtin.set_fact:
     heimdall_compose_dir: "/docker/docker-compose-{{ inventory_hostname }}"
     heimdall_config_dir: "/docker/docker-compose-{{ inventory_hostname }}/config"
+    heimdall_db_path: "/docker/docker-compose-{{ inventory_hostname }}/config/www/app.sqlite"
+
+- name: Install SQLite for Heimdall automation
+  ansible.builtin.apt:
+    name: sqlite3
+    state: present
+    update_cache: true
 
 - name: Create application directory
   ansible.builtin.file:
@@ -33,3 +40,44 @@
   args:
     chdir: "{{ heimdall_compose_dir }}"
   changed_when: false
+
+- name: Wait for Heimdall database
+  ansible.builtin.wait_for:
+    path: "{{ heimdall_db_path }}"
+    timeout: 60
+
+- name: Build Heimdall item list from proxy hosts
+  ansible.builtin.set_fact:
+    heimdall_items: "{{ heimdall_items | default([]) + [item_entry] }}"
+  vars:
+    item_entry:
+      title: "{{ item.name }}"
+      url: "https://{{ item.domain }}"
+      sql_title: "{{ item.name | replace(\"'\", \"''\") }}"
+      sql_url: "{{ ('https://' ~ item.domain) | replace(\"'\", \"''\") }}"
+  loop: "{{ config.npm.proxy_hosts }}"
+
+- name: Check if Heimdall item exists
+  ansible.builtin.command: >-
+    sqlite3 {{ heimdall_db_path }}
+    "SELECT id FROM items WHERE url='{{ item.sql_url }}'
+     AND deleted_at IS NULL LIMIT 1;"
+  register: heimdall_item_lookup
+  changed_when: false
+  loop: "{{ heimdall_items | default([]) }}"
+
+- name: Add Heimdall items
+  ansible.builtin.command: >-
+    sqlite3 {{ heimdall_db_path }}
+    "INSERT INTO items
+     (title, colour, icon, url, description, pinned, \"order\",
+      created_at, updated_at, type, user_id)
+     VALUES
+     ('{{ item.item.sql_title }}', '', 'fas fa-link',
+      '{{ item.item.sql_url }}', '',
+      1, {{ item_index + 1 }},
+      datetime('now'), datetime('now'), 0, 1);"
+  loop: "{{ heimdall_item_lookup.results | default([]) }}"
+  loop_control:
+    index_var: item_index
+  when: (item.stdout | trim) == ""
