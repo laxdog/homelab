@@ -82,10 +82,24 @@
     index_var: item_index
   when: (item.stdout | trim) == ""
 
+- name: Check Heimdall item pin/type
+  ansible.builtin.command: >-
+    sqlite3 {{ heimdall_db_path }}
+    "SELECT pinned || '|' || type
+     FROM items
+     WHERE url='{{ item.sql_url }}' AND deleted_at IS NULL
+     LIMIT 1;"
+  register: heimdall_pin_check
+  changed_when: false
+  loop: "{{ heimdall_items | default([]) }}"
+
 - name: Ensure Heimdall items are pinned and app-type
   ansible.builtin.command: >-
     sqlite3 {{ heimdall_db_path }}
     "UPDATE items
      SET pinned=1, type=1, updated_at=datetime('now')
-     WHERE url='{{ item.sql_url }}' AND deleted_at IS NULL;"
-  loop: "{{ heimdall_items | default([]) }}"
+     WHERE url='{{ item.item.sql_url }}' AND deleted_at IS NULL;"
+  loop: "{{ heimdall_pin_check.results | default([]) }}"
+  when:
+    - (item.stdout | trim) != ""
+    - (item.stdout | trim) != "1|1"
