@@ -270,6 +270,59 @@
         fail_msg: "NPM proxy host missing access list for {{ item.item.domain }}"
       loop: "{{ npm_proxy_host_results.results }}"
 
+    - name: Assert NPM proxy hosts enforce HTTPS when configured
+      ansible.builtin.assert:
+        that:
+          - (item.item.ssl | default(false)) == false or (item.ansible_facts.npm_proxy_host.ssl_forced | default(false)) | bool
+          - (item.item.ssl | default(false)) == false or (item.ansible_facts.npm_proxy_host.certificate_id | int) > 0
+        fail_msg: "NPM proxy host missing HTTPS config for {{ item.item.domain }}"
+      loop: "{{ npm_proxy_host_results.results }}"
+
+    - name: Assert NPM proxy host forward scheme matches config
+      ansible.builtin.assert:
+        that:
+          - (item.ansible_facts.npm_proxy_host.forward_scheme | default('http')) == (item.item.forward_scheme | default('http'))
+        fail_msg: "NPM proxy host forward scheme mismatch for {{ item.item.domain }}"
+      loop: "{{ npm_proxy_host_results.results }}"
+
+- name: Validate NPM HTTPS endpoints via Proxmox
+  hosts: proxmox_hosts
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  tasks:
+    - name: Check HTTPS response via NPM for internal domains
+      ansible.builtin.command: >-
+        curl -k -s -o /dev/null -w "%{http_code}"
+        --resolve {{ item.domain }}:443:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
+        https://{{ item.domain }}
+      register: npm_https_checks
+      changed_when: false
+      loop: "{{ config.npm.proxy_hosts | selectattr('ssl', 'defined') | selectattr('ssl') | list }}"
+
+    - name: Assert NPM HTTPS endpoints are reachable
+      ansible.builtin.assert:
+        that:
+          - item.stdout | int in [200, 301, 302, 401]
+        fail_msg: "Unexpected HTTPS response for {{ item.item.domain }}: {{ item.stdout }}"
+      loop: "{{ npm_https_checks.results | default([]) }}"
+
+    - name: Check HTTP redirects to HTTPS via NPM for internal domains
+      ansible.builtin.command: >-
+        curl -k -s -o /dev/null -w "%{http_code}"
+        --resolve {{ item.domain }}:80:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
+        http://{{ item.domain }}
+      register: npm_http_checks
+      changed_when: false
+      loop: "{{ config.npm.proxy_hosts | selectattr('ssl', 'defined') | selectattr('ssl') | list }}"
+
+    - name: Assert HTTP redirects to HTTPS
+      ansible.builtin.assert:
+        that:
+          - item.stdout | int in [301, 302]
+        fail_msg: "Expected HTTP redirect to HTTPS for {{ item.item.domain }}, got {{ item.stdout }}"
+      loop: "{{ npm_http_checks.results | default([]) }}"
+
 - name: Validate Cloudflare DNS records
   hosts: localhost
   connection: local

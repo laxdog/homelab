@@ -1,15 +1,28 @@
+- name: Set Heimdall paths
+  ansible.builtin.set_fact:
+    heimdall_compose_dir: "/docker/docker-compose-{{ inventory_hostname }}"
+    heimdall_config_dir: "/docker/docker-compose-{{ inventory_hostname }}/config"
+
 - name: Create application directory
   ansible.builtin.file:
-    path: "/docker/docker-compose-{{ inventory_hostname }}"
+    path: "{{ heimdall_compose_dir }}"
     state: directory
     owner: root
     group: root
     mode: '0755'
 
+- name: Create Heimdall config directory
+  ansible.builtin.file:
+    path: "{{ heimdall_config_dir }}"
+    state: directory
+    owner: "1000"
+    group: "1000"
+    mode: '0755'
+
 - name: Copy the Docker Compose file
   ansible.builtin.template:
     src: "docker-compose.yaml.j2"
-    dest: "/docker/docker-compose-{{ inventory_hostname }}/docker-compose.yaml"
+    dest: "{{ heimdall_compose_dir }}/docker-compose.yaml"
     owner: root
     group: root
     mode: '0644'
@@ -18,5 +31,5 @@
   ansible.builtin.command:
     cmd: docker compose up -d
   args:
-    chdir: /docker/docker-compose-{{ inventory_hostname }}
+    chdir: "{{ heimdall_compose_dir }}"
   changed_when: false
