@@ -19,12 +19,18 @@ Recommended: `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`
 ## Variables expected in vault
 - `nut_admin_password`
 - `terraform_user_password`
+- `adguard_admin_password`
+- `adguard_admin_password_hash`
 - `npm_admin_password`
 - `npm_api_password`
 - `npm_access_password`
 - `cloudflare_api_token`
 - `root_password`
 - `root_password_hash`
+- `organizr_admin_password`
+- `organizr_hash_key`
+- `organizr_registration_password`
+- `organizr_api_key`
 
 Notes:
 - `scripts/run.py apply` will use `terraform_user_password` when `ANSIBLE_VAULT_PASSWORD_FILE` is set.
