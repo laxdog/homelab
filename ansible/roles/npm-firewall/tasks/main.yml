@@ -31,16 +31,12 @@
   changed_when: false
 
 - name: Fetch Cloudflare IPv4 ranges
-  ansible.builtin.get_url:
-    url: https://www.cloudflare.com/ips-v4
-    dest: /etc/ufw/cloudflare-ips-v4
-    mode: '0644'
+  ansible.builtin.command: "curl -fsSL https://www.cloudflare.com/ips-v4 -o /etc/ufw/cloudflare-ips-v4"
+  changed_when: false
 
 - name: Fetch Cloudflare IPv6 ranges
-  ansible.builtin.get_url:
-    url: https://www.cloudflare.com/ips-v6
-    dest: /etc/ufw/cloudflare-ips-v6
-    mode: '0644'
+  ansible.builtin.command: "curl -fsSL https://www.cloudflare.com/ips-v6 -o /etc/ufw/cloudflare-ips-v6"
+  changed_when: false
 
 - name: Read Cloudflare IPv4 ranges
   ansible.builtin.command: cat /etc/ufw/cloudflare-ips-v4
