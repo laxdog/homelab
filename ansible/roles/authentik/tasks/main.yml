@@ -1,0 +1,36 @@
+---
+- name: Set Authentik paths
+  ansible.builtin.set_fact:
+    authentik_compose_dir: "/docker/docker-compose-{{ inventory_hostname }}"
+
+- name: Create Authentik application directory
+  ansible.builtin.file:
+    path: "{{ authentik_compose_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Write Authentik environment file
+  ansible.builtin.template:
+    src: "authentik.env.j2"
+    dest: "{{ authentik_compose_dir }}/.env"
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: true
+
+- name: Write Authentik Docker Compose file
+  ansible.builtin.template:
+    src: "docker-compose.yaml.j2"
+    dest: "{{ authentik_compose_dir }}/docker-compose.yaml"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Deploy Authentik via Docker Compose
+  ansible.builtin.command:
+    cmd: docker compose up -d
+  args:
+    chdir: "{{ authentik_compose_dir }}"
+  changed_when: false

@@ -1,0 +1,87 @@
+---
+- name: Install firewall tooling
+  ansible.builtin.apt:
+    name:
+      - ufw
+      - curl
+    state: present
+    update_cache: true
+
+- name: Set UFW default incoming policy
+  ansible.builtin.command: ufw default deny incoming
+  changed_when: false
+
+- name: Set UFW default outgoing policy
+  ansible.builtin.command: ufw default allow outgoing
+  changed_when: false
+
+- name: Allow SSH from LAN
+  ansible.builtin.command: "ufw allow from {{ config.network.subnet }} to any port 22 proto tcp"
+  changed_when: false
+
+- name: Allow NPM UI from LAN
+  ansible.builtin.command: "ufw allow from {{ config.network.subnet }} to any port 81 proto tcp"
+  changed_when: false
+
+- name: Allow HTTP/HTTPS from LAN
+  ansible.builtin.command: "ufw allow from {{ config.network.subnet }} to any port {{ item }} proto tcp"
+  loop:
+    - 80
+    - 443
+  changed_when: false
+
+- name: Fetch Cloudflare IPv4 ranges
+  ansible.builtin.get_url:
+    url: https://www.cloudflare.com/ips-v4
+    dest: /etc/ufw/cloudflare-ips-v4
+    mode: '0644'
+
+- name: Fetch Cloudflare IPv6 ranges
+  ansible.builtin.get_url:
+    url: https://www.cloudflare.com/ips-v6
+    dest: /etc/ufw/cloudflare-ips-v6
+    mode: '0644'
+
+- name: Read Cloudflare IPv4 ranges
+  ansible.builtin.command: cat /etc/ufw/cloudflare-ips-v4
+  register: cloudflare_ipv4
+  changed_when: false
+
+- name: Read Cloudflare IPv6 ranges
+  ansible.builtin.command: cat /etc/ufw/cloudflare-ips-v6
+  register: cloudflare_ipv6
+  changed_when: false
+
+- name: Allow HTTP/HTTPS from Cloudflare IPv4 ranges
+  ansible.builtin.command: "ufw allow from {{ item }} to any port {{ port }} proto tcp"
+  loop: "{{ cloudflare_ipv4.stdout_lines | default([]) }}"
+  loop_control:
+    loop_var: item
+  vars:
+    port: 80
+  changed_when: false
+
+- name: Allow HTTPS from Cloudflare IPv4 ranges
+  ansible.builtin.command: "ufw allow from {{ item }} to any port 443 proto tcp"
+  loop: "{{ cloudflare_ipv4.stdout_lines | default([]) }}"
+  loop_control:
+    loop_var: item
+  changed_when: false
+
+- name: Allow HTTP from Cloudflare IPv6 ranges
+  ansible.builtin.command: "ufw allow from {{ item }} to any port 80 proto tcp"
+  loop: "{{ cloudflare_ipv6.stdout_lines | default([]) }}"
+  loop_control:
+    loop_var: item
+  changed_when: false
+
+- name: Allow HTTPS from Cloudflare IPv6 ranges
+  ansible.builtin.command: "ufw allow from {{ item }} to any port 443 proto tcp"
+  loop: "{{ cloudflare_ipv6.stdout_lines | default([]) }}"
+  loop_control:
+    loop_var: item
+  changed_when: false
+
+- name: Enable UFW
+  ansible.builtin.command: ufw --force enable
+  changed_when: false
