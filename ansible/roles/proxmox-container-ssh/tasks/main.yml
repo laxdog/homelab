@@ -38,7 +38,7 @@
 - name: Check SSH service status in LXCs
   ansible.builtin.command: >
     pct exec {{ item.value.id }} -- bash -lc
-    "if systemctl list-unit-files | grep -q '^ssh.service'; then svc=ssh; else svc=sshd; fi;
+    "if systemctl list-unit-files --no-legend --no-pager 2>/dev/null | grep -q '^ssh.service'; then svc=ssh; else svc=sshd; fi;
      systemctl is-enabled ${svc} >/dev/null 2>&1 && systemctl is-active ${svc} >/dev/null 2>&1"
   loop: "{{ config.services.lxcs | dict2items }}"
   register: lxc_ssh_service_check
