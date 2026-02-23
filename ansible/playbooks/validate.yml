@@ -75,7 +75,7 @@
       loop: "{{ proxmox.storages.values() | list }}"
 
     - name: Read Proxmox realms
-      ansible.builtin.command: pveum realm list --format json
+      ansible.builtin.command: pveum realm list --output-format json
       register: proxmox_realms
       changed_when: false
 
@@ -543,6 +543,7 @@
         headers:
           Authorization: "Bearer {{ cloudflare_api_token }}"
           Content-Type: application/json
+        timeout: 30
       register: cloudflare_remove_lookup
       loop: "{{ config.cloudflare.remove_records | default([]) }}"
 
