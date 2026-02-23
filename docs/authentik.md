@@ -21,15 +21,16 @@ Both hostnames should point to the same Authentik instance via NPM.
 - Internal hosts (`laxdog.uk`) remain LAN-open unless the app supports OIDC and needs identity.
 - Apps with native client auth (Jellyfin, Plex) are not put behind forward-auth to avoid breaking
   non-browser clients. They keep local logins and may optionally add OIDC for web SSO.
+- Authentik config is managed by a container-side script (no click-ops).
 
 ## High-level plan
 1. Provision Authentik LXC and install via Docker Compose.
 2. Create NPM proxy hosts for `auth.lax.dog` + `auth.laxdog.uk`.
-3. Configure Authentik:
-   - Admin bootstrap credentials in vault.
-   - Providers and applications:
-     - Forward-auth provider for NPM external routes.
-     - OIDC provider(s) for supported apps (e.g., Jellyfin, FreshRSS).
+3. Configure Authentik via the container-side script:
+   - `ansible/roles/authentik/templates/authentik_sso_setup.py.j2`
+   - Custom auth flow with TOTP for admin services.
+   - Proxy providers + applications for admin routes.
+   - Embedded outpost configuration.
 4. Update NPM to enforce forward-auth on all external (`lax.dog`) proxy hosts.
 5. Add validation checks:
    - Authentik reachable at both domains via HTTPS.

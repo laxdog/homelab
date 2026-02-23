@@ -29,11 +29,11 @@ Source of truth: `config/homelab.yaml`.
 
 ## NPM Hostnames
 External (`lax.dog`):
-- External access is enabled behind Authentik.
+- External access is enabled behind Authentik for admin services.
 - `auth.lax.dog` -> Authentik
 - `jellyfin.lax.dog` -> Jellyfin (native auth; no forward-auth)
-- `nagios.lax.dog` -> Nagios (basic auth)
-- `proxmox.lax.dog` -> Proxmox (basic auth)
+- `nagios.lax.dog` -> Nagios (Authentik SSO + TOTP)
+- `proxmox.lax.dog` -> Proxmox (Authentik SSO + TOTP)
 
 Internal (`laxdog.uk`):
 - `dns.laxdog.uk` -> AdGuard UI
