@@ -52,7 +52,7 @@ def upsert_flow():
         defaults={
             "name": "Homelab Password",
             "allow_show_password": True,
-            "backends": ["authentik.core.auth.InMemoryBackend"],
+            "backends": ["authentik.core.auth.InbuiltBackend"],
         },
     )
     totp, _ = AuthenticatorTOTPStage.objects.update_or_create(
