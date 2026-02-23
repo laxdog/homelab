@@ -37,6 +37,17 @@ proxmox:
     local_dir: local
     backups_dir: tank-backups
     templates_dir: tank-templates
+  oidc:
+    realm: authentik
+    slug: proxmox-oidc
+    issuer_url: https://auth.lax.dog/application/o/proxmox-oidc/
+    redirect_uris:
+    - https://proxmox.laxdog.uk:8006/
+    - https://proxmox.laxdog.uk:8006
+    - https://proxmox.lax.dog:8006/
+    - https://proxmox.lax.dog:8006
+    admin_email: admin@laxdog.uk
+    role: Administrator
   templates:
     lxc:
       url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64-root.tar.xz
@@ -663,6 +674,8 @@ validation:
   - authentik_admin_password
   - authentik_postgres_password
   - authentik_secret_key
+  - proxmox_oidc_client_id
+  - proxmox_oidc_client_secret
   - couchdb_admin_password
   - healthchecks_admin_password
   - healthchecks_secret_key

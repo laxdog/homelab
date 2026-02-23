@@ -16,6 +16,7 @@ from dataclasses import replace  # noqa: E402
 
 from authentik.outposts.models import Outpost, OutpostConfig  # noqa: E402
 from authentik.providers.proxy.models import ProxyProvider  # noqa: E402
+from authentik.providers.oauth2.models import OAuth2Provider  # noqa: E402
 from authentik.stages.authenticator_totp.models import AuthenticatorTOTPStage  # noqa: E402
 from authentik.stages.authenticator_validate.models import AuthenticatorValidateStage  # noqa: E402
 from authentik.stages.identification.models import IdentificationStage  # noqa: E402
@@ -25,7 +26,15 @@ from authentik.stages.user_login.models import UserLoginStage  # noqa: E402
 
 CONFIG = json.loads(r'''{{ {
   "proxy_apps": config.authentik.proxy_apps | default([]),
-  "authentik_host": "https://%s" % (config.authentik.external_domain)
+  "authentik_host": "https://%s" % (config.authentik.external_domain),
+  "proxmox_oidc": {
+    "name": "Proxmox OIDC",
+    "slug": config.proxmox.oidc.slug,
+    "redirect_uris": config.proxmox.oidc.redirect_uris,
+    "client_id": proxmox_oidc_client_id,
+    "client_secret": proxmox_oidc_client_secret,
+    "enabled": config.proxmox.oidc.enabled | default(true)
+  }
 } | to_json }}''')
 
 
@@ -125,8 +134,34 @@ def update_outpost(providers):
     outpost.providers.set(providers)
 
 
+def ensure_oidc_app(flow, oidc):
+    if not oidc or not oidc.get("enabled", True):
+        return None
+
+    redirect_uris = "\n".join(oidc.get("redirect_uris", []))
+    provider, _ = OAuth2Provider.objects.update_or_create(
+        name=oidc["name"],
+        defaults={
+            "name": oidc["name"],
+            "authorization_flow": flow,
+            "authentication_flow": flow,
+            "client_type": "confidential",
+            "client_id": oidc["client_id"],
+            "client_secret": oidc["client_secret"],
+            "_redirect_uris": redirect_uris,
+        },
+    )
+
+    Application.objects.update_or_create(
+        slug=oidc["slug"],
+        defaults={"name": oidc["name"], "slug": oidc["slug"], "provider": provider},
+    )
+    return provider
+
+
 def main():
     flow = upsert_flow()
+    ensure_oidc_app(flow, CONFIG.get("proxmox_oidc"))
     providers = []
     for app in CONFIG["proxy_apps"]:
         providers.append(ensure_proxy_app(flow, app))
