@@ -15,12 +15,23 @@ define command {
   command_line /usr/lib/nagios/plugins/check_tcp -H $ARG1$ -p $ARG2$
 }
 
+define command {
+  command_name notify-host-by-discord
+  command_line /usr/local/bin/nagios-discord.sh host $HOSTNAME$ $HOSTSTATE$ "$HOSTOUTPUT$"
+}
+
+define command {
+  command_name notify-service-by-discord
+  command_line /usr/local/bin/nagios-discord.sh service $HOSTNAME$ "$SERVICEDESC$" $SERVICESTATE$ "$SERVICEOUTPUT$"
+}
+
 {% for host in config.nagios.hosts %}
 define host {
   use                     linux-server
   host_name               {{ host.name }}
   alias                   {{ host.name | replace('-', ' ') }}
   address                 {{ host.address }}
+  contact_groups          admins
 }
 {% endfor %}
 
@@ -30,6 +41,7 @@ define service {
   host_name               {{ host.name }}
   service_description     PING
   check_command           check_ping!100.0,20%!500.0,60%
+  contact_groups          admins
 }
 {% if host.check_ssh | default(false) %}
 define service {
@@ -37,6 +49,7 @@ define service {
   host_name               {{ host.name }}
   service_description     SSH
   check_command           check_ssh
+  contact_groups          admins
 }
 {% endif %}
 {% endfor %}
@@ -49,6 +62,7 @@ define service {
   host_name               {{ host_map.get(svc.host, 'proxmox') }}
   service_description     TCP {{ svc.name | replace('-', ' ') }}:{{ svc.port }}
   check_command           check_tcp_port!{{ svc.host }}!{{ svc.port }}
+  contact_groups          admins
 }
 {% endfor %}
 
@@ -58,6 +72,7 @@ define service {
   host_name               {{ check.host | default('adguard') }}
   service_description     DNS {{ check.domain }}
   check_command           check_dns_adguard!{{ check.server }}!{{ check.domain }}
+  contact_groups          admins
 }
 {% endfor %}
 
@@ -67,6 +82,7 @@ define service {
   host_name               adguard
   service_description     DNS {{ rewrite.domain }}
   check_command           check_dns_adguard!{{ config.services.lxcs['adguard'].ip }}!{{ rewrite.domain }}
+  contact_groups          admins
 }
 {% endfor %}
 
@@ -78,5 +94,6 @@ define service {
   host_name               nginx-proxy-manager
   service_description     HTTP {{ host.domain }}
   check_command           check_http_npm!{{ host.domain }}!{{ config.services.lxcs['nginx-proxy-manager'].ip }}
+  contact_groups          admins
 }
 {% endfor %}

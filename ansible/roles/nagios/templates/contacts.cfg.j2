@@ -1,0 +1,17 @@
+###############################################################################
+# CONTACTS.CFG - MANAGED BY ANSIBLE
+###############################################################################
+
+define contact {
+    contact_name            {{ config.nagios.admin_user }}
+    use                     generic-contact
+    alias                   Nagios Admin
+    service_notification_commands   notify-service-by-discord
+    host_notification_commands      notify-host-by-discord
+}
+
+define contactgroup {
+    contactgroup_name       admins
+    alias                   Nagios Administrators
+    members                 {{ config.nagios.admin_user }}
+}

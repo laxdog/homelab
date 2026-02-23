@@ -271,6 +271,77 @@
       authorized_for_all_host_downtime={{ config.nagios.admin_user }}
   notify: Restart Nagios
 
+- name: Install Nagios Discord webhook file
+  ansible.builtin.copy:
+    dest: /usr/local/nagios/etc/discord-webhook
+    content: "{{ discord_webhook }}"
+    owner: nagios
+    group: nagios
+    mode: '0600'
+  no_log: true
+  notify: Restart Nagios
+
+- name: Install Nagios Discord notification script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/nagios-discord.sh
+    owner: root
+    group: root
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      webhook_file="/usr/local/nagios/etc/discord-webhook"
+      if [[ ! -f "${webhook_file}" ]]; then
+        exit 2
+      fi
+
+      webhook="$(cat "${webhook_file}")"
+      if [[ -z "${webhook}" ]]; then
+        exit 3
+      fi
+
+      kind="$1"
+      host="$2"
+      service="${3:-}"
+      state="${4:-}"
+      output="${5:-}"
+      when="$(date -u +"%Y-%m-%d %H:%M:%SZ")"
+
+      if [[ "${kind}" == "service" ]]; then
+        title="Service ${state}"
+        desc="**Host:** ${host}\\n**Service:** ${service}\\n**Output:** ${output}\\n**Time:** ${when}"
+      else
+        title="Host ${state}"
+        desc="**Host:** ${host}\\n**Output:** ${output}\\n**Time:** ${when}"
+      fi
+
+      payload=$(cat <<EOF
+      {
+        "username": "Nagios",
+        "embeds": [
+          {
+            "title": "${title}",
+            "description": "${desc}",
+            "color": 15105570
+          }
+        ]
+      }
+      EOF
+      )
+
+      curl -sS -X POST -H "Content-Type: application/json" -d "${payload}" "${webhook}" >/dev/null
+  notify: Restart Nagios
+
+- name: Install Nagios contacts configuration
+  ansible.builtin.template:
+    src: contacts.cfg.j2
+    dest: /usr/local/nagios/etc/objects/contacts.cfg
+    owner: nagios
+    group: nagios
+    mode: '0644'
+  notify: Restart Nagios
+
 - name: Enable Apache CGI module
   ansible.builtin.command: a2enmod cgi
   register: nagios_a2enmod_cgi
