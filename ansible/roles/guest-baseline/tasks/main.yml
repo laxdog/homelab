@@ -26,3 +26,25 @@
       - vim
     state: present
     update_cache: true
+
+- name: Configure apt proxy for apt-cacher-ng
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/01proxy
+    content: |
+      Acquire::http::Proxy "http://{{ config.apt_cacher.host }}:{{ config.apt_cacher.port }}/";
+      Acquire::https::Proxy "http://{{ config.apt_cacher.host }}:{{ config.apt_cacher.port }}/";
+    owner: root
+    group: root
+    mode: '0644'
+  when:
+    - config.apt_cacher.enabled | default(false)
+    - ansible_facts.os_family == 'Debian'
+    - inventory_hostname != 'apt-cacher-ng'
+
+- name: Remove apt proxy configuration when disabled
+  ansible.builtin.file:
+    path: /etc/apt/apt.conf.d/01proxy
+    state: absent
+  when:
+    - not (config.apt_cacher.enabled | default(false))
+    - ansible_facts.os_family == 'Debian'
