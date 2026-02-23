@@ -46,6 +46,10 @@ proxmox:
     vm:
       url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
       file_name: ubuntu-24.04-cloudimg-amd64.qcow2
+    haos:
+      url: https://github.com/home-assistant/operating-system/releases/download/17.1/haos_ova-17.1.qcow2.xz
+      file_name: haos_ova-17.1.qcow2
+      archive_name: haos_ova-17.1.qcow2.xz
 
 storage:
   zfs:
@@ -132,6 +136,10 @@ adguard:
       answer: 10.20.30.154
     - domain: auth.laxdog.uk
       answer: 10.20.30.154
+    - domain: ha.laxdog.uk
+      answer: 10.20.30.154
+    - domain: nagios.laxdog.uk
+      answer: 10.20.30.154
 
 services:
   defaults:
@@ -171,9 +179,17 @@ services:
         - /tank/downloads:/mnt/downloads
     home-assistant:
       id: 122
-      ip: 10.20.30.122
+      ip: 10.20.30.134
       roles: [haos]
       os: haos
+    nagios:
+      id: 133
+      ip: 10.20.30.133
+      roles: [nagios]
+      os: ubuntu
+      cores: 2
+      memory_mb: 2048
+      disk_gb: 16
   lxcs:
     adguard:
       id: 153
@@ -186,7 +202,7 @@ services:
     couchdb:
       id: 165
       ip: 10.20.30.165
-      roles: [couchdb]
+      roles: [docker, couchdb]
     apt-cacher-ng:
       id: 156
       ip: 10.20.30.156
@@ -194,15 +210,15 @@ services:
     freshrss:
       id: 157
       ip: 10.20.30.157
-      roles: [freshrss]
+      roles: [docker, freshrss]
     netalertx:
       id: 158
       ip: 10.20.30.158
-      roles: [netalertx]
+      roles: [docker, netalertx]
     healthchecks:
       id: 159
       ip: 10.20.30.159
-      roles: [healthchecks]
+      roles: [docker, healthchecks]
     dashboard:
       id: 160
       ip: 10.20.30.160
@@ -210,11 +226,11 @@ services:
     static-sites:
       id: 161
       ip: 10.20.30.161
-      roles: [static_sites]
+      roles: [docker, static_sites]
     browser:
       id: 162
       ip: 10.20.30.162
-      roles: [browser]
+      roles: [docker, browser]
     python-bot:
       id: 163
       ip: 10.20.30.163
@@ -282,6 +298,8 @@ npm:
         - apt.laxdog.uk
         - sites.laxdog.uk
         - auth.laxdog.uk
+        - ha.laxdog.uk
+        - nagios.laxdog.uk
     - name: laxdog-external-le
       type: letsencrypt
       dns_provider: cloudflare
@@ -297,7 +315,7 @@ npm:
       certificate: laxdog-internal-le
     - name: NPM
       domain: npm.laxdog.uk
-      forward_host: 10.20.30.154
+      forward_host: 127.0.0.1
       forward_port: 81
       access_list: Internal Access
       ssl: true
@@ -380,6 +398,20 @@ npm:
       access_list: Internal Access
       ssl: true
       certificate: laxdog-internal-le
+    - name: Home Assistant
+      domain: ha.laxdog.uk
+      forward_host: 10.20.30.134
+      forward_port: 8123
+      access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
+    - name: Nagios
+      domain: nagios.laxdog.uk
+      forward_host: 10.20.30.133
+      forward_port: 80
+      access_list: Internal Access
+      ssl: true
+      certificate: laxdog-internal-le
   external_proxy_hosts:
     - name: Authentik External
       domain: auth.lax.dog
@@ -404,6 +436,68 @@ authentik:
   internal_domain: auth.laxdog.uk
   external_domain: auth.lax.dog
 
+couchdb:
+  admin_user: admin
+  port: 5984
+
+freshrss:
+  port: 80
+
+netalertx:
+  port: 20211
+
+healthchecks:
+  admin_email: admin@laxdog.uk
+  domain: health.laxdog.uk
+  port: 8000
+  site_name: Homelab Healthchecks
+
+browser:
+  port: 5800
+
+static_sites:
+  port: 80
+
+nagios:
+  admin_user: nagiosadmin
+  web_domain: nagios.laxdog.uk
+  hosts:
+    - name: proxmox
+      address: 10.20.30.46
+      check_ssh: true
+    - name: adguard
+      address: 10.20.30.153
+      check_ssh: true
+    - name: nginx-proxy-manager
+      address: 10.20.30.154
+      check_ssh: true
+    - name: media-stack
+      address: 10.20.30.120
+      check_ssh: true
+    - name: nfs-server
+      address: 10.20.30.121
+      check_ssh: true
+    - name: home-assistant
+      address: 10.20.30.134
+      check_ssh: false
+    - name: nagios
+      address: 10.20.30.133
+      check_ssh: true
+    - name: organizr
+      address: 10.20.30.164
+      check_ssh: true
+    - name: heimdall
+      address: 10.20.30.166
+      check_ssh: true
+    - name: authentik
+      address: 10.20.30.170
+      check_ssh: true
+  dns_checks:
+    - name: adguard-dns
+      server: 10.20.30.153
+      domain: example.com
+      host: adguard
+
 cloudflare:
   zone: lax.dog
   public_ip: auto
@@ -422,6 +516,31 @@ cloudflare:
       proxied: true
 
 validation:
+  vault_required_vars:
+    - terraform_user_password
+    - nut_admin_password
+    - adguard_admin_password
+    - adguard_admin_password_hash
+    - npm_admin_password
+    - npm_api_password
+    - npm_access_password
+    - cloudflare_api_token
+    - root_password
+    - root_password_hash
+    - organizr_admin_password
+    - organizr_hash_key
+    - organizr_registration_password
+    - organizr_api_key
+    - authentik_admin_password
+    - authentik_postgres_password
+    - authentik_secret_key
+    - couchdb_admin_password
+    - healthchecks_admin_password
+    - healthchecks_secret_key
+    - nagios_admin_password
+  http_expected_codes:
+    apt.laxdog.uk: [200, 301, 302, 401, 406]
+    ha.laxdog.uk: [200, 301, 302, 400, 401]
   service_ports:
     - name: adguard-http
       host: 10.20.30.153
@@ -468,3 +587,9 @@ validation:
     - name: authentik
       host: 10.20.30.170
       port: 9000
+    - name: home-assistant
+      host: 10.20.30.134
+      port: 8123
+    - name: nagios
+      host: 10.20.30.133
+      port: 80
