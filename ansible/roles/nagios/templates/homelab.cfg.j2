@@ -10,6 +10,11 @@ define command {
   command_line /usr/lib/nagios/plugins/check_dns -s $ARG1$ -H $ARG2$
 }
 
+define command {
+  command_name check_tcp_port
+  command_line /usr/lib/nagios/plugins/check_tcp -H $ARG1$ -p $ARG2$
+}
+
 {% for host in config.nagios.hosts %}
 define host {
   use                     linux-server
@@ -34,6 +39,17 @@ define service {
   check_command           check_ssh
 }
 {% endif %}
+{% endfor %}
+
+{% set host_map = dict(config.nagios.hosts | map(attribute='address') | list
+  | zip(config.nagios.hosts | map(attribute='name') | list)) %}
+{% for svc in config.validation.service_ports | default([]) %}
+define service {
+  use                     generic-service
+  host_name               {{ host_map.get(svc.host, 'proxmox') }}
+  service_description     TCP {{ svc.name | replace('-', ' ') }}:{{ svc.port }}
+  check_command           check_tcp_port!{{ svc.host }}!{{ svc.port }}
+}
 {% endfor %}
 
 {% for check in config.nagios.dns_checks | default([]) %}
