@@ -16,6 +16,10 @@
 
 Any remaining manual steps should be documented here.
 
+## HAOS note
+Home Assistant OS uses its own networking stack and does not consume cloud-init.
+Ensure your router has a DHCP reservation for `10.20.30.134` (or update `config/homelab.yaml` and NPM/AdGuard rewrites).
+
 ## Access notes
 - Guests are reachable via SSH keys.
 - A single vaulted root password is also set for guest console access.
