@@ -61,6 +61,44 @@
     mode: '0644'
   notify: Restart Nagios
 
+- name: Enable Apache CGI module
+  ansible.builtin.command: a2enmod cgi
+  register: nagios_a2enmod_cgi
+  changed_when: "'Enabling module' in nagios_a2enmod_cgi.stdout"
+
+- name: Enable Apache rewrite module
+  ansible.builtin.command: a2enmod rewrite
+  register: nagios_a2enmod_rewrite
+  changed_when: "'Enabling module' in nagios_a2enmod_rewrite.stdout"
+
+- name: Enable Nagios Apache config
+  ansible.builtin.command: a2enconf nagios4-cgi
+  register: nagios_a2enconf
+  changed_when: "'Enabling conf' in nagios_a2enconf.stdout"
+
+- name: Install Nagios redirect config
+  ansible.builtin.copy:
+    dest: /etc/apache2/conf-available/nagios-redirect.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      RewriteEngine On
+      RewriteCond %{REQUEST_URI} =/
+      RewriteCond %{HTTP:X-Forwarded-Proto} =https
+      RewriteRule ^/$ https://%{HTTP_HOST}/nagios4/ [R=302,L]
+
+      RewriteCond %{REQUEST_URI} =/
+      RewriteCond %{HTTP:X-Forwarded-Proto} !https
+      RewriteRule ^/$ /nagios4/ [R=302,L]
+  notify: Reload Apache
+
+- name: Enable Nagios redirect config
+  ansible.builtin.command: a2enconf nagios-redirect
+  register: nagios_redirect_conf
+  changed_when: "'Enabling conf' in nagios_redirect_conf.stdout"
+  notify: Reload Apache
+
 - name: Ensure Nagios service is running
   ansible.builtin.service:
     name: nagios4
