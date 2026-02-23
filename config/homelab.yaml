@@ -1,7 +1,6 @@
 homelab:
   name: homelab
   timezone: America/Los_Angeles
-
 network:
   subnet: 10.20.30.0/24
   gateway: 10.20.30.1
@@ -25,7 +24,6 @@ network:
   optional:
     unifi_nano_beam_1: 10.20.30.50
     unifi_nano_beam_2: 10.20.30.51
-
 proxmox:
   node: pve
   endpoint: https://10.20.30.46:8006/
@@ -50,97 +48,132 @@ proxmox:
       url: https://github.com/home-assistant/operating-system/releases/download/17.1/haos_ova-17.1.qcow2.xz
       file_name: haos_ova-17.1.qcow2
       archive_name: haos_ova-17.1.qcow2.xz
-
 storage:
   zfs:
     pool: tank
     datasets:
-      - name: tank/media
-        mountpoint: /tank/media
-      - name: tank/downloads
-        mountpoint: /tank/downloads
-      - name: tank/personal
-        mountpoint: /tank/personal
-      - name: tank/backups
-        mountpoint: /tank/backups
-      - name: tank/templates
-        mountpoint: /tank/templates
-      - name: tank/scratch
-        mountpoint: /tank/scratch
+    - name: tank/media
+      mountpoint: /tank/media
+    - name: tank/downloads
+      mountpoint: /tank/downloads
+    - name: tank/personal
+      mountpoint: /tank/personal
+    - name: tank/backups
+      mountpoint: /tank/backups
+    - name: tank/templates
+      mountpoint: /tank/templates
+    - name: tank/scratch
+      mountpoint: /tank/scratch
     backups_dataset: tank/backups
     appdata_location: nvme
-
 naming:
   domains:
     external: lax.dog
     internal: laxdog.uk
-
 ups:
   enabled: true
   vendor: APC
   model: Back-UPS ES BE850G2
   usb_attached: false
   bind_host: 10.20.30.46
-
 adguard:
   admin_user: admin
   bind_host: 0.0.0.0
   bind_port: 80
   dns:
     bind_hosts:
-      - 0.0.0.0
+    - 0.0.0.0
     port: 53
     upstream_dns:
-      - 1.1.1.1
+    - https://dns10.quad9.net/dns-query
     bootstrap_dns:
-      - 1.1.1.1
+    - 9.9.9.10
+    - 149.112.112.10
+    - 2620:fe::10
+    - 2620:fe::fe:10
   tests:
     good_domain: example.com
     bad_domain: doubleclick.net
   filters:
     blocklists:
-      - name: Hagezi Pro++
-        url: https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.plus.txt
-        enabled: true
-      - name: Hagezi TIF
-        url: https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/tif.txt
-        enabled: true
-    allowlists:
-      - name: Hagezi Allowlist Referral
-        url: https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/whitelist-referral.txt
-        enabled: true
+    - name: AdGuard DNS filter
+      url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+      enabled: true
+    - name: AdAway Default Blocklist
+      url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
+      enabled: false
+    - name: HaGeZi's Pro Blocklist
+      url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_48.txt
+      enabled: true
+    - name: OISD Blocklist Big
+      url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_27.txt
+      enabled: true
+    - name: HaGeZi's Threat Intelligence Feeds
+      url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_44.txt
+      enabled: true
+    - name: AdGuard DNS Popup Hosts filter
+      url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_59.txt
+      enabled: true
+    - name: Phishing URL Blocklist (PhishTank and OpenPhish)
+      url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_30.txt
+      enabled: true
+    - name: HaGeZi's Samsung Tracker Blocklist
+      url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_61.txt
+      enabled: true
+    - name: HaGeZi's Xiaomi Tracker Blocklist
+      url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_60.txt
+      enabled: true
+    allowlists: []
   rewrites:
-    - domain: dns.laxdog.uk
-      answer: 10.20.30.154
-    - domain: npm.laxdog.uk
-      answer: 10.20.30.154
-    - domain: proxmox.laxdog.uk
-      answer: 10.20.30.154
-    - domain: organizr.laxdog.uk
-      answer: 10.20.30.154
-    - domain: heimdall.laxdog.uk
-      answer: 10.20.30.154
-    - domain: rss.laxdog.uk
-      answer: 10.20.30.154
-    - domain: netalertx.laxdog.uk
-      answer: 10.20.30.154
-    - domain: health.laxdog.uk
-      answer: 10.20.30.154
-    - domain: couchdb.laxdog.uk
-      answer: 10.20.30.154
-    - domain: browser.laxdog.uk
-      answer: 10.20.30.154
-    - domain: apt.laxdog.uk
-      answer: 10.20.30.154
-    - domain: sites.laxdog.uk
-      answer: 10.20.30.154
-    - domain: auth.laxdog.uk
-      answer: 10.20.30.154
-    - domain: ha.laxdog.uk
-      answer: 10.20.30.154
-    - domain: nagios.laxdog.uk
-      answer: 10.20.30.154
-
+  - domain: dns.laxdog.uk
+    answer: 10.20.30.154
+  - domain: npm.laxdog.uk
+    answer: 10.20.30.154
+  - domain: proxmox.laxdog.uk
+    answer: 10.20.30.154
+  - domain: organizr.laxdog.uk
+    answer: 10.20.30.154
+  - domain: heimdall.laxdog.uk
+    answer: 10.20.30.154
+  - domain: rss.laxdog.uk
+    answer: 10.20.30.154
+  - domain: netalertx.laxdog.uk
+    answer: 10.20.30.154
+  - domain: health.laxdog.uk
+    answer: 10.20.30.154
+  - domain: couchdb.laxdog.uk
+    answer: 10.20.30.154
+  - domain: browser.laxdog.uk
+    answer: 10.20.30.154
+  - domain: apt.laxdog.uk
+    answer: 10.20.30.154
+  - domain: sites.laxdog.uk
+    answer: 10.20.30.154
+  - domain: auth.laxdog.uk
+    answer: 10.20.30.154
+  - domain: ha.laxdog.uk
+    answer: 10.20.30.154
+  - domain: nagios.laxdog.uk
+    answer: 10.20.30.154
+  user_rules:
+  - '@@||click.figma.com^$client=''10.20.30.201'''
+  - '@@||analytics.google.com^$client=''10.20.30.201'''
+  - '@@||amplitude.com^$client=''10.20.30.201'''
+  - '@@||amplitude.com^$client=''10.20.30.204'''
+  - '@@||click.figma.com^$client=''10.20.30.204'''
+  - '@@||www.googletagmanager.com^$client=''10.20.30.201'''
+  - '@@||analytics.google.com^$client=''10.20.30.204'''
+  - '@@||cfklr04.na1.hs-sales-engage.com^$client=''10.20.30.75'''
+  - '@@||api.mixpanel.com^$client=''10.20.30.75'''
+  - '@@||sentry.io^$client=''10.20.30.75'''
+  - '@@||api.eu.amplitude.com^$client=''10.20.30.208'''
+  - '@@||amplitude.com^$client=''10.20.30.208'''
+  - '@@||api.lab.amplitude.com^$client=''10.20.30.108'''
+  - '@@||hotjar.com^$client=''10.20.30.75'''
+  - '@@||region1.google-analytics.com^$client=''10.20.30.208'''
+  - '@@||amplitude.prismic.io^$client=''10.20.30.208'''
+  - '@@||region1.google-analytics.com^$client=''10.20.30.75'''
+  - '@@||region1.analytics.google.com^$client=''10.20.30.75'''
 services:
   defaults:
     vm:
@@ -157,35 +190,40 @@ services:
     media-stack:
       id: 120
       ip: 10.20.30.120
-      roles: [docker, media]
+      roles:
+      - docker
+      - media
       os: ubuntu
       cores: 4
       memory_mb: 8192
       disk_gb: 64
       mounts:
-        - /tank/media:/mnt/media
-        - /tank/downloads:/mnt/downloads
+      - /tank/media:/mnt/media
+      - /tank/downloads:/mnt/downloads
     nfs-server:
       id: 121
       ip: 10.20.30.121
-      roles: [nfs]
+      roles:
+      - nfs
       os: ubuntu
       cores: 2
       memory_mb: 2048
       disk_gb: 16
       mounts:
-        - /tank/personal:/mnt/personal
-        - /tank/media:/mnt/media
-        - /tank/downloads:/mnt/downloads
+      - /tank/personal:/mnt/personal
+      - /tank/media:/mnt/media
+      - /tank/downloads:/mnt/downloads
     home-assistant:
       id: 122
       ip: 10.20.30.134
-      roles: [haos]
+      roles:
+      - haos
       os: haos
     nagios:
       id: 133
       ip: 10.20.30.133
-      roles: [nagios]
+      roles:
+      - nagios
       os: ubuntu
       cores: 2
       memory_mb: 2048
@@ -194,240 +232,260 @@ services:
     adguard:
       id: 153
       ip: 10.20.30.153
-      roles: [adguard]
+      roles:
+      - adguard
     nginx-proxy-manager:
       id: 154
       ip: 10.20.30.154
-      roles: [docker, nginx_proxy_manager]
+      roles:
+      - docker
+      - nginx_proxy_manager
     couchdb:
       id: 165
       ip: 10.20.30.165
-      roles: [docker, couchdb]
+      roles:
+      - docker
+      - couchdb
     apt-cacher-ng:
       id: 156
       ip: 10.20.30.156
-      roles: [apt_cacher]
+      roles:
+      - apt_cacher
     freshrss:
       id: 157
       ip: 10.20.30.157
-      roles: [docker, freshrss]
+      roles:
+      - docker
+      - freshrss
     netalertx:
       id: 158
       ip: 10.20.30.158
-      roles: [docker, netalertx]
+      roles:
+      - docker
+      - netalertx
     healthchecks:
       id: 159
       ip: 10.20.30.159
-      roles: [docker, healthchecks]
+      roles:
+      - docker
+      - healthchecks
     dashboard:
       id: 160
       ip: 10.20.30.160
-      roles: [dashboard]
+      roles:
+      - dashboard
     static-sites:
       id: 161
       ip: 10.20.30.161
-      roles: [docker, static_sites]
+      roles:
+      - docker
+      - static_sites
     browser:
       id: 162
       ip: 10.20.30.162
-      roles: [docker, browser]
+      roles:
+      - docker
+      - browser
     python-bot:
       id: 163
       ip: 10.20.30.163
-      roles: [python_bot]
+      roles:
+      - python_bot
     organizr:
       id: 164
       ip: 10.20.30.164
-      roles: [docker, organizr]
+      roles:
+      - docker
+      - organizr
     heimdall:
       id: 166
       ip: 10.20.30.166
-      roles: [docker, heimdall]
+      roles:
+      - docker
+      - heimdall
     authentik:
       id: 170
       ip: 10.20.30.170
-      roles: [docker, authentik]
-
+      roles:
+      - docker
+      - authentik
 security:
   ansible_vault: true
-
 npm:
   admin_email: admin@example.com
   api_email: automation@lax.dog
   access_user: adguard
   external_enabled: true
   remove_proxy_hosts:
-    - dns.lax.dog
-    - sites.lax.dog
-    - organizr.lax.dog
-    - heimdall.lax.dog
-    - rss.lax.dog
-    - couchdb.lax.dog
-    - browser.lax.dog
+  - dns.lax.dog
+  - sites.lax.dog
+  - organizr.lax.dog
+  - heimdall.lax.dog
+  - rss.lax.dog
+  - couchdb.lax.dog
+  - browser.lax.dog
   access_lists:
-    - name: Internal Access
-      auth: none
-      clients:
-        - address: 10.20.30.0/24
-          directive: allow
-    - name: External Protected
-      auth: basic
-      clients:
-        - address: 0.0.0.0/0
-          directive: allow
-    - name: External Public
-      auth: none
-      clients:
-        - address: 0.0.0.0/0
-          directive: allow
+  - name: Internal Access
+    auth: none
+    clients:
+    - address: 10.20.30.0/24
+      directive: allow
+  - name: External Protected
+    auth: basic
+    clients:
+    - address: 0.0.0.0/0
+      directive: allow
+  - name: External Public
+    auth: none
+    clients:
+    - address: 0.0.0.0/0
+      directive: allow
   certificates:
-    - name: laxdog-internal-le
-      type: letsencrypt
-      dns_provider: cloudflare
-      domains:
-        - dns.laxdog.uk
-        - npm.laxdog.uk
-        - proxmox.laxdog.uk
-        - organizr.laxdog.uk
-        - heimdall.laxdog.uk
-        - rss.laxdog.uk
-        - netalertx.laxdog.uk
-        - health.laxdog.uk
-        - couchdb.laxdog.uk
-        - browser.laxdog.uk
-        - apt.laxdog.uk
-        - sites.laxdog.uk
-        - auth.laxdog.uk
-        - ha.laxdog.uk
-        - nagios.laxdog.uk
-    - name: laxdog-external-le
-      type: letsencrypt
-      dns_provider: cloudflare
-      domains:
-        - auth.lax.dog
+  - name: laxdog-internal-le
+    type: letsencrypt
+    dns_provider: cloudflare
+    domains:
+    - dns.laxdog.uk
+    - npm.laxdog.uk
+    - proxmox.laxdog.uk
+    - organizr.laxdog.uk
+    - heimdall.laxdog.uk
+    - rss.laxdog.uk
+    - netalertx.laxdog.uk
+    - health.laxdog.uk
+    - couchdb.laxdog.uk
+    - browser.laxdog.uk
+    - apt.laxdog.uk
+    - sites.laxdog.uk
+    - auth.laxdog.uk
+    - ha.laxdog.uk
+    - nagios.laxdog.uk
+  - name: laxdog-external-le
+    type: letsencrypt
+    dns_provider: cloudflare
+    domains:
+    - auth.lax.dog
   proxy_hosts:
-    - name: AdGuard Internal
-      domain: dns.laxdog.uk
-      forward_host: 10.20.30.153
-      forward_port: 80
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: NPM
-      domain: npm.laxdog.uk
-      forward_host: 127.0.0.1
-      forward_port: 81
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: Proxmox
-      domain: proxmox.laxdog.uk
-      forward_scheme: https
-      forward_host: 10.20.30.46
-      forward_port: 8006
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: Organizr
-      domain: organizr.laxdog.uk
-      forward_host: 10.20.30.164
-      forward_port: 80
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: Heimdall
-      domain: heimdall.laxdog.uk
-      forward_host: 10.20.30.166
-      forward_port: 80
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: FreshRSS
-      domain: rss.laxdog.uk
-      forward_host: 10.20.30.157
-      forward_port: 80
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: NetAlertX
-      domain: netalertx.laxdog.uk
-      forward_host: 10.20.30.158
-      forward_port: 20211
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: Healthchecks
-      domain: health.laxdog.uk
-      forward_host: 10.20.30.159
-      forward_port: 8000
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: CouchDB
-      domain: couchdb.laxdog.uk
-      forward_host: 10.20.30.165
-      forward_port: 5984
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: Browser
-      domain: browser.laxdog.uk
-      forward_host: 10.20.30.162
-      forward_port: 5800
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: Apt Cacher
-      domain: apt.laxdog.uk
-      forward_host: 10.20.30.156
-      forward_port: 3142
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: Static Sites Internal
-      domain: sites.laxdog.uk
-      forward_host: 10.20.30.161
-      forward_port: 80
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: Authentik Internal
-      domain: auth.laxdog.uk
-      forward_host: 10.20.30.170
-      forward_port: 9000
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: Home Assistant
-      domain: ha.laxdog.uk
-      forward_host: 10.20.30.134
-      forward_port: 8123
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
-    - name: Nagios
-      domain: nagios.laxdog.uk
-      forward_host: 10.20.30.133
-      forward_port: 80
-      access_list: Internal Access
-      ssl: true
-      certificate: laxdog-internal-le
+  - name: AdGuard Internal
+    domain: dns.laxdog.uk
+    forward_host: 10.20.30.153
+    forward_port: 80
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: NPM
+    domain: npm.laxdog.uk
+    forward_host: 127.0.0.1
+    forward_port: 81
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Proxmox
+    domain: proxmox.laxdog.uk
+    forward_scheme: https
+    forward_host: 10.20.30.46
+    forward_port: 8006
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Organizr
+    domain: organizr.laxdog.uk
+    forward_host: 10.20.30.164
+    forward_port: 80
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Heimdall
+    domain: heimdall.laxdog.uk
+    forward_host: 10.20.30.166
+    forward_port: 80
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: FreshRSS
+    domain: rss.laxdog.uk
+    forward_host: 10.20.30.157
+    forward_port: 80
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: NetAlertX
+    domain: netalertx.laxdog.uk
+    forward_host: 10.20.30.158
+    forward_port: 20211
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Healthchecks
+    domain: health.laxdog.uk
+    forward_host: 10.20.30.159
+    forward_port: 8000
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: CouchDB
+    domain: couchdb.laxdog.uk
+    forward_host: 10.20.30.165
+    forward_port: 5984
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Browser
+    domain: browser.laxdog.uk
+    forward_host: 10.20.30.162
+    forward_port: 5800
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Apt Cacher
+    domain: apt.laxdog.uk
+    forward_host: 10.20.30.156
+    forward_port: 3142
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Static Sites Internal
+    domain: sites.laxdog.uk
+    forward_host: 10.20.30.161
+    forward_port: 80
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Authentik Internal
+    domain: auth.laxdog.uk
+    forward_host: 10.20.30.170
+    forward_port: 9000
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Home Assistant
+    domain: ha.laxdog.uk
+    forward_host: 10.20.30.134
+    forward_port: 8123
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Nagios
+    domain: nagios.laxdog.uk
+    forward_host: 10.20.30.133
+    forward_port: 80
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
   external_proxy_hosts:
-    - name: Authentik External
-      domain: auth.lax.dog
-      forward_host: 10.20.30.170
-      forward_port: 9000
-      access_list: External Public
-      ssl: true
-      certificate: laxdog-external-le
-
+  - name: Authentik External
+    domain: auth.lax.dog
+    forward_host: 10.20.30.170
+    forward_port: 9000
+    access_list: External Public
+    ssl: true
+    certificate: laxdog-external-le
 organizr:
   admin_user: admin
   admin_email: admin@laxdog.uk
   license: personal
   db_name: organizr.db
   db_path: /config/www/organizr/data/db/
-
 authentik:
   admin_email: admin@laxdog.uk
   admin_user: akadmin
@@ -435,161 +493,162 @@ authentik:
   port: 9000
   internal_domain: auth.laxdog.uk
   external_domain: auth.lax.dog
-
 couchdb:
   admin_user: admin
   port: 5984
-
 freshrss:
   port: 80
-
 netalertx:
   port: 20211
-
 healthchecks:
   admin_email: admin@laxdog.uk
   domain: health.laxdog.uk
   port: 8000
   site_name: Homelab Healthchecks
-
 browser:
   port: 5800
-
 static_sites:
   port: 80
-
 nagios:
   admin_user: nagiosadmin
   web_domain: nagios.laxdog.uk
   hosts:
-    - name: proxmox
-      address: 10.20.30.46
-      check_ssh: true
-    - name: adguard
-      address: 10.20.30.153
-      check_ssh: true
-    - name: nginx-proxy-manager
-      address: 10.20.30.154
-      check_ssh: true
-    - name: media-stack
-      address: 10.20.30.120
-      check_ssh: true
-    - name: nfs-server
-      address: 10.20.30.121
-      check_ssh: true
-    - name: home-assistant
-      address: 10.20.30.134
-      check_ssh: false
-    - name: nagios
-      address: 10.20.30.133
-      check_ssh: true
-    - name: organizr
-      address: 10.20.30.164
-      check_ssh: true
-    - name: heimdall
-      address: 10.20.30.166
-      check_ssh: true
-    - name: authentik
-      address: 10.20.30.170
-      check_ssh: true
+  - name: proxmox
+    address: 10.20.30.46
+    check_ssh: true
+  - name: adguard
+    address: 10.20.30.153
+    check_ssh: true
+  - name: nginx-proxy-manager
+    address: 10.20.30.154
+    check_ssh: true
+  - name: media-stack
+    address: 10.20.30.120
+    check_ssh: true
+  - name: nfs-server
+    address: 10.20.30.121
+    check_ssh: true
+  - name: home-assistant
+    address: 10.20.30.134
+    check_ssh: false
+  - name: nagios
+    address: 10.20.30.133
+    check_ssh: true
+  - name: organizr
+    address: 10.20.30.164
+    check_ssh: true
+  - name: heimdall
+    address: 10.20.30.166
+    check_ssh: true
+  - name: authentik
+    address: 10.20.30.170
+    check_ssh: true
   dns_checks:
-    - name: adguard-dns
-      server: 10.20.30.153
-      domain: example.com
-      host: adguard
-
+  - name: adguard-dns
+    server: 10.20.30.153
+    domain: example.com
+    host: adguard
 cloudflare:
   zone: lax.dog
   public_ip: auto
   remove_records:
-    - dns.lax.dog
-    - sites.lax.dog
-    - organizr.lax.dog
-    - heimdall.lax.dog
-    - rss.lax.dog
-    - couchdb.lax.dog
-    - browser.lax.dog
+  - dns.lax.dog
+  - sites.lax.dog
+  - organizr.lax.dog
+  - heimdall.lax.dog
+  - rss.lax.dog
+  - couchdb.lax.dog
+  - browser.lax.dog
   records:
-    - type: A
-      name: auth.lax.dog
-      content: public_ip
-      proxied: true
-
+  - type: A
+    name: auth.lax.dog
+    content: public_ip
+    proxied: true
 validation:
   vault_required_vars:
-    - terraform_user_password
-    - nut_admin_password
-    - adguard_admin_password
-    - adguard_admin_password_hash
-    - npm_admin_password
-    - npm_api_password
-    - npm_access_password
-    - cloudflare_api_token
-    - root_password
-    - root_password_hash
-    - organizr_admin_password
-    - organizr_hash_key
-    - organizr_registration_password
-    - organizr_api_key
-    - authentik_admin_password
-    - authentik_postgres_password
-    - authentik_secret_key
-    - couchdb_admin_password
-    - healthchecks_admin_password
-    - healthchecks_secret_key
-    - nagios_admin_password
+  - terraform_user_password
+  - nut_admin_password
+  - adguard_admin_password
+  - adguard_admin_password_hash
+  - npm_admin_password
+  - npm_api_password
+  - npm_access_password
+  - cloudflare_api_token
+  - root_password
+  - root_password_hash
+  - organizr_admin_password
+  - organizr_hash_key
+  - organizr_registration_password
+  - organizr_api_key
+  - authentik_admin_password
+  - authentik_postgres_password
+  - authentik_secret_key
+  - couchdb_admin_password
+  - healthchecks_admin_password
+  - healthchecks_secret_key
+  - nagios_admin_password
   http_expected_codes:
-    apt.laxdog.uk: [200, 301, 302, 401, 406]
-    ha.laxdog.uk: [200, 301, 302, 400, 401]
+    apt.laxdog.uk:
+    - 200
+    - 301
+    - 302
+    - 401
+    - 406
+    ha.laxdog.uk:
+    - 200
+    - 301
+    - 302
+    - 400
+    - 401
   service_ports:
-    - name: adguard-http
-      host: 10.20.30.153
-      port: 80
-    - name: adguard-dns
-      host: 10.20.30.153
-      port: 53
-    - name: nginx-proxy-manager
-      host: 10.20.30.154
-      port: 81
-    - name: nginx-proxy-manager-https
-      host: 10.20.30.154
-      port: 443
-    - name: proxmox
-      host: 10.20.30.46
-      port: 8006
-    - name: organizr
-      host: 10.20.30.164
-      port: 80
-    - name: heimdall
-      host: 10.20.30.166
-      port: 80
-    - name: freshrss
-      host: 10.20.30.157
-      port: 80
-    - name: netalertx
-      host: 10.20.30.158
-      port: 20211
-    - name: healthchecks
-      host: 10.20.30.159
-      port: 8000
-    - name: couchdb
-      host: 10.20.30.165
-      port: 5984
-    - name: browser
-      host: 10.20.30.162
-      port: 5800
-    - name: apt-cacher-ng
-      host: 10.20.30.156
-      port: 3142
-    - name: static-sites
-      host: 10.20.30.161
-      port: 80
-    - name: authentik
-      host: 10.20.30.170
-      port: 9000
-    - name: home-assistant
-      host: 10.20.30.134
-      port: 8123
-    - name: nagios
-      host: 10.20.30.133
-      port: 80
+  - name: adguard-http
+    host: 10.20.30.153
+    port: 80
+  - name: adguard-dns
+    host: 10.20.30.153
+    port: 53
+  - name: nginx-proxy-manager
+    host: 10.20.30.154
+    port: 81
+  - name: nginx-proxy-manager-https
+    host: 10.20.30.154
+    port: 443
+  - name: proxmox
+    host: 10.20.30.46
+    port: 8006
+  - name: organizr
+    host: 10.20.30.164
+    port: 80
+  - name: heimdall
+    host: 10.20.30.166
+    port: 80
+  - name: freshrss
+    host: 10.20.30.157
+    port: 80
+  - name: netalertx
+    host: 10.20.30.158
+    port: 20211
+  - name: healthchecks
+    host: 10.20.30.159
+    port: 8000
+  - name: couchdb
+    host: 10.20.30.165
+    port: 5984
+  - name: browser
+    host: 10.20.30.162
+    port: 5800
+  - name: apt-cacher-ng
+    host: 10.20.30.156
+    port: 3142
+  - name: static-sites
+    host: 10.20.30.161
+    port: 80
+  - name: authentik
+    host: 10.20.30.170
+    port: 9000
+  - name: home-assistant
+    host: 10.20.30.134
+    port: 8123
+  - name: nagios
+    host: 10.20.30.133
+    port: 80

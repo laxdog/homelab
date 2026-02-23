@@ -34,10 +34,17 @@
     state: absent
   when: resolv_conf_stat.stat.islnk | default(false)
 
+- name: Choose resolv.conf nameserver
+  ansible.builtin.set_fact:
+    adguard_resolv_nameserver: >-
+      {{ (config.adguard.dns.upstream_dns[0]
+          if '://' not in config.adguard.dns.upstream_dns[0]
+          else (config.adguard.dns.bootstrap_dns[0] | default('1.1.1.1'))) }}
+
 - name: Write resolv.conf with upstream DNS
   ansible.builtin.copy:
     dest: /etc/resolv.conf
-    content: "nameserver {{ config.adguard.dns.upstream_dns[0] }}\n"
+    content: "nameserver {{ adguard_resolv_nameserver }}\n"
     mode: '0644'
 
 - name: Ensure AdGuardHome install directory exists
@@ -117,7 +124,45 @@
   retries: 10
   delay: 3
   until: adguard_status.status == 200
-  when: config.adguard.rewrites | default([]) | length > 0
+  when: (config.adguard.rewrites | default([]) | length > 0) or (config.adguard.user_rules | default([]) | length > 0)
+
+- name: Read existing AdGuard user rules
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/filtering/status"
+    method: GET
+    user: "{{ config.adguard.admin_user }}"
+    password: "{{ adguard_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    status_code: 200
+  register: adguard_filtering_status
+  when: config.adguard.user_rules | default([]) | length > 0
+
+- name: Normalize existing AdGuard user rules
+  ansible.builtin.set_fact:
+    adguard_existing_user_rules: "{{ adguard_filtering_status.json.user_rules | default([]) }}"
+    adguard_desired_user_rules: "{{ config.adguard.user_rules | default([]) }}"
+  when: config.adguard.user_rules | default([]) | length > 0
+
+- name: Decide if AdGuard user rules need update
+  ansible.builtin.set_fact:
+    adguard_user_rules_need_update: "{{ (adguard_desired_user_rules | difference(adguard_existing_user_rules)) | length > 0 or (adguard_existing_user_rules | difference(adguard_desired_user_rules)) | length > 0 }}"
+  when: config.adguard.user_rules | default([]) | length > 0
+
+- name: Update AdGuard user rules
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/filtering/set_rules"
+    method: POST
+    user: "{{ config.adguard.admin_user }}"
+    password: "{{ adguard_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      rules: "{{ adguard_desired_user_rules }}"
+    status_code: 200
+  when:
+    - config.adguard.user_rules | default([]) | length > 0
+    - adguard_user_rules_need_update | default(false)
 
 - name: Read existing AdGuard rewrites
   ansible.builtin.uri:
