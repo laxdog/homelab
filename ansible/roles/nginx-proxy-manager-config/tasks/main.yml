@@ -231,6 +231,21 @@
          | map(attribute='id') | list)) }}
   when: config.npm.certificates | default([]) | length > 0
 
+- name: Update certificate domain map after creation
+  ansible.builtin.set_fact:
+    npm_certificate_domains_map: >-
+      {{ dict((npm_certificates_refresh.json.data | default(npm_certificates_refresh.json))
+         | selectattr('domain_names', 'defined')
+         | map(attribute='domain_names')
+         | map('sort')
+         | map('join', ',')
+         | list
+         | zip((npm_certificates_refresh.json.data | default(npm_certificates_refresh.json))
+         | selectattr('domain_names', 'defined')
+         | map(attribute='id')
+         | list)) }}
+  when: config.npm.certificates | default([]) | length > 0
+
 - name: Read existing NPM proxy hosts
   ansible.builtin.uri:
     url: http://127.0.0.1:81/api/nginx/proxy-hosts
