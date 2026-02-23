@@ -1,0 +1,12 @@
+services:
+  jellyfin:
+    image: "{{ config.jellyfin.image }}"
+    container_name: jellyfin
+    restart: unless-stopped
+    environment:
+      - TZ={{ config.homelab.timezone }}
+    ports:
+      - "{{ config.jellyfin.port }}:8096"
+    volumes:
+      - /opt/media-stack/appdata/jellyfin:/config
+      - /mnt/media:/media:ro

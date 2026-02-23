@@ -5,12 +5,20 @@
     state: directory
     mode: '0755'
 
+- name: Create media stack appdata directory
+  ansible.builtin.file:
+    path: /opt/media-stack/appdata/jellyfin
+    state: directory
+    mode: '0755'
+
 - name: Install compose file
-  ansible.builtin.copy:
-    src: docker-compose.yaml
+  ansible.builtin.template:
+    src: docker-compose.yaml.j2
     dest: /opt/media-stack/docker-compose.yaml
     mode: '0644'
 
-- name: Note that compose is not applied yet
-  ansible.builtin.debug:
-    msg: "Media stack compose file installed at /opt/media-stack/docker-compose.yaml"
+- name: Deploy media stack via Docker Compose
+  ansible.builtin.command: docker compose -f /opt/media-stack/docker-compose.yaml up -d
+  args:
+    chdir: /opt/media-stack
+  changed_when: false
