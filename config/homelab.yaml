@@ -1,6 +1,6 @@
 homelab:
   name: homelab
-  timezone: America/Los_Angeles
+  timezone: Europe/Dublin
 network:
   subnet: 10.20.30.0/24
   gateway: 10.20.30.1
