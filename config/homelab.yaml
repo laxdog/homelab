@@ -500,6 +500,14 @@ npm:
       location = / {
         return 302 /nagios/;
       }
+  - name: Proxmox External
+    domain: proxmox.lax.dog
+    forward_scheme: https
+    forward_host: 10.20.30.46
+    forward_port: 8006
+    access_list: External Protected
+    ssl: true
+    certificate: laxdog-external-le
 organizr:
   admin_user: admin
   admin_email: admin@laxdog.uk
@@ -587,6 +595,10 @@ cloudflare:
     proxied: true
   - type: A
     name: nagios.lax.dog
+    content: public_ip
+    proxied: true
+  - type: A
+    name: proxmox.lax.dog
     content: public_ip
     proxied: true
 validation:
