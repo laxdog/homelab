@@ -543,8 +543,11 @@
         headers:
           Authorization: "Bearer {{ cloudflare_api_token }}"
           Content-Type: application/json
-        timeout: 30
+        timeout: 60
       register: cloudflare_remove_lookup
+      retries: 3
+      delay: 5
+      until: cloudflare_remove_lookup is succeeded
       loop: "{{ config.cloudflare.remove_records | default([]) }}"
 
     - name: Assert Cloudflare removed records are absent
