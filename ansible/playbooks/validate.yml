@@ -129,6 +129,31 @@
         port: 22
         timeout: 5
 
+- name: Validate apt-cacher proxy configuration
+  hosts: guests
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  tasks:
+    - name: Check apt proxy configuration
+      ansible.builtin.slurp:
+        src: /etc/apt/apt.conf.d/01proxy
+      register: apt_proxy_config
+      when:
+        - config.apt_cacher.enabled | default(false)
+        - ansible_facts.os_family == 'Debian'
+        - inventory_hostname != 'apt-cacher-ng'
+
+    - name: Assert apt proxy configured for apt-cacher
+      ansible.builtin.assert:
+        that:
+          - apt_proxy_config.content | b64decode is search(config.apt_cacher.host | string)
+        fail_msg: "apt-cacher proxy config missing or incorrect on {{ inventory_hostname }}"
+      when:
+        - config.apt_cacher.enabled | default(false)
+        - ansible_facts.os_family == 'Debian'
+        - inventory_hostname != 'apt-cacher-ng'
+
 - name: Validate Docker hosts
   hosts: docker_hosts
   gather_facts: false
