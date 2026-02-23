@@ -85,26 +85,13 @@
     path: /etc/systemd/system/AdGuardHome.service
   register: adguard_service_after
 
-- name: Check AdGuard config seed marker
-  ansible.builtin.stat:
-    path: "{{ adguard_install_dir }}/.ansible_config_seeded"
-  register: adguard_config_seeded
-
 - name: Render AdGuardHome configuration
   ansible.builtin.template:
     src: AdGuardHome.yaml.j2
     dest: "{{ adguard_config_path }}"
     mode: '0644'
   register: adguard_config_rendered
-  when: not adguard_config_seeded.stat.exists or (config.adguard.force_config | default(false))
   notify: Restart AdGuardHome
-
-- name: Mark AdGuardHome config as seeded
-  ansible.builtin.file:
-    path: "{{ adguard_install_dir }}/.ansible_config_seeded"
-    state: touch
-    mode: '0644'
-  when: adguard_config_rendered is defined and adguard_config_rendered.changed
 
 - name: Ensure AdGuardHome service is enabled and running
   ansible.builtin.service:
