@@ -55,3 +55,4 @@ Internal (`laxdog.uk`):
 - Internal proxy hosts use HTTPS via Let's Encrypt (DNS-01) in NPM.
 - Authentik will be added as the IdP for external access and OIDC for supported apps.
 - Home Assistant may return HTTP 400 behind NPM until `trusted_proxies` is configured in HAOS.
+- AdGuard config export/import workflow is documented in `docs/adguard.md`.

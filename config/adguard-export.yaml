@@ -1,0 +1,489 @@
+status:
+  version: v0.107.68
+  language: ''
+  dns_addresses:
+  - 127.0.0.1
+  - ::1
+  - 10.20.30.53
+  - fe80::be24:11ff:fe06:1054%eth0
+  dns_port: 53
+  http_port: 80
+  protection_disabled_duration: 0
+  protection_enabled: true
+  dhcp_available: true
+  running: true
+filtering:
+  enabled: true
+  interval: 12
+  blocklists:
+  - name: AdGuard DNS filter
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+    enabled: true
+  - name: AdAway Default Blocklist
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
+    enabled: false
+  - name: HaGeZi's Pro Blocklist
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_48.txt
+    enabled: true
+  - name: OISD Blocklist Big
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_27.txt
+    enabled: true
+  - name: HaGeZi's Threat Intelligence Feeds
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_44.txt
+    enabled: true
+  - name: AdGuard DNS Popup Hosts filter
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_59.txt
+    enabled: true
+  - name: Phishing URL Blocklist (PhishTank and OpenPhish)
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_30.txt
+    enabled: true
+  - name: HaGeZi's Samsung Tracker Blocklist
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_61.txt
+    enabled: true
+  - name: HaGeZi's Xiaomi Tracker Blocklist
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_60.txt
+    enabled: true
+  allowlists: []
+  user_rules:
+  - '@@||click.figma.com^$client=''10.20.30.201'''
+  - '@@||analytics.google.com^$client=''10.20.30.201'''
+  - '@@||amplitude.com^$client=''10.20.30.201'''
+  - '@@||amplitude.com^$client=''10.20.30.204'''
+  - '@@||click.figma.com^$client=''10.20.30.204'''
+  - '@@||www.googletagmanager.com^$client=''10.20.30.201'''
+  - '@@||analytics.google.com^$client=''10.20.30.204'''
+  - '@@||cfklr04.na1.hs-sales-engage.com^$client=''10.20.30.75'''
+  - '@@||api.mixpanel.com^$client=''10.20.30.75'''
+  - '@@||sentry.io^$client=''10.20.30.75'''
+  - '@@||api.eu.amplitude.com^$client=''10.20.30.208'''
+  - '@@||amplitude.com^$client=''10.20.30.208'''
+  - '@@||api.lab.amplitude.com^$client=''10.20.30.108'''
+  - '@@||hotjar.com^$client=''10.20.30.75'''
+  - '@@||region1.google-analytics.com^$client=''10.20.30.208'''
+  - '@@||amplitude.prismic.io^$client=''10.20.30.208'''
+  - '@@||region1.google-analytics.com^$client=''10.20.30.75'''
+  - '@@||region1.analytics.google.com^$client=''10.20.30.75'''
+dns:
+  upstream_dns:
+  - https://dns10.quad9.net/dns-query
+  bootstrap_dns:
+  - 9.9.9.10
+  - 149.112.112.10
+  - 2620:fe::10
+  - 2620:fe::fe:10
+  fallback_dns: []
+  ratelimit: 20
+  blocking_mode: default
+  cache_size: 4194304
+  cache_enabled: true
+rewrites: []
+clients:
+  clients:
+  - safe_search:
+      enabled: false
+      bing: true
+      duckduckgo: true
+      ecosia: true
+      google: true
+      pixabay: true
+      yandex: true
+      youtube: true
+    blocked_services_schedule:
+      time_zone: Local
+    name: Bazzite
+    blocked_services: []
+    ids:
+    - d8:43:ae:5c:a8:a9
+    tags: []
+    upstreams: []
+    filtering_enabled: false
+    parental_enabled: false
+    safebrowsing_enabled: false
+    safesearch_enabled: false
+    use_global_blocked_services: true
+    use_global_settings: true
+    ignore_querylog: false
+    ignore_statistics: false
+    upstreams_cache_size: 0
+    upstreams_cache_enabled: false
+  - safe_search:
+      enabled: false
+      bing: true
+      duckduckgo: true
+      ecosia: true
+      google: true
+      pixabay: true
+      yandex: true
+      youtube: true
+    blocked_services_schedule:
+      time_zone: Local
+    name: nm
+    blocked_services: []
+    ids:
+    - 62:20:29:e2:32:78
+    tags: []
+    upstreams: []
+    filtering_enabled: false
+    parental_enabled: false
+    safebrowsing_enabled: false
+    safesearch_enabled: false
+    use_global_blocked_services: true
+    use_global_settings: true
+    ignore_querylog: false
+    ignore_statistics: false
+    upstreams_cache_size: 0
+    upstreams_cache_enabled: false
+  auto_clients:
+  - whois_info: {}
+    ip: 10.20.30.126
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.154
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.208
+    name: Charlottes-Air.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.43
+    name: Pixel-10-Pro.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.210
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.215
+    name: R-N301.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: ff02::1
+    name: ip6-allnodes
+    source: etc/hosts
+  - whois_info: {}
+    ip: 127.0.0.1
+    name: localhost
+    source: etc/hosts
+  - whois_info: {}
+    ip: 10.20.30.39
+    name: Pixel-10-Pro.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.69
+    name: homeassistant.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.134
+    name: homeassistant.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.74
+    name: plex-poo.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.246
+    name: Google-Home-Mini.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.190
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.251
+    name: shelly1minig3-e4b32329d38c.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.75
+    name: Charlottes-Air.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: ff02::2
+    name: ip6-allrouters
+    source: etc/hosts
+  - whois_info: {}
+    ip: 10.20.30.98
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.133
+    name: Pixel-10-Pro.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.173
+    name: thinkpoo-t14.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.140
+    name: steamdeck.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.160
+    name: TIZEN.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.197
+    name: homeassistant.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.83
+    name: Charlottes-Air.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: ::1
+    name: localhost
+    source: etc/hosts
+  - whois_info: {}
+    ip: 10.20.30.216
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.159
+    name: James-s-S22.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.136
+    name: Ryan-s-S22.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.153
+    name: TIZEN.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.129
+    name: KP115.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.156
+    name: Pixel-10-Pro.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.71
+    name: XDY9F2KY9V.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.130
+    name: android-b8fbc38c39bfec45.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.157
+    name: TIZEN.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.36
+    name: Pixel-7.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.1
+    name: RT-AC86U.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.244
+    name: iPhone.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.231
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.102
+    name: shellyplus1-78ee4cc384c8.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.113
+    name: Pixel-10-Pro.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.158
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.115
+    name: Pixel-10-Pro.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.170
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.131
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.55
+    name: KH100.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.209
+    name: R-N301.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.135
+    name: x1-poo.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.150
+    name: Pixel-10-Pro.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.52
+    name: Pixel-10-Pro.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.120
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.123
+    name: myHivehub.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.99
+    name: shellyplus1-78ee4cc4b590.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.121
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.162
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.53
+    name: adguard.laxdog.uk
+    source: etc/hosts
+  - whois_info: {}
+    ip: 10.20.30.35
+    name: Google-Home-Max.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.70
+    name: X270.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.76
+    name: XDY9F2KY9V.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.183
+    name: android-b8fbc38c39bfec45.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.164
+    name: TIZEN.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.117
+    name: Robert-s-Galaxy-A51.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.79
+    name: XDY9F2KY9V.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.46
+    name: michael-Default-string.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.166
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.149
+    name: X270.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.152
+    name: Pixel-10-Pro.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.161
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.219
+    name: R-N301.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.221
+    name: R-N301.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.167
+    name: Pixel-10-Pro.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.187
+    name: XDY9F2KY9V.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.86
+    name: GL-AXT1800.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.163
+    name: ''
+    source: ARP
+  - whois_info: {}
+    ip: 10.20.30.188
+    name: thinkpoo-t14.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.198
+    name: RT-AC67U-1F08.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.212
+    name: R-N301.lax.dog
+    source: rDNS
+  - whois_info: {}
+    ip: 10.20.30.165
+    name: ''
+    source: ARP
+  supported_tags:
+  - device_audio
+  - device_camera
+  - device_gameconsole
+  - device_laptop
+  - device_nas
+  - device_other
+  - device_pc
+  - device_phone
+  - device_printer
+  - device_securityalarm
+  - device_tablet
+  - device_tv
+  - os_android
+  - os_ios
+  - os_linux
+  - os_macos
+  - os_other
+  - os_windows
+  - user_admin
+  - user_child
+  - user_regular
+blocked_services: []
+tls:
+  not_before: '0001-01-01T00:00:00Z'
+  not_after: '0001-01-01T00:00:00Z'
+  dns_names: null
+  valid_cert: false
+  valid_chain: false
+  valid_key: false
+  valid_pair: false
+  enabled: false
+  force_https: false
+  port_https: 443
+  port_dns_over_tls: 853
+  port_dns_over_quic: 853
+  port_dnscrypt: 0
+  dnscrypt_config_file: ''
+  allow_unencrypted_doh: false
+  certificate_chain: ''
+  private_key: ''
+  certificate_path: ''
+  private_key_path: ''
+  private_key_saved: false
+  serve_plain_dns: true
