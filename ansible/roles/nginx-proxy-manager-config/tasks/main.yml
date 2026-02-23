@@ -5,6 +5,43 @@
     port: 81
     timeout: 30
 
+- name: Normalize NPM advanced_config newlines in database
+  ansible.builtin.command:
+    cmd: >-
+      /bin/sh -lc
+      "docker run --rm -v /docker/nginx-proxy-manager:/data nouchka/sqlite3
+      /data/database.sqlite
+      \"UPDATE proxy_host
+      SET advanced_config = replace(advanced_config, char(92) || 'n', char(10))
+      WHERE advanced_config LIKE '%' || char(92) || 'n%';
+      SELECT changes();\""
+  register: npm_advanced_config_normalize
+  changed_when: npm_advanced_config_normalize.stdout | trim | int > 0
+
+- name: Normalize escaped newlines in NPM proxy host files
+  ansible.builtin.command:
+    cmd: |
+      /bin/sh -lc 'cat > /tmp/npm_fix.py << "PY"
+      from pathlib import Path
+      root = Path("/docker/nginx-proxy-manager/nginx/proxy_host")
+      changed = False
+      for path in root.glob("*.conf"):
+          data = path.read_text()
+          if "\\n" in data:
+              path.write_text(data.replace("\\n", "\n"))
+              changed = True
+      print("changed" if changed else "ok")
+      PY
+      python3 /tmp/npm_fix.py
+      rm -f /tmp/npm_fix.py'
+  register: npm_proxy_host_normalize
+  changed_when: "'changed' in npm_proxy_host_normalize.stdout"
+
+- name: Reload NPM after proxy host normalization
+  ansible.builtin.command:
+    cmd: docker exec nginx-proxy-manager nginx -s reload
+  when: npm_proxy_host_normalize.changed
+
 - name: Login to NPM API with automation credentials
   ansible.builtin.uri:
     url: http://127.0.0.1:81/api/tokens
@@ -322,12 +359,11 @@
     desired_ssl_forced: "{{ item.ssl | default(false) }}"
     desired_http2_support: "{{ item.ssl | default(false) }}"
     desired_forward_scheme: "{{ item.forward_scheme | default('http') }}"
-    desired_advanced_config: >-
-      {% set base_config = (item.advanced_config
-         if item.advanced_config is defined
-         else (current_host.advanced_config | default(''))) %}
+    desired_advanced_config: |
+      {% set base_config = (item.advanced_config | default('')) | replace('\\n', '\n') | trim %}
       {% if item.authentik_protect | default(false) %}
-      {{ (base_config | trim) ~ '\n' if (base_config | trim) else '' }}{{ authentik_forward_auth_snippet | trim }}
+      {{ base_config }}
+      {{ authentik_forward_auth_snippet | trim }}
       {% else %}
       {{ base_config }}
       {% endif %}
@@ -367,12 +403,13 @@
       http2_support: "{{ item.ssl | default(false) }}"
       hsts_enabled: false
       hsts_subdomains: false
-      advanced_config: >-
+      advanced_config: |
+        {% set base_config = (item.advanced_config | default('')) | replace('\\n', '\n') | trim %}
         {% if item.authentik_protect | default(false) %}
-        {{ (item.advanced_config | default('') | trim) ~ '\n'
-           if (item.advanced_config | default('') | trim) else '' }}{{ authentik_forward_auth_snippet | trim }}
+        {{ base_config }}
+        {{ authentik_forward_auth_snippet | trim }}
         {% else %}
-        {{ item.advanced_config | default('') }}
+        {{ base_config }}
         {% endif %}
       meta:
         letsencrypt_agree: false

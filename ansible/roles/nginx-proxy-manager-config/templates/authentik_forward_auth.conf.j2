@@ -18,5 +18,5 @@ location /outpost.goauthentik.io {
 }
 
 location @authentik_signin {
-  return 302 https://{{ config.authentik.external_domain }}/outpost.goauthentik.io/start?rd=$scheme://$http_host$request_uri;
+  return 302 /outpost.goauthentik.io/start?rd=$scheme://$http_host$request_uri;
 }

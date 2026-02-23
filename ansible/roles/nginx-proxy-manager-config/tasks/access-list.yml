@@ -39,6 +39,7 @@
       Authorization: "Bearer {{ npm_api_token }}"
     body: "{{ npm_access_list_payload }}"
   when:
+    - config.npm.allow_access_list_updates | default(false)
     - npm_access_list_current | length > 0
     - npm_access_list_current.pass_auth | default(false) != (access_list.auth == 'basic')
       or (npm_access_list_current.satisfy_any | default(false)) != false
