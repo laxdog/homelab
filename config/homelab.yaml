@@ -560,6 +560,13 @@ static_sites:
 jellyfin:
   image: jellyfin/jellyfin:latest
   port: 8096
+  server_name: homelab-jellyfin
+  admin_user: admin
+  preferred_language: en
+  metadata_country: US
+  ui_culture: en-US
+  enable_remote_access: true
+  enable_automatic_port_mapping: false
 nagios:
   core_version: "4.5.11"
   admin_user: nagiosadmin
@@ -651,6 +658,7 @@ validation:
   - healthchecks_admin_password
   - healthchecks_secret_key
   - nagios_admin_password
+  - jellyfin_admin_password
   http_expected_codes:
     apt.laxdog.uk:
     - 200
