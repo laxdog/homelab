@@ -476,6 +476,10 @@ npm:
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
+    advanced_config: |
+      location = / {
+        return 302 /nagios4/;
+      }
   external_proxy_hosts:
   - name: Authentik External
     domain: auth.lax.dog
@@ -491,6 +495,10 @@ npm:
     access_list: External Protected
     ssl: true
     certificate: laxdog-external-le
+    advanced_config: |
+      location = / {
+        return 302 /nagios4/;
+      }
 organizr:
   admin_user: admin
   admin_email: admin@laxdog.uk
