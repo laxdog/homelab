@@ -4,10 +4,7 @@ ScriptAlias /nagios/cgi-bin "/usr/local/nagios/sbin"
     Options ExecCGI
     AllowOverride None
     Require all granted
-    AuthName "Nagios Access"
-    AuthType Basic
-    AuthUserFile /usr/local/nagios/etc/htpasswd.users
-    Require valid-user
+    SetEnv REMOTE_USER {{ config.nagios.admin_user }}
 </Directory>
 
 Alias /nagios "/usr/local/nagios/share"
@@ -16,8 +13,5 @@ Alias /nagios "/usr/local/nagios/share"
     Options None
     AllowOverride None
     Require all granted
-    AuthName "Nagios Access"
-    AuthType Basic
-    AuthUserFile /usr/local/nagios/etc/htpasswd.users
-    Require valid-user
+    SetEnv REMOTE_USER {{ config.nagios.admin_user }}
 </Directory>
