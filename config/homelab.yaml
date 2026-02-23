@@ -561,6 +561,18 @@ authentik:
   - name: Nagios
     slug: nagios
     external_host: https://nagios.lax.dog
+  - name: Router
+    slug: router
+    external_host: https://10.20.30.1
+  - name: UniFi Primary
+    slug: unifi-primary
+    external_host: https://10.20.30.50
+  - name: UniFi Secondary
+    slug: unifi-secondary
+    external_host: https://10.20.30.51
+  - name: NetAlertX
+    slug: netalertx
+    external_host: https://netalertx.laxdog.uk
 couchdb:
   admin_user: admin
   port: 5984
