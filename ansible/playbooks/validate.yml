@@ -1,4 +1,30 @@
 ---
+- name: Validate vault secrets
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  tasks:
+    - name: Assert vault password file configured
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+        fail_msg: "ANSIBLE_VAULT_PASSWORD_FILE not set; unable to validate vault secrets."
+
+    - name: Load vault secrets
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+
+    - name: Assert required vault secrets are defined
+      ansible.builtin.assert:
+        that:
+          - vars[item] is defined
+          - (vars[item] | string | length) > 0
+        fail_msg: "Vault secret '{{ item }}' is missing or empty."
+      loop: "{{ config.validation.vault_required_vars | default([]) }}"
+
 - name: Validate Proxmox host
   hosts: proxmox_hosts
   gather_facts: false
@@ -322,7 +348,7 @@
 
     - name: Check HTTPS response via NPM for internal domains
       ansible.builtin.command: >-
-        curl -k -s -o /dev/null -w "%{http_code}"
+        curl -k -s -o /dev/null -w "%{http_code}" --max-time 15
         --resolve {{ item.domain }}:443:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
         https://{{ item.domain }}
       register: npm_https_checks
@@ -332,13 +358,13 @@
     - name: Assert NPM HTTPS endpoints are reachable
       ansible.builtin.assert:
         that:
-          - item.stdout | int in [200, 301, 302, 401]
+          - item.stdout | int in (config.validation.http_expected_codes[item.item.domain] | default([200, 301, 302, 401]))
         fail_msg: "Unexpected HTTPS response for {{ item.item.domain }}: {{ item.stdout }}"
       loop: "{{ npm_https_checks.results | default([]) }}"
 
     - name: Check HTTP redirects to HTTPS via NPM for internal domains
       ansible.builtin.command: >-
-        curl -k -s -o /dev/null -w "%{http_code}"
+        curl -k -s -o /dev/null -w "%{http_code}" --max-time 15
         --resolve {{ item.domain }}:80:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
         http://{{ item.domain }}
       register: npm_http_checks
@@ -354,7 +380,7 @@
 
     - name: Check Authentik internal endpoint via NPM
       ansible.builtin.command: >-
-        curl -k -s -o /dev/null -w "%{http_code}"
+        curl -k -s -o /dev/null -w "%{http_code}" --max-time 15
         --resolve {{ config.authentik.internal_domain }}:443:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
         https://{{ config.authentik.internal_domain }}
       register: authentik_internal_check
@@ -362,7 +388,7 @@
 
     - name: Check Authentik external endpoint via NPM
       ansible.builtin.command: >-
-        curl -k -s -o /dev/null -w "%{http_code}"
+        curl -k -s -o /dev/null -w "%{http_code}" --max-time 15
         --resolve {{ config.authentik.external_domain }}:443:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
         https://{{ config.authentik.external_domain }}
       register: authentik_external_check
@@ -377,7 +403,7 @@
 
     - name: Check Authentik outpost ping via NPM
       ansible.builtin.command: >-
-        curl -k -s -o /dev/null -w "%{http_code}"
+        curl -k -s -o /dev/null -w "%{http_code}" --max-time 15
         --resolve {{ config.authentik.external_domain }}:443:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
         https://{{ config.authentik.external_domain }}/outpost.goauthentik.io/ping
       register: authentik_outpost_ping
@@ -421,6 +447,25 @@
       ansible.builtin.set_fact:
         cloudflare_zone_id: "{{ cloudflare_zones.json.result[0].id }}"
 
+    - name: Determine if public IP lookup is required for Cloudflare validation
+      ansible.builtin.set_fact:
+        cloudflare_public_ip_required: >-
+          {{
+            (config.cloudflare.records | default([]) | selectattr('content', 'equalto', 'public_ip') | list | length) > 0
+          }}
+
+    - name: Fetch public IP for Cloudflare validation
+      ansible.builtin.uri:
+        url: https://api.ipify.org?format=json
+        return_content: true
+      register: cloudflare_public_ip
+      when: cloudflare_public_ip_required | bool
+
+    - name: Set Cloudflare public IP fact
+      ansible.builtin.set_fact:
+        cloudflare_public_ip_value: "{{ cloudflare_public_ip.json.ip }}"
+      when: cloudflare_public_ip_required | bool
+
     - name: Validate Cloudflare DNS records
       ansible.builtin.uri:
         url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?type={{ item.type }}&name={{ item.name }}"
@@ -443,7 +488,7 @@
       ansible.builtin.command: "dig +short @1.1.1.1 {{ item.name }}"
       register: external_dns_queries
       changed_when: false
-      loop: "{{ config.cloudflare.records }}"
+      loop: "{{ config.cloudflare.records | rejectattr('proxied', 'equalto', True) | list }}"
 
     - name: Assert external DNS records resolve to expected content
       ansible.builtin.assert:
@@ -472,6 +517,14 @@
 - name: Validate Organizr
   hosts: organizr_hosts
   gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
   tasks:
     - name: Check Organizr HTTP port
       ansible.builtin.wait_for:
@@ -479,15 +532,78 @@
         port: 80
         timeout: 10
 
+    - name: Read Organizr tabs
+      ansible.builtin.uri:
+        url: http://127.0.0.1/api/v2/tabs
+        method: GET
+        headers:
+          token: "{{ organizr_api_key }}"
+      register: organizr_tabs
+      no_log: true
+
+    - name: Build expected Organizr tab list
+      ansible.builtin.set_fact:
+        organizr_expected_tabs: "{{ config.npm.proxy_hosts | map(attribute='name') | list }}"
+
+    - name: Build actual Organizr tab list
+      ansible.builtin.set_fact:
+        organizr_actual_tabs: >-
+          {{
+            (
+              organizr_tabs.json.response.data.tabs
+              | default(organizr_tabs.json.data.tabs | default([]))
+            )
+            | map(attribute='name')
+            | list
+          }}
+
+    - name: Assert Organizr tabs present
+      ansible.builtin.assert:
+        that:
+          - item in organizr_actual_tabs
+        fail_msg: "Organizr tab missing: {{ item }}"
+      loop: "{{ organizr_expected_tabs }}"
+
 - name: Validate Heimdall
   hosts: heimdall_hosts
   gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
   tasks:
     - name: Check Heimdall HTTP port
       ansible.builtin.wait_for:
         host: "{{ ansible_host }}"
         port: 80
         timeout: 10
+
+    - name: Check Heimdall items
+      ansible.builtin.command: >
+        sqlite3 /docker/docker-compose-heimdall/config/www/app.sqlite
+        "SELECT id FROM items WHERE url='https://{{ item.domain }}' AND deleted_at IS NULL LIMIT 1;"
+      register: heimdall_item_check
+      changed_when: false
+      loop: "{{ config.npm.proxy_hosts }}"
+
+    - name: Assert Heimdall items present
+      ansible.builtin.assert:
+        that:
+          - (item.stdout | default('')) | length > 0
+        fail_msg: "Heimdall item missing for https://{{ item.item.domain }}"
+      loop: "{{ heimdall_item_check.results | default([]) }}"
+
+- name: Validate Nagios
+  hosts: nagios_hosts
+  gather_facts: false
+  tasks:
+    - name: Check Nagios HTTP port
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 80
+        timeout: 10
+
+    - name: Check Nagios service
+      ansible.builtin.command: systemctl is-active --quiet nagios4
+      changed_when: false
 
 - name: Validate service ports
   hosts: localhost
