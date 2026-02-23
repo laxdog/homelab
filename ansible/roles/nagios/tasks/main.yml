@@ -62,6 +62,9 @@
     nagios_core_version: "{{ config.nagios.core_version | default('4.5.11') }}"
     nagios_installed_version: >-
       {{ (nagios_version_check.stdout | default('') | regex_findall('Nagios Core ([0-9.]+)') | first) | default('') }}
+
+- name: Determine if Nagios Core upgrade is needed
+  ansible.builtin.set_fact:
     nagios_core_upgrade_needed: >-
       {{ (nagios_version_check.rc | default(1)) != 0
          or (nagios_version_check.stdout | default('')) == ''
@@ -197,6 +200,20 @@
     regexp: '^cfg_file=/usr/local/nagios/etc/objects/homelab.cfg$'
     line: 'cfg_file=/usr/local/nagios/etc/objects/homelab.cfg'
     insertafter: EOF
+  notify: Restart Nagios
+
+- name: Set Nagios CGI HTML base path
+  ansible.builtin.lineinfile:
+    path: /usr/local/nagios/etc/cgi.cfg
+    regexp: '^url_html_path='
+    line: 'url_html_path=/nagios4'
+  notify: Restart Nagios
+
+- name: Set Nagios CGI base URL
+  ansible.builtin.lineinfile:
+    path: /usr/local/nagios/share/config.inc.php
+    regexp: "^\\$cfg\\['cgi_base_url'\\]="
+    line: "$cfg['cgi_base_url']='/nagios4/cgi-bin';"
   notify: Restart Nagios
 
 - name: Enable Apache CGI module
