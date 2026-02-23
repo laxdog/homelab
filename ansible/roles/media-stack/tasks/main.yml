@@ -22,3 +22,79 @@
   args:
     chdir: /opt/media-stack
   changed_when: false
+
+- name: Wait for Jellyfin health endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.jellyfin.port }}/health"
+    method: GET
+    status_code: 200
+  register: jellyfin_health
+  retries: 12
+  delay: 5
+  until: jellyfin_health.status == 200
+
+- name: Read Jellyfin system configuration
+  ansible.builtin.slurp:
+    src: /opt/media-stack/appdata/jellyfin/config/system.xml
+  register: jellyfin_system_xml
+
+- name: Set Jellyfin server name
+  ansible.builtin.replace:
+    path: /opt/media-stack/appdata/jellyfin/config/system.xml
+    regexp: "<ServerName>.*</ServerName>"
+    replace: "<ServerName>{{ config.jellyfin.server_name }}</ServerName>"
+  when: config.jellyfin.server_name | length > 0
+
+- name: Determine if Jellyfin startup wizard is complete
+  ansible.builtin.set_fact:
+    jellyfin_wizard_complete: >-
+      {{ (jellyfin_system_xml.content | b64decode) is search('<IsStartupWizardCompleted>true</IsStartupWizardCompleted>') }}
+
+- name: Configure Jellyfin startup settings
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.jellyfin.port }}/Startup/Configuration"
+    method: POST
+    body_format: json
+    body:
+      UICulture: "{{ config.jellyfin.ui_culture }}"
+      MetadataCountryCode: "{{ config.jellyfin.metadata_country }}"
+      PreferredMetadataLanguage: "{{ config.jellyfin.preferred_language }}"
+    status_code: [200, 204]
+  when: not jellyfin_wizard_complete
+
+- name: Create Jellyfin admin user
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.jellyfin.port }}/Startup/User"
+    method: GET
+    status_code: 200
+  when: not jellyfin_wizard_complete
+
+- name: Create Jellyfin admin user
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.jellyfin.port }}/Startup/User"
+    method: POST
+    body_format: json
+    body:
+      Name: "{{ config.jellyfin.admin_user }}"
+      Password: "{{ jellyfin_admin_password }}"
+    status_code: [200, 204]
+  when: not jellyfin_wizard_complete
+  no_log: true
+
+- name: Configure Jellyfin remote access
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.jellyfin.port }}/Startup/RemoteAccess"
+    method: POST
+    body_format: json
+    body:
+      EnableRemoteAccess: "{{ config.jellyfin.enable_remote_access }}"
+      EnableAutomaticPortMapping: "{{ config.jellyfin.enable_automatic_port_mapping }}"
+    status_code: [200, 204]
+  when: not jellyfin_wizard_complete
+
+- name: Complete Jellyfin startup wizard
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.jellyfin.port }}/Startup/Complete"
+    method: POST
+    status_code: [200, 204]
+  when: not jellyfin_wizard_complete
