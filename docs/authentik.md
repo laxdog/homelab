@@ -19,6 +19,8 @@ Both hostnames should point to the same Authentik instance via NPM.
 - LXC: `170` / `10.20.30.170`.
 - External hosts (`lax.dog`) are always protected via forward-auth.
 - Internal hosts (`laxdog.uk`) remain LAN-open unless the app supports OIDC and needs identity.
+- Apps with native client auth (Jellyfin, Plex) are not put behind forward-auth to avoid breaking
+  non-browser clients. They keep local logins and may optionally add OIDC for web SSO.
 
 ## High-level plan
 1. Provision Authentik LXC and install via Docker Compose.
@@ -60,6 +62,8 @@ Proxy-protected (no native OIDC in settings docs):
 Notes:
 - For proxy-only apps, enforce Authentik forward-auth on external hosts.
 - For OIDC-capable apps, configure them to use Authentik for identity on LAN and external.
+- For client apps that don't handle OIDC (Jellyfin/Plex), keep NPM access lists "public" and rely on
+  the app's native auth. Do not apply forward-auth in front of these services.
 
 ## Related services to consider
 Requests / media discovery:
@@ -72,3 +76,4 @@ File sharing / collaboration:
 
 ## Open items
 - Decide which OIDC-capable apps to wire up first (Jellyfin and FreshRSS are good starters).
+- Jellyfin: keep local login enabled for client apps; consider OIDC SSO for web UI only.

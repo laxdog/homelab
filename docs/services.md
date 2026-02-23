@@ -31,6 +31,9 @@ Source of truth: `config/homelab.yaml`.
 External (`lax.dog`):
 - External access is enabled behind Authentik.
 - `auth.lax.dog` -> Authentik
+- `jellyfin.lax.dog` -> Jellyfin (native auth; no forward-auth)
+- `nagios.lax.dog` -> Nagios (basic auth)
+- `proxmox.lax.dog` -> Proxmox (basic auth)
 
 Internal (`laxdog.uk`):
 - `dns.laxdog.uk` -> AdGuard UI
@@ -48,9 +51,11 @@ Internal (`laxdog.uk`):
 - `auth.laxdog.uk`
 - `ha.laxdog.uk`
 - `nagios.laxdog.uk`
+- `jellyfin.laxdog.uk`
 
 ## Notes
-- Media stack compose is a placeholder and needs service definitions added.
+- Media stack currently includes Jellyfin only; more services will be added.
+- Jellyfin is exposed internally and externally without forward-auth to keep native apps working.
 - NFS server role is a placeholder pending storage attachment strategy.
 - Internal proxy hosts use HTTPS via Let's Encrypt (DNS-01) in NPM.
 - Authentik will be added as the IdP for external access and OIDC for supported apps.
