@@ -168,6 +168,12 @@ adguard:
     answer: 10.20.30.154
   - domain: jellyfin.laxdog.uk
     answer: 10.20.30.154
+  - domain: router.laxdog.uk
+    answer: 10.20.30.154
+  - domain: unifi-primary.laxdog.uk
+    answer: 10.20.30.154
+  - domain: unifi-secondary.laxdog.uk
+    answer: 10.20.30.154
   user_rules:
   - '@@||click.figma.com^$client=''10.20.30.201'''
   - '@@||analytics.google.com^$client=''10.20.30.201'''
@@ -378,6 +384,9 @@ npm:
     - ha.laxdog.uk
     - nagios.laxdog.uk
     - jellyfin.laxdog.uk
+    - router.laxdog.uk
+    - unifi-primary.laxdog.uk
+    - unifi-secondary.laxdog.uk
   - name: laxdog-external-le
     type: letsencrypt
     dns_provider: cloudflare
@@ -386,6 +395,8 @@ npm:
     - nagios.lax.dog
     - proxmox.lax.dog
     - jellyfin.lax.dog
+    - netalertx.lax.dog
+    - ha.lax.dog
   proxy_hosts:
   - name: AdGuard Internal
     domain: dns.laxdog.uk
@@ -505,6 +516,33 @@ npm:
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
+  - name: Router
+    domain: router.laxdog.uk
+    forward_scheme: https
+    forward_host: 10.20.30.1
+    forward_port: 443
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+    authentik_protect: true
+  - name: UniFi Primary
+    domain: unifi-primary.laxdog.uk
+    forward_scheme: https
+    forward_host: 10.20.30.50
+    forward_port: 443
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+    authentik_protect: true
+  - name: UniFi Secondary
+    domain: unifi-secondary.laxdog.uk
+    forward_scheme: https
+    forward_host: 10.20.30.51
+    forward_port: 443
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+    authentik_protect: true
   external_proxy_hosts:
   - name: Authentik External
     domain: auth.lax.dog
@@ -541,6 +579,22 @@ npm:
     access_list: External Public
     ssl: true
     certificate: laxdog-external-le
+  - name: NetAlertX External
+    domain: netalertx.lax.dog
+    forward_host: 10.20.30.158
+    forward_port: 20211
+    access_list: External Public
+    ssl: true
+    certificate: laxdog-external-le
+    authentik_protect: true
+  - name: Home Assistant External
+    domain: ha.lax.dog
+    forward_host: 10.20.30.134
+    forward_port: 8123
+    access_list: External Public
+    ssl: true
+    certificate: laxdog-external-le
+    authentik_protect: true
 organizr:
   admin_user: admin
   admin_email: admin@laxdog.uk
@@ -563,16 +617,19 @@ authentik:
     external_host: https://nagios.lax.dog
   - name: Router
     slug: router
-    external_host: https://10.20.30.1
+    external_host: https://router.laxdog.uk
   - name: UniFi Primary
     slug: unifi-primary
-    external_host: https://10.20.30.50
+    external_host: https://unifi-primary.laxdog.uk
   - name: UniFi Secondary
     slug: unifi-secondary
-    external_host: https://10.20.30.51
+    external_host: https://unifi-secondary.laxdog.uk
   - name: NetAlertX
     slug: netalertx
-    external_host: https://netalertx.laxdog.uk
+    external_host: https://netalertx.lax.dog
+  - name: Home Assistant
+    slug: home-assistant
+    external_host: https://ha.lax.dog
 couchdb:
   admin_user: admin
   port: 5984
@@ -634,6 +691,18 @@ nagios:
   - name: authentik
     address: 10.20.30.170
     check_ssh: true
+  - name: netalertx
+    address: 10.20.30.158
+    check_ssh: false
+  - name: router
+    address: 10.20.30.1
+    check_ssh: false
+  - name: unifi-primary
+    address: 10.20.30.50
+    check_ssh: false
+  - name: unifi-secondary
+    address: 10.20.30.51
+    check_ssh: false
   dns_checks:
   - name: adguard-dns
     server: 10.20.30.153
@@ -665,6 +734,14 @@ cloudflare:
     proxied: true
   - type: A
     name: jellyfin.lax.dog
+    content: public_ip
+    proxied: true
+  - type: A
+    name: netalertx.lax.dog
+    content: public_ip
+    proxied: true
+  - type: A
+    name: ha.lax.dog
     content: public_ip
     proxied: true
 validation:
