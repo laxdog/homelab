@@ -155,6 +155,8 @@ adguard:
     answer: 10.20.30.154
   - domain: nagios.laxdog.uk
     answer: 10.20.30.154
+  - domain: jellyfin.laxdog.uk
+    answer: 10.20.30.154
   user_rules:
   - '@@||click.figma.com^$client=''10.20.30.201'''
   - '@@||analytics.google.com^$client=''10.20.30.201'''
@@ -364,11 +366,15 @@ npm:
     - auth.laxdog.uk
     - ha.laxdog.uk
     - nagios.laxdog.uk
+    - jellyfin.laxdog.uk
   - name: laxdog-external-le
     type: letsencrypt
     dns_provider: cloudflare
     domains:
     - auth.lax.dog
+    - nagios.lax.dog
+    - proxmox.lax.dog
+    - jellyfin.lax.dog
   proxy_hosts:
   - name: AdGuard Internal
     domain: dns.laxdog.uk
@@ -481,6 +487,13 @@ npm:
       location = / {
         return 302 /nagios/;
       }
+  - name: Jellyfin
+    domain: jellyfin.laxdog.uk
+    forward_host: 10.20.30.120
+    forward_port: 8096
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
   external_proxy_hosts:
   - name: Authentik External
     domain: auth.lax.dog
@@ -506,6 +519,13 @@ npm:
     forward_host: 10.20.30.46
     forward_port: 8006
     access_list: External Protected
+    ssl: true
+    certificate: laxdog-external-le
+  - name: Jellyfin External
+    domain: jellyfin.lax.dog
+    forward_host: 10.20.30.120
+    forward_port: 8096
+    access_list: External Public
     ssl: true
     certificate: laxdog-external-le
 organizr:
@@ -537,6 +557,9 @@ browser:
   port: 5800
 static_sites:
   port: 80
+jellyfin:
+  image: jellyfin/jellyfin:latest
+  port: 8096
 nagios:
   core_version: "4.5.11"
   admin_user: nagiosadmin
@@ -601,6 +624,10 @@ cloudflare:
     name: proxmox.lax.dog
     content: public_ip
     proxied: true
+  - type: A
+    name: jellyfin.lax.dog
+    content: public_ip
+    proxied: true
 validation:
   vault_required_vars:
   - terraform_user_password
@@ -637,6 +664,14 @@ validation:
     - 302
     - 400
     - 401
+    jellyfin.laxdog.uk:
+    - 200
+    - 301
+    - 302
+    jellyfin.lax.dog:
+    - 200
+    - 301
+    - 302
   service_ports:
   - name: adguard-http
     host: 10.20.30.153
@@ -689,3 +724,6 @@ validation:
   - name: nagios
     host: 10.20.30.133
     port: 80
+  - name: jellyfin
+    host: 10.20.30.120
+    port: 8096
