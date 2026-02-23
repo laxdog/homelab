@@ -74,6 +74,20 @@
         fail_msg: "Missing Proxmox storage ID: {{ item }}"
       loop: "{{ proxmox.storages.values() | list }}"
 
+    - name: Read Proxmox realms
+      ansible.builtin.command: pveum realm list --format json
+      register: proxmox_realms
+      changed_when: false
+
+    - name: Assert Proxmox OIDC realm exists
+      ansible.builtin.assert:
+        that:
+          - (proxmox_realms.stdout | from_json
+             | selectattr('realm', 'equalto', proxmox.oidc.realm)
+             | list
+             | length) > 0
+        fail_msg: "Missing Proxmox OIDC realm '{{ proxmox.oidc.realm }}'."
+
     - name: Scan subnet for live hosts
       ansible.builtin.command: "nmap -sn {{ network.subnet }} -oG -"
       register: nmap_scan

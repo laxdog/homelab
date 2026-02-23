@@ -1,0 +1,60 @@
+---
+- name: Read Proxmox realms
+  ansible.builtin.command: pveum realm list --output-format json
+  register: proxmox_realms
+  changed_when: false
+
+- name: Resolve OIDC realm entry
+  ansible.builtin.set_fact:
+    proxmox_oidc_realm: >-
+      {{ (proxmox_realms.stdout | from_json
+          | selectattr('realm', 'equalto', config.proxmox.oidc.realm)
+          | list
+          | first) | default({}) }}
+
+- name: Add OIDC realm
+  ansible.builtin.command: >-
+    pveum realm add {{ config.proxmox.oidc.realm }} --type openid
+    --issuer-url {{ config.proxmox.oidc.issuer_url }}
+    --client-id {{ proxmox_oidc_client_id }}
+    --client-key {{ proxmox_oidc_client_secret }}
+    --username-claim email
+    --scopes "openid profile email"
+    --autocreate 1
+  when: proxmox_oidc_realm | length == 0
+
+- name: Update OIDC realm
+  ansible.builtin.command: >-
+    pveum realm update {{ config.proxmox.oidc.realm }}
+    --issuer-url {{ config.proxmox.oidc.issuer_url }}
+    --client-id {{ proxmox_oidc_client_id }}
+    --client-key {{ proxmox_oidc_client_secret }}
+    --username-claim email
+    --scopes "openid profile email"
+    --autocreate 1
+  when: proxmox_oidc_realm | length > 0
+  changed_when: false
+
+- name: Read Proxmox users
+  ansible.builtin.command: pveum user list --output-format json
+  register: proxmox_users
+  changed_when: false
+
+- name: Resolve OIDC admin user
+  ansible.builtin.set_fact:
+    proxmox_oidc_admin_user: >-
+      {{ (proxmox_users.stdout | from_json
+          | selectattr('userid', 'equalto', config.proxmox.oidc.admin_email ~ '@' ~ config.proxmox.oidc.realm)
+          | list
+          | first) | default({}) }}
+
+- name: Ensure OIDC admin user exists
+  ansible.builtin.command: >-
+    pveum user add {{ config.proxmox.oidc.admin_email }}@{{ config.proxmox.oidc.realm }}
+    --comment "Authentik admin"
+  when: proxmox_oidc_admin_user | length == 0
+
+- name: Ensure OIDC admin ACL
+  ansible.builtin.command: >-
+    pveum aclmod / -user {{ config.proxmox.oidc.admin_email }}@{{ config.proxmox.oidc.realm }}
+    -role {{ config.proxmox.oidc.role }}

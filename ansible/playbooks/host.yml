@@ -21,4 +21,5 @@
     - proxmox-templates
     - role: proxmox-terraform-user
       when: terraform_user_password is defined
+    - proxmox-oidc
     - nut-server
