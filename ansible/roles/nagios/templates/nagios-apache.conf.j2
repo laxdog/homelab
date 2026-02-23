@@ -1,4 +1,4 @@
-ScriptAlias /nagios4/cgi-bin "/usr/local/nagios/sbin"
+ScriptAlias /nagios/cgi-bin "/usr/local/nagios/sbin"
 
 <Directory "/usr/local/nagios/sbin">
     Options ExecCGI
@@ -10,7 +10,7 @@ ScriptAlias /nagios4/cgi-bin "/usr/local/nagios/sbin"
     Require valid-user
 </Directory>
 
-Alias /nagios4 "/usr/local/nagios/share"
+Alias /nagios "/usr/local/nagios/share"
 
 <Directory "/usr/local/nagios/share">
     Options None

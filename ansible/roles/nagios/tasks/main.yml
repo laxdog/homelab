@@ -206,14 +206,14 @@
   ansible.builtin.lineinfile:
     path: /usr/local/nagios/etc/cgi.cfg
     regexp: '^url_html_path='
-    line: 'url_html_path=/nagios4'
+    line: 'url_html_path=/nagios'
   notify: Restart Nagios
 
 - name: Set Nagios CGI base URL
   ansible.builtin.lineinfile:
     path: /usr/local/nagios/share/config.inc.php
     regexp: "^\\$cfg\\['cgi_base_url'\\]="
-    line: "$cfg['cgi_base_url']='/nagios4/cgi-bin';"
+    line: "$cfg['cgi_base_url']='/nagios/cgi-bin';"
   notify: Restart Nagios
 
 - name: Enable Apache CGI module

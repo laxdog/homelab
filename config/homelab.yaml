@@ -478,7 +478,7 @@ npm:
     certificate: laxdog-internal-le
     advanced_config: |
       location = / {
-        return 302 /nagios4/;
+        return 302 /nagios/;
       }
   external_proxy_hosts:
   - name: Authentik External
@@ -497,7 +497,7 @@ npm:
     certificate: laxdog-external-le
     advanced_config: |
       location = / {
-        return 302 /nagios4/;
+        return 302 /nagios/;
       }
 organizr:
   admin_user: admin
