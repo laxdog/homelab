@@ -440,6 +440,45 @@
           - authentik_external_check.stdout | int in [200, 302]
         fail_msg: "Authentik endpoint checks failed (internal {{ authentik_internal_check.stdout }}, external {{ authentik_external_check.stdout }})"
 
+    - name: Fetch Proxmox OIDC well-known metadata via NPM
+      ansible.builtin.command: >-
+        curl -k -s --max-time 15
+        --resolve {{ config.authentik.external_domain }}:443:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
+        https://{{ config.authentik.external_domain }}/application/o/{{ config.proxmox.oidc.slug }}/.well-known/openid-configuration
+      register: proxmox_oidc_wellknown
+      changed_when: false
+
+    - name: Parse Proxmox OIDC well-known metadata
+      ansible.builtin.set_fact:
+        proxmox_oidc_wellknown_json: "{{ proxmox_oidc_wellknown.stdout | from_json }}"
+
+    - name: Assert Proxmox OIDC JWKS URI exists
+      ansible.builtin.assert:
+        that:
+          - proxmox_oidc_wellknown_json.jwks_uri is defined
+          - proxmox_oidc_wellknown_json.jwks_uri | length > 0
+        fail_msg: "Missing jwks_uri in Proxmox OIDC metadata."
+
+    - name: Fetch Proxmox OIDC JWKS document via NPM
+      ansible.builtin.command: >-
+        curl -k -s --max-time 15
+        --resolve {{ config.authentik.external_domain }}:443:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
+        {{ proxmox_oidc_wellknown_json.jwks_uri }}
+      register: proxmox_oidc_jwks
+      changed_when: false
+
+    - name: Parse Proxmox OIDC JWKS document
+      ansible.builtin.set_fact:
+        proxmox_oidc_jwks_json: "{{ proxmox_oidc_jwks.stdout | from_json }}"
+
+    - name: Assert Proxmox OIDC JWKS contains keys
+      ansible.builtin.assert:
+        that:
+          - proxmox_oidc_jwks_json['keys'] is defined
+          - proxmox_oidc_jwks_json['keys'] | type_debug == 'list'
+          - proxmox_oidc_jwks_json['keys'] | length > 0
+        fail_msg: "Proxmox OIDC JWKS is invalid or empty: {{ proxmox_oidc_jwks.stdout }}"
+
     - name: Check Authentik outpost ping via NPM
       ansible.builtin.command: >-
         curl -k -s -o /dev/null -w "%{http_code}" --max-time 15

@@ -14,6 +14,7 @@ from authentik.core.models import Application  # noqa: E402
 from authentik.flows.models import Flow, FlowStageBinding  # noqa: E402
 from dataclasses import replace  # noqa: E402
 
+from authentik.crypto.models import CertificateKeyPair  # noqa: E402
 from authentik.outposts.models import Outpost, OutpostConfig  # noqa: E402
 from authentik.providers.proxy.models import ProxyProvider  # noqa: E402
 from authentik.providers.oauth2.models import OAuth2Provider  # noqa: E402
@@ -145,6 +146,12 @@ def ensure_oidc_app(flow, oidc):
         }
         for uri in oidc.get("redirect_uris", [])
     ]
+    # Without a signing key, Authentik's JWKS endpoint can be empty (`{}`),
+    # which breaks Proxmox OIDC parsing.
+    signing_key = (
+        CertificateKeyPair.objects.filter(name="authentik Internal JWT Certificate").first()
+        or CertificateKeyPair.objects.filter(name="authentik Self-signed Certificate").first()
+    )
     provider, _ = OAuth2Provider.objects.update_or_create(
         name=oidc["name"],
         defaults={
@@ -155,6 +162,7 @@ def ensure_oidc_app(flow, oidc):
             "client_id": oidc["client_id"],
             "client_secret": oidc["client_secret"],
             "_redirect_uris": redirect_uris,
+            "signing_key": signing_key,
         },
     )
 
