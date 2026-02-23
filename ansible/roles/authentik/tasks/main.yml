@@ -11,6 +11,17 @@
     group: root
     mode: '0755'
 
+- name: Ensure Authentik media and template directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "1000"
+    group: "1000"
+    mode: '0755'
+  loop:
+    - "{{ authentik_compose_dir }}/media"
+    - "{{ authentik_compose_dir }}/templates"
+
 - name: Write Authentik environment file
   ansible.builtin.template:
     src: "authentik.env.j2"
@@ -34,3 +45,20 @@
   args:
     chdir: "{{ authentik_compose_dir }}"
   changed_when: false
+
+- name: Check Authentik server port mapping
+  ansible.builtin.command:
+    cmd: >-
+      docker inspect -f '{% raw %}{{ with (index .NetworkSettings.Ports "9000/tcp") }}{{ if . }}{{ (index . 0).HostPort }}{{ end }}{{ end }}{% endraw %}'
+      authentik-server
+  register: authentik_port
+  changed_when: false
+  failed_when: false
+
+- name: Recreate Authentik containers when port mapping missing
+  ansible.builtin.command:
+    cmd: docker compose up -d --force-recreate
+  args:
+    chdir: "{{ authentik_compose_dir }}"
+  when: authentik_port.stdout | trim != '9000'
+  changed_when: true
