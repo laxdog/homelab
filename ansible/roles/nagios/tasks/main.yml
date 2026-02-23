@@ -234,6 +234,24 @@
     line: "$cfg['cgi_base_url']='/nagios/cgi-bin';"
   notify: Restart Nagios
 
+- name: Grant Nagios admin user full CGI permissions
+  ansible.builtin.blockinfile:
+    path: /usr/local/nagios/etc/cgi.cfg
+    marker: "# {mark} ANSIBLE MANAGED ADMIN AUTH"
+    block: |
+      authorized_for_system_information={{ config.nagios.admin_user }}
+      authorized_for_configuration_information={{ config.nagios.admin_user }}
+      authorized_for_system_commands={{ config.nagios.admin_user }}
+      authorized_for_all_services={{ config.nagios.admin_user }}
+      authorized_for_all_hosts={{ config.nagios.admin_user }}
+      authorized_for_all_service_commands={{ config.nagios.admin_user }}
+      authorized_for_all_host_commands={{ config.nagios.admin_user }}
+      authorized_for_all_service_comments={{ config.nagios.admin_user }}
+      authorized_for_all_host_comments={{ config.nagios.admin_user }}
+      authorized_for_all_service_downtime={{ config.nagios.admin_user }}
+      authorized_for_all_host_downtime={{ config.nagios.admin_user }}
+  notify: Restart Nagios
+
 - name: Enable Apache CGI module
   ansible.builtin.command: a2enmod cgi
   register: nagios_a2enmod_cgi
