@@ -151,6 +151,25 @@
     mode: '0755'
     recurse: true
 
+- name: Stat Nagios libexec path
+  ansible.builtin.stat:
+    path: /usr/local/nagios/libexec
+  register: nagios_libexec
+
+- name: Remove Nagios libexec directory when present
+  ansible.builtin.file:
+    path: /usr/local/nagios/libexec
+    state: absent
+  when:
+    - nagios_libexec.stat.exists
+    - nagios_libexec.stat.islnk is not defined or not nagios_libexec.stat.islnk
+
+- name: Ensure Nagios plugins symlink
+  ansible.builtin.file:
+    src: /usr/lib/nagios/plugins
+    dest: /usr/local/nagios/libexec
+    state: link
+
 - name: Ensure Nagios resource.cfg permissions
   ansible.builtin.file:
     path: /usr/local/nagios/etc/resource.cfg

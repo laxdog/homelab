@@ -2,7 +2,7 @@
 
 define command {
   command_name check_http_npm
-  command_line /usr/lib/nagios/plugins/check_http -I $ARG2$ -H $ARG1$ -S
+  command_line /usr/lib/nagios/plugins/check_http -I $ARG2$ -H $ARG1$ -S --sni -P 443
 }
 
 define command {
