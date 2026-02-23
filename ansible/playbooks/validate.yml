@@ -619,6 +619,9 @@
 - name: Validate Nagios
   hosts: nagios_hosts
   gather_facts: false
+  become: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
   tasks:
     - name: Check Nagios HTTP port
       ansible.builtin.wait_for:
@@ -627,8 +630,19 @@
         timeout: 10
 
     - name: Check Nagios service
-      ansible.builtin.command: systemctl is-active --quiet nagios4
+      ansible.builtin.command: systemctl is-active --quiet nagios
       changed_when: false
+
+    - name: Read Nagios version
+      ansible.builtin.command: /usr/local/nagios/bin/nagios -V
+      register: nagios_version
+      changed_when: false
+
+    - name: Assert Nagios Core version
+      ansible.builtin.assert:
+        that:
+          - nagios_version.stdout is search("Nagios Core {{ config.nagios.core_version }}")
+        fail_msg: "Nagios Core version mismatch. Expected {{ config.nagios.core_version }}."
 
 - name: Validate service ports
   hosts: localhost
