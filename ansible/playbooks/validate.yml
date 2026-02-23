@@ -640,6 +640,42 @@
   become: true
   vars:
     config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+    nagios_cfg_path: /usr/local/nagios/etc/nagios.cfg
+    nagios_homelab_cfg_path: /usr/local/nagios/etc/objects/homelab.cfg
+    nagios_expected_host_count: "{{ config.nagios.hosts | length }}"
+    nagios_expected_ping_service_count: "{{ config.nagios.hosts | length }}"
+    nagios_expected_ssh_service_count: "{{ (config.nagios.hosts | selectattr('check_ssh', 'defined') | selectattr('check_ssh') | list | length) }}"
+    nagios_expected_tcp_service_count: "{{ config.validation.service_ports | default([]) | length }}"
+    nagios_expected_dns_service_count: "{{ (config.nagios.dns_checks | default([]) | length) + (config.adguard.rewrites | default([]) | length) }}"
+    nagios_expected_http_service_count: >-
+      {{
+        (
+          config.npm.proxy_hosts
+          + (
+            (config.npm.external_proxy_hosts | default([]))
+            if (config.npm.external_enabled | default(false))
+            else []
+          )
+        )
+        | rejectattr('monitor_http', 'defined')
+        | list
+        | length
+        +
+        (
+          (
+            config.npm.proxy_hosts
+            + (
+              (config.npm.external_proxy_hosts | default([]))
+              if (config.npm.external_enabled | default(false))
+              else []
+            )
+          )
+          | selectattr('monitor_http', 'defined')
+          | selectattr('monitor_http')
+          | list
+          | length
+        )
+      }}
   tasks:
     - name: Check Nagios HTTP port
       ansible.builtin.wait_for:
@@ -661,6 +697,72 @@
         that:
           - nagios_version.stdout is search("Nagios Core {{ config.nagios.core_version }}")
         fail_msg: "Nagios Core version mismatch. Expected {{ config.nagios.core_version }}."
+
+    - name: Verify Nagios config syntax
+      ansible.builtin.command: /usr/local/nagios/bin/nagios -v {{ nagios_cfg_path }}
+      register: nagios_verify
+      changed_when: false
+
+    - name: Assert Nagios config verification succeeded
+      ansible.builtin.assert:
+        that:
+          - nagios_verify.rc == 0
+          - nagios_verify.stdout is search("Things look okay")
+        fail_msg: "Nagios config verification failed."
+
+    - name: Check Nagios web root redirect
+      ansible.builtin.uri:
+        url: http://127.0.0.1/
+        follow_redirects: none
+        status_code: [301, 302]
+      changed_when: false
+
+    - name: Check Nagios CGI endpoint
+      ansible.builtin.uri:
+        url: http://127.0.0.1/nagios/cgi-bin/status.cgi
+        status_code: [200, 401]
+      changed_when: false
+
+    - name: Count Nagios host definitions
+      ansible.builtin.command: grep -cE '^define host \{' {{ nagios_homelab_cfg_path }}
+      register: nagios_host_definitions
+      changed_when: false
+
+    - name: Count Nagios PING services
+      ansible.builtin.command: grep -cE '^[[:space:]]*service_description[[:space:]]+PING$' {{ nagios_homelab_cfg_path }}
+      register: nagios_ping_services
+      changed_when: false
+
+    - name: Count Nagios SSH services
+      ansible.builtin.command: grep -cE '^[[:space:]]*service_description[[:space:]]+SSH$' {{ nagios_homelab_cfg_path }}
+      register: nagios_ssh_services
+      changed_when: false
+
+    - name: Count Nagios TCP services
+      ansible.builtin.command: grep -cE '^[[:space:]]*service_description[[:space:]]+TCP ' {{ nagios_homelab_cfg_path }}
+      register: nagios_tcp_services
+      changed_when: false
+
+    - name: Count Nagios DNS services
+      ansible.builtin.command: grep -cE '^[[:space:]]*service_description[[:space:]]+DNS ' {{ nagios_homelab_cfg_path }}
+      register: nagios_dns_services
+      changed_when: false
+
+    - name: Count Nagios HTTP services
+      ansible.builtin.command: grep -cE '^[[:space:]]*service_description[[:space:]]+HTTP ' {{ nagios_homelab_cfg_path }}
+      register: nagios_http_services
+      changed_when: false
+
+    - name: Assert Nagios rendered object counts match config
+      ansible.builtin.assert:
+        that:
+          - (nagios_host_definitions.stdout | int) == (nagios_expected_host_count | int)
+          - (nagios_ping_services.stdout | int) == (nagios_expected_ping_service_count | int)
+          - (nagios_ssh_services.stdout | int) == (nagios_expected_ssh_service_count | int)
+          - (nagios_tcp_services.stdout | int) == (nagios_expected_tcp_service_count | int)
+          - (nagios_dns_services.stdout | int) == (nagios_expected_dns_service_count | int)
+          - (nagios_http_services.stdout | int) == (nagios_expected_http_service_count | int)
+        fail_msg: "Nagios rendered object counts do not match config."
 
 - name: Validate service ports
   hosts: localhost
