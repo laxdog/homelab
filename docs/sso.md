@@ -8,9 +8,10 @@ This doc tracks the Authentik SSO design and how it is enforced in NPM.
 - Keep native client apps (Jellyfin/Plex) working without forward-auth.
 
 ## Policy
-- **Admin services** (Proxmox, Nagios) are protected by Authentik forward-auth.
+- **Admin services** (Proxmox, Nagios, NetAlertX, Home Assistant external access) are protected by Authentik forward-auth.
 - **User services with native clients** (Jellyfin, Plex) are **not** protected by forward-auth.
 - Internal (`laxdog.uk`) access remains LAN-open unless an app supports OIDC natively.
+- Internal infrastructure endpoints can still be protected where needed (`router.laxdog.uk`, `unifi-primary.laxdog.uk`, `unifi-secondary.laxdog.uk`).
 
 ## How it is implemented
 - Authentik is configured by an idempotent server-side script (`/scripts/authentik_sso_setup.py`)

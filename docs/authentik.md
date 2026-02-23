@@ -1,6 +1,6 @@
 # Authentik
 
-This doc tracks the Authentik SSO setup and forward-auth integration. It will evolve as we implement.
+This doc tracks the Authentik SSO setup and forward-auth integration currently applied by this repo.
 
 ## Goals
 - One Authentik instance used for:
@@ -23,6 +23,15 @@ Both hostnames should point to the same Authentik instance via NPM.
   non-browser clients. They keep local logins and may optionally add OIDC for web SSO.
 - Authentik config is managed by a container-side script (no click-ops).
 
+## Current protected hosts
+- `proxmox.lax.dog`
+- `nagios.lax.dog`
+- `netalertx.lax.dog`
+- `ha.lax.dog`
+- `router.laxdog.uk`
+- `unifi-primary.laxdog.uk`
+- `unifi-secondary.laxdog.uk`
+
 ## High-level plan
 1. Provision Authentik LXC and install via Docker Compose.
 2. Create NPM proxy hosts for `auth.lax.dog` + `auth.laxdog.uk`.
@@ -32,33 +41,33 @@ Both hostnames should point to the same Authentik instance via NPM.
    - Proxy providers + applications for admin routes.
    - Embedded outpost configuration.
 4. Update NPM to enforce forward-auth on all external (`lax.dog`) proxy hosts.
-5. Add validation checks:
-   - Authentik reachable at both domains via HTTPS.
-   - Forward-auth protects external hosts.
-   - OIDC login works for at least one app.
+5. Validation coverage currently checks:
+- Authentik reachable at both domains via HTTPS.
+- Forward-auth protects external hosts.
+- OIDC app login automation is pending.
 
 ## Security notes
 - Use Cloudflare proxy for `lax.dog` (hide origin).
-- Restrict NPM external access to Cloudflare IP ranges only. Cloudflare publishes its IPv4/IPv6 ranges. citeturn6open0turn6open1
+- Restrict NPM external access to Cloudflare IP ranges only (update from Cloudflare published ranges).
 - Rate-limit or WAF rules at Cloudflare.
 - Prefer OIDC where supported; fall back to forward-auth for the rest.
 
 ## OIDC support matrix
 Native or well-supported OIDC:
-- FreshRSS (native OpenID Connect support). citeturn4open4
-- Jellyfin (SSO plugin supports OIDC). citeturn4open3
-- Proxmox (OpenID Connect realms). citeturn4open0
-- Nextcloud (OIDC user auth via `user_oidc`). citeturn4open1
-- ownCloud (OIDC user auth). citeturn4open2
+- FreshRSS (native OpenID Connect support).
+- Jellyfin (SSO plugin supports OIDC).
+- Proxmox (OpenID Connect realms).
+- Nextcloud (OIDC via `user_oidc`).
+- ownCloud (OIDC user auth).
 
 Proxy-protected (no native OIDC in settings docs):
-- Radarr (`None`, `Basic`, `Forms`, or `External` auth). citeturn4search3
-- Sonarr (`None`, `Basic`, `Forms`). citeturn4search4
-- Prowlarr (`Basic`, `Forms`, `External`). citeturn4search0
-- Lidarr (`None`, `Basic`, `Forms`). citeturn4open0
-- Bazarr (`Basic` or `Form`). citeturn4open1
-- Home Assistant uses its own auth providers (no OIDC provider listed). citeturn4search2
-- Healthchecks (supports a login or an auth header, but not OIDC). citeturn5open0
+- Radarr (`None`, `Basic`, `Forms`, or `External` auth).
+- Sonarr (`None`, `Basic`, `Forms`).
+- Prowlarr (`Basic`, `Forms`, `External`).
+- Lidarr (`None`, `Basic`, `Forms`).
+- Bazarr (`Basic` or `Form`).
+- Home Assistant uses its own auth providers (no first-party OIDC provider role).
+- Healthchecks supports app auth and headers, but not native OIDC login.
 
 Notes:
 - For proxy-only apps, enforce Authentik forward-auth on external hosts.
@@ -68,12 +77,12 @@ Notes:
 
 ## Related services to consider
 Requests / media discovery:
-- Jellyseerr (request management for Jellyfin/Emby). citeturn7open0
-- Overseerr (request management for Plex). citeturn7open1
+- Jellyseerr (request management for Jellyfin/Emby).
+- Overseerr (request management for Plex).
 
 File sharing / collaboration:
-- Nextcloud (OIDC support via `user_oidc`). citeturn4open1
-- ownCloud (OIDC user auth). citeturn4open2
+- Nextcloud (OIDC support via `user_oidc`).
+- ownCloud (OIDC user auth).
 
 ## Open items
 - Decide which OIDC-capable apps to wire up first (Jellyfin and FreshRSS are good starters).

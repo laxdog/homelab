@@ -17,6 +17,20 @@ Source of truth: `config/homelab.yaml`.
 2. Provide vault password (recommended: `~/.ansible_vault_pass`).
 3. `scripts/run.py apply` (uses `terraform_user_password` from vault if present)
 
+## Validate
+- Run `scripts/run.py validate` after changes.
+- Validation covers:
+- Vault secrets presence.
+- Proxmox host storage/datasets/realm and subnet collision checks.
+- Guest SSH reachability and apt-cacher proxy config.
+- Docker/compose presence on Docker guests.
+- AdGuard DNS behavior (known good + known bad + internal rewrites).
+- NPM proxy host/access list/cert/redirect behavior.
+- Cloudflare DNS records (present + removed records).
+- Organizr and Heimdall entries for all NPM internal hosts.
+- Nagios service, version, config syntax, rendered object counts, and web endpoint checks.
+- Service port checks for core services.
+
 ## Repo layout
 - `config/`: single source-of-truth
 - `terraform/`: Proxmox provisioning

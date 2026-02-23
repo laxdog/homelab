@@ -34,6 +34,8 @@ External (`lax.dog`):
 - `jellyfin.lax.dog` -> Jellyfin (native auth; no forward-auth)
 - `nagios.lax.dog` -> Nagios (Authentik SSO + TOTP)
 - `proxmox.lax.dog` -> Proxmox (Authentik SSO + TOTP)
+- `netalertx.lax.dog` -> NetAlertX (Authentik forward-auth)
+- `ha.lax.dog` -> Home Assistant (Authentik forward-auth)
 
 Internal (`laxdog.uk`):
 - `dns.laxdog.uk` -> AdGuard UI
@@ -52,6 +54,9 @@ Internal (`laxdog.uk`):
 - `ha.laxdog.uk`
 - `nagios.laxdog.uk`
 - `jellyfin.laxdog.uk`
+- `router.laxdog.uk`
+- `unifi-primary.laxdog.uk`
+- `unifi-secondary.laxdog.uk`
 
 ## Notes
 - Media stack currently includes Jellyfin only; more services will be added.
@@ -59,6 +64,6 @@ Internal (`laxdog.uk`):
   Bootstrap is automated; see `docs/jellyfin.md`.
 - NFS server role is a placeholder pending storage attachment strategy.
 - Internal proxy hosts use HTTPS via Let's Encrypt (DNS-01) in NPM.
-- Authentik will be added as the IdP for external access and OIDC for supported apps.
+- Authentik is active as IdP and forward-auth provider for selected admin endpoints.
 - Home Assistant may return HTTP 400 behind NPM until `trusted_proxies` is configured in HAOS.
 - AdGuard config export/import workflow is documented in `docs/adguard.md`.

@@ -12,6 +12,8 @@ Source of truth: `config/homelab.yaml`.
 - Authentik: 10.20.30.170
 - Home Assistant: 10.20.30.134
 - Nagios: 10.20.30.133
+- Router: 10.20.30.1
+- UniFi links: 10.20.30.50, 10.20.30.51
 
 ## Guest IPs
 - 10.20.30.100-199 reserved for Proxmox guests

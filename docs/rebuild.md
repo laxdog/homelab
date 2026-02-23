@@ -13,6 +13,7 @@
 3. Provide vault password (e.g. `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`)
 4. Run orchestrator: `scripts/run.py apply`
 5. Host baseline is applied first, then guests.
+6. Run validation: `scripts/run.py validate`
 
 Any remaining manual steps should be documented here.
 
