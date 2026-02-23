@@ -10,6 +10,8 @@ Source of truth: `config/homelab.yaml`.
 ## Reserved
 - AdGuard/DNS: 10.20.30.153 (temporary; .53 already in use)
 - Authentik: 10.20.30.170
+- Home Assistant: 10.20.30.134
+- Nagios: 10.20.30.133
 
 ## Guest IPs
 - 10.20.30.100-199 reserved for Proxmox guests

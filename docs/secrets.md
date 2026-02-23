@@ -15,6 +15,7 @@ Notes:
 ## Vault password
 Use a local password file (not committed) and configure the orchestrator to pass it.
 Recommended: `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`
+`scripts/run.py` will auto-use `~/.ansible_vault_pass` if present.
 
 ## Variables expected in vault
 - `nut_admin_password`
@@ -34,6 +35,10 @@ Recommended: `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`
 - `authentik_admin_password`
 - `authentik_postgres_password`
 - `authentik_secret_key`
+- `couchdb_admin_password`
+- `healthchecks_admin_password`
+- `healthchecks_secret_key`
+- `nagios_admin_password`
 
 Notes:
-- `scripts/run.py apply` will use `terraform_user_password` when `ANSIBLE_VAULT_PASSWORD_FILE` is set.
+- `scripts/run.py apply` will use `terraform_user_password` when the vault password file is available.

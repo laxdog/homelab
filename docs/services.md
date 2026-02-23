@@ -6,6 +6,7 @@ Source of truth: `config/homelab.yaml`.
 - media-stack (Docker)
 - nfs-server
 - home-assistant (HAOS)
+- nagios
 
 ## LXCs
 - adguard
@@ -45,9 +46,12 @@ Internal (`laxdog.uk`):
 - `apt.laxdog.uk`
 - `sites.laxdog.uk`
 - `auth.laxdog.uk`
+- `ha.laxdog.uk`
+- `nagios.laxdog.uk`
 
 ## Notes
 - Media stack compose is a placeholder and needs service definitions added.
 - NFS server role is a placeholder pending storage attachment strategy.
 - Internal proxy hosts use HTTPS via Let's Encrypt (DNS-01) in NPM.
 - Authentik will be added as the IdP for external access and OIDC for supported apps.
+- Home Assistant may return HTTP 400 behind NPM until `trusted_proxies` is configured in HAOS.
