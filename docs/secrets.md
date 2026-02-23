@@ -39,6 +39,7 @@ Recommended: `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`
 - `healthchecks_admin_password`
 - `healthchecks_secret_key`
 - `nagios_admin_password`
+- `discord_webhook` (Nagios alerts)
 
 Notes:
 - `scripts/run.py apply` will use `terraform_user_password` when the vault password file is available.
