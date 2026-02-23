@@ -51,6 +51,13 @@
     groups: nagcmd
     append: true
 
+- name: Add www-data to nagios group
+  ansible.builtin.user:
+    name: www-data
+    groups: nagios
+    append: true
+  notify: Reload Apache
+
 - name: Check installed Nagios Core version
   ansible.builtin.command: /usr/local/nagios/bin/nagios -V
   register: nagios_version_check
@@ -132,6 +139,17 @@
   args:
     chdir: "/usr/local/src/nagios-{{ nagios_core_version }}"
   when: nagios_core_upgrade_needed
+
+- name: Ensure Nagios binaries are executable
+  ansible.builtin.file:
+    path: /usr/local/nagios/bin/nagios
+    mode: '0755'
+
+- name: Ensure Nagios CGI binaries are executable
+  ansible.builtin.file:
+    path: /usr/local/nagios/sbin
+    mode: '0755'
+    recurse: true
 
 - name: Ensure Nagios resource.cfg permissions
   ansible.builtin.file:
