@@ -56,6 +56,7 @@ Internal (`laxdog.uk`):
 ## Notes
 - Media stack currently includes Jellyfin only; more services will be added.
 - Jellyfin is exposed internally and externally without forward-auth to keep native apps working.
+  Bootstrap is automated; see `docs/jellyfin.md`.
 - NFS server role is a placeholder pending storage attachment strategy.
 - Internal proxy hosts use HTTPS via Let's Encrypt (DNS-01) in NPM.
 - Authentik will be added as the IdP for external access and OIDC for supported apps.
