@@ -9,5 +9,6 @@
       - nmap
       - tmux
       - vim
+      - xz-utils
     state: present
     update_cache: true

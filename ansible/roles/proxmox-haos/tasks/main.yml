@@ -1,0 +1,33 @@
+- name: Set HAOS VM facts
+  ansible.builtin.set_fact:
+    haos_vmid: "{{ config.services.vms['home-assistant'].id }}"
+    haos_disk: "/dev/pve/vm-{{ config.services.vms['home-assistant'].id }}-disk-1"
+
+- name: Resolve HAOS image path on storage
+  ansible.builtin.command: >-
+    pvesm path {{ config.proxmox.storages.templates_dir }}:import/{{ config.proxmox.templates.haos.file_name }}
+  register: haos_image_path
+  changed_when: false
+
+- name: Check HAOS disk filesystem signature
+  ansible.builtin.command: "lsblk -no FSTYPE {{ haos_disk }}"
+  register: haos_fs
+  changed_when: false
+  failed_when: false
+
+- name: Stop HAOS VM before imaging
+  ansible.builtin.command: "qm stop {{ haos_vmid }}"
+  when: (haos_fs.stdout | trim) == ""
+  changed_when: true
+  failed_when: false
+
+- name: Import HAOS image into VM disk
+  ansible.builtin.command: >-
+    qemu-img convert -O raw {{ haos_image_path.stdout }} {{ haos_disk }}
+  when: (haos_fs.stdout | trim) == ""
+  changed_when: true
+
+- name: Start HAOS VM after imaging
+  ansible.builtin.command: "qm start {{ haos_vmid }}"
+  when: (haos_fs.stdout | trim) == ""
+  changed_when: true

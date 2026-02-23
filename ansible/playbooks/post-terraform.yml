@@ -5,4 +5,5 @@
   vars:
     config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
   roles:
+    - proxmox-haos
     - proxmox-container-ssh

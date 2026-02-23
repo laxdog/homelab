@@ -30,3 +30,32 @@
   args:
     creates: "{{ cloud_image_path.stdout }}"
   when: not cloud_image_stat.stat.exists
+
+- name: Resolve HAOS image paths
+  ansible.builtin.command: >
+    pvesm path {{ config.proxmox.storages.templates_dir }}:import/{{ config.proxmox.templates.haos.file_name }}
+  register: haos_image_path
+  changed_when: false
+
+- name: Derive HAOS archive path
+  ansible.builtin.set_fact:
+    haos_archive_path: "{{ cloud_image_path.stdout | dirname }}/{{ config.proxmox.templates.haos.archive_name }}"
+
+- name: Check HAOS image presence
+  ansible.builtin.stat:
+    path: "{{ haos_image_path.stdout }}"
+  register: haos_image_stat
+
+- name: Download HAOS archive if missing
+  ansible.builtin.command: >
+    curl -L -o {{ haos_archive_path }} {{ config.proxmox.templates.haos.url }}
+  args:
+    creates: "{{ haos_archive_path }}"
+  when: not haos_image_stat.stat.exists
+
+- name: Extract HAOS image from archive
+  ansible.builtin.command: >
+    xz -d -k {{ haos_archive_path }}
+  args:
+    creates: "{{ haos_image_path.stdout }}"
+  when: not haos_image_stat.stat.exists

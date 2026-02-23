@@ -1,5 +1,6 @@
 locals {
   ubuntu_vms = { for name, meta in local.vms : name => meta if meta.os == "ubuntu" }
+  haos_vms   = { for name, meta in local.vms : name => meta if meta.os == "haos" }
 }
 
 resource "proxmox_virtual_environment_container" "lxcs" {
@@ -113,6 +114,64 @@ resource "proxmox_virtual_environment_vm" "vms" {
 
   startup {
     order = "3"
+  }
+
+  started = true
+}
+
+resource "proxmox_virtual_environment_vm" "haos_vms" {
+  for_each = local.haos_vms
+
+  node_name = local.node
+  vm_id     = each.value.id
+  name      = each.key
+  tags      = ["terraform"]
+
+  cpu {
+    cores = try(each.value.cores, local.defaults.vm.cores)
+    type  = "x86-64-v2-AES"
+  }
+
+  memory {
+    dedicated = try(each.value.memory_mb, local.defaults.vm.memory_mb)
+  }
+
+  disk {
+    datastore_id = local.storage.vm_disk
+    import_from  = "${local.storage.templates_dir}:import/${local.config.proxmox.templates.haos.file_name}"
+    interface    = "scsi0"
+    size         = try(each.value.disk_gb, local.defaults.vm.disk_gb)
+  }
+
+  network_device {
+    bridge = local.bridge
+  }
+
+  operating_system {
+    type = "l26"
+  }
+
+  bios          = "ovmf"
+  machine       = "q35"
+  boot_order    = ["scsi0"]
+  scsi_hardware = "virtio-scsi-pci"
+
+  efi_disk {
+    datastore_id      = local.storage.vm_disk
+    type              = "4m"
+    pre_enrolled_keys = false
+  }
+
+  serial_device {
+    device = "socket"
+  }
+
+  vga {
+    type = "serial0"
+  }
+
+  startup {
+    order = "2"
   }
 
   started = true
