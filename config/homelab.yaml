@@ -484,6 +484,13 @@ npm:
     access_list: External Public
     ssl: true
     certificate: laxdog-external-le
+  - name: Nagios External
+    domain: nagios.lax.dog
+    forward_host: 10.20.30.133
+    forward_port: 80
+    access_list: External Protected
+    ssl: true
+    certificate: laxdog-external-le
 organizr:
   admin_user: admin
   admin_email: admin@laxdog.uk
@@ -566,6 +573,10 @@ cloudflare:
   records:
   - type: A
     name: auth.lax.dog
+    content: public_ip
+    proxied: true
+  - type: A
+    name: nagios.lax.dog
     content: public_ip
     proxied: true
 validation:
