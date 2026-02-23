@@ -4,6 +4,15 @@
     state: present
     update_cache: true
 
+- name: Allow HTTPS passthrough for apt-cacher-ng
+  ansible.builtin.lineinfile:
+    path: /etc/apt-cacher-ng/acng.conf
+    regexp: '^PassThroughPattern:'
+    line: 'PassThroughPattern: .*'
+    create: true
+    mode: '0644'
+  notify: Restart apt-cacher-ng
+
 - name: Ensure apt-cacher-ng service is running
   ansible.builtin.service:
     name: apt-cacher-ng
