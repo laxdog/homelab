@@ -138,7 +138,13 @@ def ensure_oidc_app(flow, oidc):
     if not oidc or not oidc.get("enabled", True):
         return None
 
-    redirect_uris = "\n".join(oidc.get("redirect_uris", []))
+    redirect_uris = [
+        {
+            "matching_mode": "strict",
+            "url": uri,
+        }
+        for uri in oidc.get("redirect_uris", [])
+    ]
     provider, _ = OAuth2Provider.objects.update_or_create(
         name=oidc["name"],
         defaults={

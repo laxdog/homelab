@@ -42,6 +42,10 @@ proxmox:
     slug: proxmox-oidc
     issuer_url: https://auth.lax.dog/application/o/proxmox-oidc/
     redirect_uris:
+    - https://proxmox.laxdog.uk/
+    - https://proxmox.laxdog.uk
+    - https://proxmox.lax.dog/
+    - https://proxmox.lax.dog
     - https://proxmox.laxdog.uk:8006/
     - https://proxmox.laxdog.uk:8006
     - https://proxmox.lax.dog:8006/
@@ -329,6 +333,8 @@ services:
     authentik:
       id: 170
       ip: 10.20.30.170
+      cores: 2
+      memory_mb: 3072
       roles:
       - docker
       - authentik

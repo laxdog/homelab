@@ -25,13 +25,10 @@
 
 - name: Update OIDC realm
   ansible.builtin.command: >-
-    pveum realm update {{ config.proxmox.oidc.realm }}
+    pveum realm modify {{ config.proxmox.oidc.realm }}
     --issuer-url {{ config.proxmox.oidc.issuer_url }}
     --client-id {{ proxmox_oidc_client_id }}
     --client-key {{ proxmox_oidc_client_secret }}
-    --username-claim email
-    --scopes "openid profile email"
-    --autocreate 1
   when: proxmox_oidc_realm | length > 0
   changed_when: false
 
