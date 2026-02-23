@@ -1,0 +1,66 @@
+# Managed by Ansible. Local changes will be overwritten.
+
+define command {
+  command_name check_http_npm
+  command_line /usr/lib/nagios/plugins/check_http -I $ARG2$ -H $ARG1$ -S
+}
+
+define command {
+  command_name check_dns_adguard
+  command_line /usr/lib/nagios/plugins/check_dns -s $ARG1$ -H $ARG2$
+}
+
+{% for host in config.nagios.hosts %}
+define host {
+  use                     linux-server
+  host_name               {{ host.name }}
+  alias                   {{ host.name | replace('-', ' ') }}
+  address                 {{ host.address }}
+}
+{% endfor %}
+
+{% for host in config.nagios.hosts %}
+define service {
+  use                     generic-service
+  host_name               {{ host.name }}
+  service_description     PING
+  check_command           check_ping!100.0,20%!500.0,60%
+}
+{% if host.check_ssh | default(false) %}
+define service {
+  use                     generic-service
+  host_name               {{ host.name }}
+  service_description     SSH
+  check_command           check_ssh
+}
+{% endif %}
+{% endfor %}
+
+{% for check in config.nagios.dns_checks | default([]) %}
+define service {
+  use                     generic-service
+  host_name               {{ check.host | default('adguard') }}
+  service_description     DNS {{ check.domain }}
+  check_command           check_dns_adguard!{{ check.server }}!{{ check.domain }}
+}
+{% endfor %}
+
+{% for rewrite in config.adguard.rewrites | default([]) %}
+define service {
+  use                     generic-service
+  host_name               adguard
+  service_description     DNS {{ rewrite.domain }}
+  check_command           check_dns_adguard!{{ config.services.lxcs['adguard'].ip }}!{{ rewrite.domain }}
+}
+{% endfor %}
+
+{% set npm_hosts = config.npm.proxy_hosts
+  + ((config.npm.external_proxy_hosts | default([])) if (config.npm.external_enabled | default(false)) else []) %}
+{% for host in npm_hosts %}
+define service {
+  use                     generic-service
+  host_name               nginx-proxy-manager
+  service_description     HTTP {{ host.domain }}
+  check_command           check_http_npm!{{ host.domain }}!{{ config.services.lxcs['nginx-proxy-manager'].ip }}
+}
+{% endfor %}

@@ -1,0 +1,74 @@
+---
+- name: Install Nagios packages
+  ansible.builtin.apt:
+    name:
+      - apache2-utils
+      - nagios4
+      - nagios-plugins
+    state: present
+    update_cache: true
+
+- name: Ensure Nagios resource.cfg permissions
+  ansible.builtin.file:
+    path: /etc/nagios4/resource.cfg
+    owner: root
+    group: nagios
+    mode: '0640'
+
+- name: Ensure Nagios checkresults directory exists
+  ansible.builtin.file:
+    path: /var/lib/nagios4/spool/checkresults
+    state: directory
+    owner: nagios
+    group: nagios
+    mode: '0755'
+
+- name: Check Nagios htpasswd file
+  ansible.builtin.stat:
+    path: /etc/nagios4/htpasswd.users
+  register: nagios_htpasswd
+
+- name: Verify Nagios web credentials
+  ansible.builtin.command: >
+    htpasswd -vb /etc/nagios4/htpasswd.users {{ config.nagios.admin_user }} {{ nagios_admin_password }}
+  register: nagios_htpasswd_check
+  changed_when: false
+  failed_when: false
+  no_log: true
+  when: nagios_htpasswd.stat.exists
+
+- name: Create Nagios web credentials when missing
+  ansible.builtin.command: >
+    htpasswd -b -c /etc/nagios4/htpasswd.users {{ config.nagios.admin_user }} {{ nagios_admin_password }}
+  args:
+    creates: /etc/nagios4/htpasswd.users
+  no_log: true
+
+- name: Update Nagios web credentials when needed
+  ansible.builtin.command: >
+    htpasswd -b /etc/nagios4/htpasswd.users {{ config.nagios.admin_user }} {{ nagios_admin_password }}
+  when:
+    - nagios_htpasswd.stat.exists
+    - nagios_htpasswd_check.rc != 0
+  no_log: true
+
+- name: Install homelab Nagios configuration
+  ansible.builtin.template:
+    src: homelab.cfg.j2
+    dest: /etc/nagios4/conf.d/homelab.cfg
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart Nagios
+
+- name: Ensure Nagios service is running
+  ansible.builtin.service:
+    name: nagios4
+    state: started
+    enabled: true
+
+- name: Ensure Apache service is running
+  ansible.builtin.service:
+    name: apache2
+    state: started
+    enabled: true
