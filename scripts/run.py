@@ -25,6 +25,10 @@ def load_config() -> dict:
 
 def run(cmd: List[str], cwd: Optional[Path] = None, env: Optional[dict] = None) -> None:
     merged_env = os.environ.copy()
+    if "ANSIBLE_VAULT_PASSWORD_FILE" not in merged_env:
+        default_vault = Path.home() / ".ansible_vault_pass"
+        if default_vault.exists():
+            merged_env["ANSIBLE_VAULT_PASSWORD_FILE"] = str(default_vault)
     if env:
         merged_env.update(env)
     subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=True, env=merged_env)
@@ -92,6 +96,10 @@ def terraform_apply(env: Optional[dict] = None) -> None:
 
 def read_vault_var(var_name: str) -> Optional[str]:
     vault_pass = os.environ.get("ANSIBLE_VAULT_PASSWORD_FILE")
+    if not vault_pass:
+        default_vault = Path.home() / ".ansible_vault_pass"
+        if default_vault.exists():
+            vault_pass = str(default_vault)
     if not vault_pass:
         return None
     secrets_path = repo_root() / "ansible" / "secrets.yml"
