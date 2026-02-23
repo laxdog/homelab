@@ -25,7 +25,7 @@ from authentik.stages.user_login.models import UserLoginStage  # noqa: E402
 
 CONFIG = json.loads(r'''{{ {
   "proxy_apps": config.authentik.proxy_apps | default([]),
-  "authentik_host": "http://%s:%s" % (config.services.lxcs["authentik"].ip, config.authentik.port)
+  "authentik_host": "https://%s" % (config.authentik.external_domain)
 } | to_json }}''')
 
 
