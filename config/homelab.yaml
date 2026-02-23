@@ -506,21 +506,23 @@ npm:
     domain: nagios.lax.dog
     forward_host: 10.20.30.133
     forward_port: 80
-    access_list: External Protected
+    access_list: External Public
     ssl: true
     certificate: laxdog-external-le
     advanced_config: |
       location = / {
         return 302 /nagios/;
       }
+    authentik_protect: true
   - name: Proxmox External
     domain: proxmox.lax.dog
     forward_scheme: https
     forward_host: 10.20.30.46
     forward_port: 8006
-    access_list: External Protected
+    access_list: External Public
     ssl: true
     certificate: laxdog-external-le
+    authentik_protect: true
   - name: Jellyfin External
     domain: jellyfin.lax.dog
     forward_host: 10.20.30.120
@@ -541,6 +543,13 @@ authentik:
   port: 9000
   internal_domain: auth.laxdog.uk
   external_domain: auth.lax.dog
+  proxy_apps:
+  - name: Proxmox
+    slug: proxmox
+    external_host: https://proxmox.lax.dog
+  - name: Nagios
+    slug: nagios
+    external_host: https://nagios.lax.dog
 couchdb:
   admin_user: admin
   port: 5984

@@ -22,6 +22,14 @@
     - "{{ authentik_compose_dir }}/media"
     - "{{ authentik_compose_dir }}/templates"
 
+- name: Ensure Authentik scripts directory exists
+  ansible.builtin.file:
+    path: "{{ authentik_compose_dir }}/scripts"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
 - name: Write Authentik environment file
   ansible.builtin.template:
     src: "authentik.env.j2"
@@ -38,6 +46,33 @@
     owner: root
     group: root
     mode: '0644'
+
+- name: Write Authentik SSO setup script
+  ansible.builtin.template:
+    src: "authentik_sso_setup.py.j2"
+    dest: "{{ authentik_compose_dir }}/scripts/authentik_sso_setup.py"
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Write Authentik readiness check script
+  ansible.builtin.copy:
+    dest: "{{ authentik_compose_dir }}/scripts/authentik_wait.py"
+    owner: root
+    group: root
+    mode: '0755'
+    content: |
+      import sys
+      import time
+      import urllib.request
+
+      for _ in range(30):
+          try:
+              urllib.request.urlopen("http://127.0.0.1:9000/api/v3/root/config/", timeout=2)
+              sys.exit(0)
+          except Exception:
+              time.sleep(2)
+      sys.exit(1)
 
 - name: Deploy Authentik via Docker Compose
   ansible.builtin.command:
@@ -62,3 +97,18 @@
     chdir: "{{ authentik_compose_dir }}"
   when: authentik_port.stdout | trim != '9000'
   changed_when: true
+
+- name: Remove deprecated Authentik blueprints directory
+  ansible.builtin.file:
+    path: "{{ authentik_compose_dir }}/blueprints"
+    state: absent
+
+- name: Wait for Authentik to be ready
+  ansible.builtin.command:
+    cmd: docker exec authentik-server /bin/sh -lc '/ak-root/venv/bin/python /scripts/authentik_wait.py'
+  changed_when: false
+
+- name: Apply Authentik SSO configuration
+  ansible.builtin.command:
+    cmd: docker exec authentik-server /bin/sh -lc 'cd /authentik && /ak-root/venv/bin/python /scripts/authentik_sso_setup.py'
+  changed_when: false

@@ -1,0 +1,138 @@
+import json
+import os
+import sys
+
+# Ensure the parent of the authentik package is on sys.path.
+sys.path.insert(0, "/")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "authentik.root.settings")
+
+import django  # noqa: E402
+
+django.setup()
+
+from authentik.core.models import Application  # noqa: E402
+from authentik.flows.models import Flow, FlowStageBinding  # noqa: E402
+from dataclasses import replace  # noqa: E402
+
+from authentik.outposts.models import Outpost, OutpostConfig  # noqa: E402
+from authentik.providers.proxy.models import ProxyProvider  # noqa: E402
+from authentik.stages.authenticator_totp.models import AuthenticatorTOTPStage  # noqa: E402
+from authentik.stages.authenticator_validate.models import AuthenticatorValidateStage  # noqa: E402
+from authentik.stages.identification.models import IdentificationStage  # noqa: E402
+from authentik.stages.password.models import PasswordStage  # noqa: E402
+from authentik.stages.user_login.models import UserLoginStage  # noqa: E402
+
+
+CONFIG = json.loads(r'''{{ {
+  "proxy_apps": config.authentik.proxy_apps | default([]),
+  "authentik_host": "http://%s:%s" % (config.services.lxcs["authentik"].ip, config.authentik.port)
+} | to_json }}''')
+
+
+def upsert_flow():
+    flow, _ = Flow.objects.update_or_create(
+        slug="homelab-auth-mfa",
+        defaults={
+            "name": "Homelab MFA",
+            "title": "Homelab MFA",
+            "designation": "authentication",
+            "authentication": True,
+        },
+    )
+
+    identification, _ = IdentificationStage.objects.update_or_create(
+        name="Homelab Identification",
+        defaults={
+            "name": "Homelab Identification",
+            "user_fields": ["username", "email"],
+        },
+    )
+    password, _ = PasswordStage.objects.update_or_create(
+        name="Homelab Password",
+        defaults={
+            "name": "Homelab Password",
+            "allow_show_password": True,
+            "backends": ["authentik.core.auth.InMemoryBackend"],
+        },
+    )
+    totp, _ = AuthenticatorTOTPStage.objects.update_or_create(
+        name="Homelab TOTP",
+        defaults={
+            "name": "Homelab TOTP",
+            "friendly_name": "Homelab TOTP",
+            "digits": 6,
+        },
+    )
+    mfa_validate, _ = AuthenticatorValidateStage.objects.update_or_create(
+        name="Homelab MFA Validate",
+        defaults={
+            "name": "Homelab MFA Validate",
+            "device_classes": ["totp"],
+            "not_configured_action": "configure",
+        },
+    )
+    mfa_validate.configuration_stages.set([totp])
+    login, _ = UserLoginStage.objects.update_or_create(
+        name="Homelab Login",
+        defaults={"name": "Homelab Login"},
+    )
+
+    bindings = [
+        (10, identification),
+        (20, password),
+        (30, mfa_validate),
+        (100, login),
+    ]
+    for order, stage in bindings:
+        FlowStageBinding.objects.update_or_create(
+            target=flow,
+            stage=stage,
+            defaults={"order": order, "target": flow, "stage": stage},
+        )
+
+    return flow
+
+
+def ensure_proxy_app(flow, app):
+    provider, _ = ProxyProvider.objects.update_or_create(
+        name=f"{app['name']} Proxy",
+        defaults={
+            "name": f"{app['name']} Proxy",
+            "mode": "forward_single",
+            "external_host": app["external_host"],
+            "authentication_flow": flow,
+            "authorization_flow": Flow.objects.get(slug="default-provider-authorization-implicit-consent"),
+        },
+    )
+
+    Application.objects.update_or_create(
+        slug=app["slug"],
+        defaults={"name": app["name"], "slug": app["slug"], "provider": provider},
+    )
+    return provider
+
+
+def update_outpost(providers):
+    outpost = Outpost.objects.filter(name="authentik Embedded Outpost").first()
+    if not outpost:
+        outpost = Outpost.objects.create(
+            name="authentik Embedded Outpost",
+            type="proxy",
+            config=OutpostConfig(authentik_host=CONFIG["authentik_host"]),
+        )
+    outpost.config = replace(outpost.config, authentik_host=CONFIG["authentik_host"])
+    outpost.save()
+    outpost.providers.set(providers)
+
+
+def main():
+    flow = upsert_flow()
+    providers = []
+    for app in CONFIG["proxy_apps"]:
+        providers.append(ensure_proxy_app(flow, app))
+    if providers:
+        update_outpost(providers)
+
+
+if __name__ == "__main__":
+    main()

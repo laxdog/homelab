@@ -27,6 +27,7 @@ services:
     volumes:
       - ./media:/media
       - ./templates:/templates
+      - ./scripts:/scripts:ro
     depends_on:
       - postgresql
       - redis
@@ -42,6 +43,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./media:/media
       - ./templates:/templates
+      - ./scripts:/scripts:ro
     depends_on:
       - postgresql
       - redis
