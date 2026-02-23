@@ -1,0 +1,11 @@
+- name: Install apt-cacher-ng
+  ansible.builtin.apt:
+    name: apt-cacher-ng
+    state: present
+    update_cache: true
+
+- name: Ensure apt-cacher-ng service is running
+  ansible.builtin.service:
+    name: apt-cacher-ng
+    state: started
+    enabled: true

@@ -1,0 +1,16 @@
+services:
+  healthchecks:
+    image: healthchecks/healthchecks:latest
+    container_name: healthchecks
+    restart: unless-stopped
+    ports:
+      - "{{ config.healthchecks.port }}:8000"
+    environment:
+      ALLOWED_HOSTS: "{{ config.healthchecks.domain }}"
+      SITE_ROOT: "https://{{ config.healthchecks.domain }}"
+      SITE_NAME: "{{ config.healthchecks.site_name }}"
+      SECRET_KEY: "{{ healthchecks_secret_key }}"
+      SUPERUSER_EMAIL: "{{ config.healthchecks.admin_email }}"
+      SUPERUSER_PASSWORD: "{{ healthchecks_admin_password }}"
+    volumes:
+      - ./data:/data

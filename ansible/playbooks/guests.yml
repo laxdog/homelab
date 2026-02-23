@@ -142,6 +142,81 @@
   roles:
     - adguard
 
+- name: Configure Apt Cacher
+  hosts: apt_cacher_hosts
+  become: true
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - apt_cacher
+
+- name: Configure CouchDB
+  hosts: couchdb_hosts
+  become: true
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+  roles:
+    - couchdb
+
+- name: Configure FreshRSS
+  hosts: freshrss_hosts
+  become: true
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - freshrss
+
+- name: Configure NetAlertX
+  hosts: netalertx_hosts
+  become: true
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - netalertx
+
+- name: Configure Healthchecks
+  hosts: healthchecks_hosts
+  become: true
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+  roles:
+    - healthchecks
+
+- name: Configure Browser
+  hosts: browser_hosts
+  become: true
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - browser
+
+- name: Configure Static Sites
+  hosts: static_sites_hosts
+  become: true
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - static_sites
+
 - name: Configure media stack
   hosts: media_hosts
   become: true
@@ -171,3 +246,26 @@
       when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
   roles:
     - nfs-server
+
+- name: Configure Nagios
+  hosts: nagios_hosts
+  become: true
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Wait for SSH on Nagios host
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 22
+        timeout: 120
+        delay: 3
+      delegate_to: localhost
+      become: false
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+  roles:
+    - nagios

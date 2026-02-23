@@ -1,0 +1,9 @@
+services:
+  static-sites:
+    image: nginx:alpine
+    container_name: static-sites
+    restart: unless-stopped
+    ports:
+      - "{{ config.static_sites.port }}:80"
+    volumes:
+      - ./site:/usr/share/nginx/html:ro

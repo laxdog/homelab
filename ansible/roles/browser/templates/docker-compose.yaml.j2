@@ -1,0 +1,13 @@
+services:
+  firefox:
+    image: jlesage/firefox:latest
+    container_name: browser
+    restart: unless-stopped
+    ports:
+      - "{{ config.browser.port }}:5800"
+    environment:
+      TZ: "{{ config.homelab.timezone }}"
+      PUID: "1000"
+      PGID: "1000"
+    volumes:
+      - ./config:/config

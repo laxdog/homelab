@@ -1,0 +1,54 @@
+- name: Set static sites paths
+  ansible.builtin.set_fact:
+    static_sites_compose_dir: "/docker/docker-compose-{{ inventory_hostname }}"
+
+- name: Create static sites application directory
+  ansible.builtin.file:
+    path: "{{ static_sites_compose_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create static sites web root
+  ansible.builtin.file:
+    path: "{{ static_sites_compose_dir }}/site"
+    state: directory
+    owner: "1000"
+    group: "1000"
+    mode: '0755'
+
+- name: Install placeholder index page
+  ansible.builtin.copy:
+    dest: "{{ static_sites_compose_dir }}/site/index.html"
+    owner: "1000"
+    group: "1000"
+    mode: '0644'
+    content: |
+      <!doctype html>
+      <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <title>Static Sites</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </head>
+      <body>
+        <h1>Static Sites</h1>
+        <p>Content lives in /docker/docker-compose-{{ inventory_hostname }}/site</p>
+      </body>
+      </html>
+
+- name: Copy static sites Docker Compose file
+  ansible.builtin.template:
+    src: docker-compose.yaml.j2
+    dest: "{{ static_sites_compose_dir }}/docker-compose.yaml"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Deploy static sites via Docker Compose
+  ansible.builtin.command:
+    cmd: docker compose up -d
+  args:
+    chdir: "{{ static_sites_compose_dir }}"
+  changed_when: false

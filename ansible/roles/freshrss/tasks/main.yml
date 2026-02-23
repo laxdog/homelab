@@ -1,0 +1,34 @@
+- name: Set FreshRSS paths
+  ansible.builtin.set_fact:
+    freshrss_compose_dir: "/docker/docker-compose-{{ inventory_hostname }}"
+
+- name: Create FreshRSS application directory
+  ansible.builtin.file:
+    path: "{{ freshrss_compose_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create FreshRSS data directory
+  ansible.builtin.file:
+    path: "{{ freshrss_compose_dir }}/data"
+    state: directory
+    owner: "1000"
+    group: "1000"
+    mode: '0755'
+
+- name: Copy FreshRSS Docker Compose file
+  ansible.builtin.template:
+    src: docker-compose.yaml.j2
+    dest: "{{ freshrss_compose_dir }}/docker-compose.yaml"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Deploy FreshRSS via Docker Compose
+  ansible.builtin.command:
+    cmd: docker compose up -d
+  args:
+    chdir: "{{ freshrss_compose_dir }}"
+  changed_when: false
