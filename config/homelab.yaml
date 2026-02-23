@@ -529,6 +529,7 @@ browser:
 static_sites:
   port: 80
 nagios:
+  core_version: "4.5.11"
   admin_user: nagiosadmin
   web_domain: nagios.laxdog.uk
   hosts:

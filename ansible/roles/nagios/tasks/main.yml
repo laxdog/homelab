@@ -1,23 +1,145 @@
 ---
-- name: Install Nagios packages
+- name: Install Nagios build/runtime packages
   ansible.builtin.apt:
     name:
+      - apache2
       - apache2-utils
-      - nagios4
+      - build-essential
+      - curl
+      - libapache2-mod-php
+      - libgd-dev
+      - libssl-dev
+      - php
+      - php-gd
       - nagios-plugins
+      - unzip
+      - wget
     state: present
     update_cache: true
 
+- name: Remove distro Nagios Core packages
+  ansible.builtin.apt:
+    name:
+      - nagios4
+      - nagios4-common
+      - nagios4-core
+      - nagios4-cgi
+    state: absent
+  failed_when: false
+
+- name: Ensure Nagios user exists
+  ansible.builtin.user:
+    name: nagios
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Ensure nagcmd group exists
+  ansible.builtin.group:
+    name: nagcmd
+    system: true
+
+- name: Add nagios to nagcmd group
+  ansible.builtin.user:
+    name: nagios
+    groups: nagcmd
+    append: true
+
+- name: Add www-data to nagcmd group
+  ansible.builtin.user:
+    name: www-data
+    groups: nagcmd
+    append: true
+
+- name: Check installed Nagios Core version
+  ansible.builtin.command: /usr/local/nagios/bin/nagios -V
+  register: nagios_version_check
+  changed_when: false
+  failed_when: false
+
+- name: Determine desired Nagios Core version
+  ansible.builtin.set_fact:
+    nagios_core_version: "{{ config.nagios.core_version | default('4.5.11') }}"
+    nagios_installed_version: >-
+      {{ (nagios_version_check.stdout | default('') | regex_findall('Nagios Core ([0-9.]+)') | first) | default('') }}
+    nagios_core_upgrade_needed: >-
+      {{ (nagios_version_check.rc | default(1)) != 0
+         or (nagios_version_check.stdout | default('')) == ''
+         or (nagios_installed_version != (config.nagios.core_version | default('4.5.11'))) }}
+
+- name: Ensure source directory exists
+  ansible.builtin.file:
+    path: /usr/local/src
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Download Nagios Core source
+  ansible.builtin.command: >
+    curl -L -o /usr/local/src/nagios-{{ nagios_core_version }}.tar.gz
+    https://assets.nagios.com/downloads/nagioscore/releases/nagios-{{ nagios_core_version }}.tar.gz
+  args:
+    creates: "/usr/local/src/nagios-{{ nagios_core_version }}.tar.gz"
+  when: nagios_core_upgrade_needed
+
+- name: Extract Nagios Core source
+  ansible.builtin.unarchive:
+    src: "/usr/local/src/nagios-{{ nagios_core_version }}.tar.gz"
+    dest: /usr/local/src
+    remote_src: true
+  when: nagios_core_upgrade_needed
+
+- name: Configure Nagios Core
+  ansible.builtin.command: ./configure --with-command-group=nagcmd
+  args:
+    chdir: "/usr/local/src/nagios-{{ nagios_core_version }}"
+  when: nagios_core_upgrade_needed
+
+- name: Build Nagios Core
+  ansible.builtin.command: make all
+  args:
+    chdir: "/usr/local/src/nagios-{{ nagios_core_version }}"
+  when: nagios_core_upgrade_needed
+
+- name: Install Nagios Core
+  ansible.builtin.command: make install
+  args:
+    chdir: "/usr/local/src/nagios-{{ nagios_core_version }}"
+  when: nagios_core_upgrade_needed
+
+- name: Install Nagios Core init scripts
+  ansible.builtin.command: make install-init
+  args:
+    chdir: "/usr/local/src/nagios-{{ nagios_core_version }}"
+  when: nagios_core_upgrade_needed
+
+- name: Reload systemd units
+  ansible.builtin.command: systemctl daemon-reload
+  when: nagios_core_upgrade_needed
+
+- name: Install Nagios Core sample config
+  ansible.builtin.command: make install-config
+  args:
+    chdir: "/usr/local/src/nagios-{{ nagios_core_version }}"
+  when: nagios_core_upgrade_needed
+
+- name: Install Nagios Core command mode
+  ansible.builtin.command: make install-commandmode
+  args:
+    chdir: "/usr/local/src/nagios-{{ nagios_core_version }}"
+  when: nagios_core_upgrade_needed
+
 - name: Ensure Nagios resource.cfg permissions
   ansible.builtin.file:
-    path: /etc/nagios4/resource.cfg
+    path: /usr/local/nagios/etc/resource.cfg
     owner: root
     group: nagios
     mode: '0640'
 
 - name: Ensure Nagios checkresults directory exists
   ansible.builtin.file:
-    path: /var/lib/nagios4/spool/checkresults
+    path: /usr/local/nagios/var/spool/checkresults
     state: directory
     owner: nagios
     group: nagios
@@ -25,12 +147,12 @@
 
 - name: Check Nagios htpasswd file
   ansible.builtin.stat:
-    path: /etc/nagios4/htpasswd.users
+    path: /usr/local/nagios/etc/htpasswd.users
   register: nagios_htpasswd
 
 - name: Verify Nagios web credentials
   ansible.builtin.command: >
-    htpasswd -vb /etc/nagios4/htpasswd.users {{ config.nagios.admin_user }} {{ nagios_admin_password }}
+    htpasswd -vb /usr/local/nagios/etc/htpasswd.users {{ config.nagios.admin_user }} {{ nagios_admin_password }}
   register: nagios_htpasswd_check
   changed_when: false
   failed_when: false
@@ -39,26 +161,42 @@
 
 - name: Create Nagios web credentials when missing
   ansible.builtin.command: >
-    htpasswd -b -c /etc/nagios4/htpasswd.users {{ config.nagios.admin_user }} {{ nagios_admin_password }}
+    htpasswd -b -c /usr/local/nagios/etc/htpasswd.users {{ config.nagios.admin_user }} {{ nagios_admin_password }}
   args:
-    creates: /etc/nagios4/htpasswd.users
+    creates: /usr/local/nagios/etc/htpasswd.users
   no_log: true
 
 - name: Update Nagios web credentials when needed
   ansible.builtin.command: >
-    htpasswd -b /etc/nagios4/htpasswd.users {{ config.nagios.admin_user }} {{ nagios_admin_password }}
+    htpasswd -b /usr/local/nagios/etc/htpasswd.users {{ config.nagios.admin_user }} {{ nagios_admin_password }}
   when:
     - nagios_htpasswd.stat.exists
     - nagios_htpasswd_check.rc != 0
   no_log: true
 
+- name: Ensure Nagios custom config directory exists
+  ansible.builtin.file:
+    path: /usr/local/nagios/etc/objects
+    state: directory
+    owner: nagios
+    group: nagios
+    mode: '0755'
+
 - name: Install homelab Nagios configuration
   ansible.builtin.template:
     src: homelab.cfg.j2
-    dest: /etc/nagios4/conf.d/homelab.cfg
-    owner: root
-    group: root
+    dest: /usr/local/nagios/etc/objects/homelab.cfg
+    owner: nagios
+    group: nagios
     mode: '0644'
+  notify: Restart Nagios
+
+- name: Ensure homelab config referenced in nagios.cfg
+  ansible.builtin.lineinfile:
+    path: /usr/local/nagios/etc/nagios.cfg
+    regexp: '^cfg_file=/usr/local/nagios/etc/objects/homelab.cfg$'
+    line: 'cfg_file=/usr/local/nagios/etc/objects/homelab.cfg'
+    insertafter: EOF
   notify: Restart Nagios
 
 - name: Enable Apache CGI module
@@ -71,10 +209,20 @@
   register: nagios_a2enmod_rewrite
   changed_when: "'Enabling module' in nagios_a2enmod_rewrite.stdout"
 
+- name: Install Nagios Apache config
+  ansible.builtin.template:
+    src: nagios-apache.conf.j2
+    dest: /etc/apache2/conf-available/nagios.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Apache
+
 - name: Enable Nagios Apache config
-  ansible.builtin.command: a2enconf nagios4-cgi
+  ansible.builtin.command: a2enconf nagios
   register: nagios_a2enconf
   changed_when: "'Enabling conf' in nagios_a2enconf.stdout"
+  notify: Reload Apache
 
 - name: Install Nagios redirect config
   ansible.builtin.copy:
@@ -116,7 +264,7 @@
 
 - name: Ensure Nagios service is running
   ansible.builtin.service:
-    name: nagios4
+    name: nagios
     state: started
     enabled: true
 

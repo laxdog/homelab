@@ -1,7 +1,7 @@
 ---
 - name: Restart Nagios
   ansible.builtin.service:
-    name: nagios4
+    name: nagios
     state: restarted
 
 - name: Reload Apache
