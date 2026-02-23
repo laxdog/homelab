@@ -239,6 +239,13 @@
     insertafter: EOF
   notify: Restart Nagios
 
+- name: Disable default localhost objects
+  ansible.builtin.lineinfile:
+    path: /usr/local/nagios/etc/nagios.cfg
+    regexp: '^cfg_file=/usr/local/nagios/etc/objects/localhost.cfg$'
+    state: absent
+  notify: Restart Nagios
+
 - name: Set Nagios CGI HTML base path
   ansible.builtin.lineinfile:
     path: /usr/local/nagios/etc/cgi.cfg

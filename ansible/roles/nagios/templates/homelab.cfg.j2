@@ -2,7 +2,7 @@
 
 define command {
   command_name check_http_npm
-  command_line /usr/lib/nagios/plugins/check_http -I $ARG2$ -H $ARG1$ -S --sni -P 443
+  command_line /usr/lib/nagios/plugins/check_http -I $ARG2$ -H $ARG1$ -S --sni -P 443 -j GET
 }
 
 define command {
@@ -88,7 +88,7 @@ define service {
 
 {% set npm_hosts = config.npm.proxy_hosts
   + ((config.npm.external_proxy_hosts | default([])) if (config.npm.external_enabled | default(false)) else []) %}
-{% for host in npm_hosts %}
+{% for host in npm_hosts if host.monitor_http | default(true) %}
 define service {
   use                     generic-service
   host_name               nginx-proxy-manager

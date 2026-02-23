@@ -448,6 +448,7 @@ npm:
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
+    monitor_http: false
   - name: Static Sites Internal
     domain: sites.laxdog.uk
     forward_host: 10.20.30.161
