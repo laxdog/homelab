@@ -14,9 +14,17 @@
   ansible.builtin.file:
     path: "{{ couchdb_compose_dir }}/data"
     state: directory
-    owner: root
-    group: root
+    owner: "5984"
+    group: "5984"
     mode: '0755'
+
+- name: Ensure CouchDB data directory ownership is correct
+  ansible.builtin.file:
+    path: "{{ couchdb_compose_dir }}/data"
+    state: directory
+    owner: "5984"
+    group: "5984"
+    recurse: true
 
 - name: Copy CouchDB Docker Compose file
   ansible.builtin.template:
