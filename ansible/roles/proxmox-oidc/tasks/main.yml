@@ -1,4 +1,8 @@
 ---
+- name: Determine whether Proxmox OIDC is enabled
+  ansible.builtin.set_fact:
+    proxmox_oidc_enabled: "{{ config.proxmox.oidc.enabled | default(true) | bool }}"
+
 - name: Read Proxmox realms
   ansible.builtin.command: pveum realm list --output-format json
   register: proxmox_realms
@@ -12,10 +16,37 @@
           | list
           | first) | default({}) }}
 
+- name: Read Proxmox users
+  ansible.builtin.command: pveum user list --output-format json
+  register: proxmox_users
+  changed_when: false
+
+- name: Resolve OIDC admin user
+  ansible.builtin.set_fact:
+    proxmox_oidc_admin_user: >-
+      {{ (proxmox_users.stdout | from_json
+          | selectattr('userid', 'equalto', config.proxmox.oidc.admin_email ~ '@' ~ config.proxmox.oidc.realm)
+          | list
+          | first) | default({}) }}
+
+- name: Remove OIDC admin user when OIDC is disabled
+  ansible.builtin.command: >-
+    pveum user delete {{ config.proxmox.oidc.admin_email }}@{{ config.proxmox.oidc.realm }}
+  when:
+    - not proxmox_oidc_enabled
+    - proxmox_oidc_admin_user | length > 0
+
+- name: Remove OIDC realm when OIDC is disabled
+  ansible.builtin.command: pveum realm delete {{ config.proxmox.oidc.realm }}
+  when:
+    - not proxmox_oidc_enabled
+    - proxmox_oidc_realm | length > 0
+
 - name: Read Proxmox realm configuration file
   ansible.builtin.slurp:
     src: /etc/pve/domains.cfg
   register: proxmox_domains_cfg
+  when: proxmox_oidc_enabled
 
 - name: Determine whether OIDC realm must be recreated
   ansible.builtin.set_fact:
@@ -35,10 +66,13 @@
           ) is none
         )
       }}
+  when: proxmox_oidc_enabled
 
 - name: Recreate OIDC realm when username claim differs
   ansible.builtin.command: pveum realm delete {{ config.proxmox.oidc.realm }}
-  when: proxmox_oidc_needs_recreate
+  when:
+    - proxmox_oidc_enabled
+    - proxmox_oidc_needs_recreate
 
 - name: Add OIDC realm
   ansible.builtin.command: >-
@@ -49,7 +83,9 @@
     --username-claim {{ config.proxmox.oidc.username_claim | default('preferred_username') }}
     --scopes "openid profile email"
     --autocreate 1
-  when: proxmox_oidc_realm | length == 0 or proxmox_oidc_needs_recreate
+  when:
+    - proxmox_oidc_enabled
+    - proxmox_oidc_realm | length == 0 or (proxmox_oidc_needs_recreate | default(false))
 
 - name: Update OIDC realm
   ansible.builtin.command: >-
@@ -57,29 +93,22 @@
     --issuer-url {{ config.proxmox.oidc.issuer_url }}
     --client-id {{ proxmox_oidc_client_id }}
     --client-key {{ proxmox_oidc_client_secret }}
-  when: proxmox_oidc_realm | length > 0 and not proxmox_oidc_needs_recreate
+  when:
+    - proxmox_oidc_enabled
+    - proxmox_oidc_realm | length > 0
+    - not (proxmox_oidc_needs_recreate | default(false))
   changed_when: false
-
-- name: Read Proxmox users
-  ansible.builtin.command: pveum user list --output-format json
-  register: proxmox_users
-  changed_when: false
-
-- name: Resolve OIDC admin user
-  ansible.builtin.set_fact:
-    proxmox_oidc_admin_user: >-
-      {{ (proxmox_users.stdout | from_json
-          | selectattr('userid', 'equalto', config.proxmox.oidc.admin_email ~ '@' ~ config.proxmox.oidc.realm)
-          | list
-          | first) | default({}) }}
 
 - name: Ensure OIDC admin user exists
   ansible.builtin.command: >-
     pveum user add {{ config.proxmox.oidc.admin_email }}@{{ config.proxmox.oidc.realm }}
     --comment "Authentik admin"
-  when: proxmox_oidc_admin_user | length == 0
+  when:
+    - proxmox_oidc_enabled
+    - proxmox_oidc_admin_user | length == 0
 
 - name: Ensure OIDC admin ACL
   ansible.builtin.command: >-
     pveum aclmod / -user {{ config.proxmox.oidc.admin_email }}@{{ config.proxmox.oidc.realm }}
     -role {{ config.proxmox.oidc.role }}
+  when: proxmox_oidc_enabled

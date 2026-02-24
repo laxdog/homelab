@@ -137,6 +137,9 @@ def update_outpost(providers):
 
 def ensure_oidc_app(flow, oidc):
     if not oidc or not oidc.get("enabled", True):
+        if oidc:
+            Application.objects.filter(slug=oidc.get("slug")).delete()
+            OAuth2Provider.objects.filter(name=oidc.get("name")).delete()
         return None
 
     redirect_uris = [

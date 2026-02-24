@@ -38,6 +38,7 @@ proxmox:
     backups_dir: tank-backups
     templates_dir: tank-templates
   oidc:
+    enabled: false
     realm: authentik
     slug: proxmox-oidc
     issuer_url: https://auth.lax.dog/application/o/proxmox-oidc/
@@ -615,9 +616,6 @@ authentik:
   internal_domain: auth.laxdog.uk
   external_domain: auth.lax.dog
   proxy_apps:
-  - name: Proxmox
-    slug: proxmox
-    external_host: https://proxmox.lax.dog
   - name: Nagios
     slug: nagios
     external_host: https://nagios.lax.dog
@@ -769,8 +767,6 @@ validation:
   - authentik_admin_password
   - authentik_postgres_password
   - authentik_secret_key
-  - proxmox_oidc_client_id
-  - proxmox_oidc_client_secret
   - couchdb_admin_password
   - healthchecks_admin_password
   - healthchecks_secret_key

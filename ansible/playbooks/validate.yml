@@ -87,6 +87,7 @@
              | list
              | length) > 0
         fail_msg: "Missing Proxmox OIDC realm '{{ proxmox.oidc.realm }}'."
+      when: proxmox.oidc.enabled | default(true) | bool
 
     - name: Scan subnet for live hosts
       ansible.builtin.command: "nmap -sn {{ network.subnet }} -oG -"
@@ -447,10 +448,12 @@
         https://{{ config.authentik.external_domain }}/application/o/{{ config.proxmox.oidc.slug }}/.well-known/openid-configuration
       register: proxmox_oidc_wellknown
       changed_when: false
+      when: config.proxmox.oidc.enabled | default(true) | bool
 
     - name: Parse Proxmox OIDC well-known metadata
       ansible.builtin.set_fact:
         proxmox_oidc_wellknown_json: "{{ proxmox_oidc_wellknown.stdout | from_json }}"
+      when: config.proxmox.oidc.enabled | default(true) | bool
 
     - name: Assert Proxmox OIDC JWKS URI exists
       ansible.builtin.assert:
@@ -458,6 +461,7 @@
           - proxmox_oidc_wellknown_json.jwks_uri is defined
           - proxmox_oidc_wellknown_json.jwks_uri | length > 0
         fail_msg: "Missing jwks_uri in Proxmox OIDC metadata."
+      when: config.proxmox.oidc.enabled | default(true) | bool
 
     - name: Fetch Proxmox OIDC JWKS document via NPM
       ansible.builtin.command: >-
@@ -466,10 +470,12 @@
         {{ proxmox_oidc_wellknown_json.jwks_uri }}
       register: proxmox_oidc_jwks
       changed_when: false
+      when: config.proxmox.oidc.enabled | default(true) | bool
 
     - name: Parse Proxmox OIDC JWKS document
       ansible.builtin.set_fact:
         proxmox_oidc_jwks_json: "{{ proxmox_oidc_jwks.stdout | from_json }}"
+      when: config.proxmox.oidc.enabled | default(true) | bool
 
     - name: Assert Proxmox OIDC JWKS contains keys
       ansible.builtin.assert:
@@ -478,6 +484,7 @@
           - proxmox_oidc_jwks_json['keys'] | type_debug == 'list'
           - proxmox_oidc_jwks_json['keys'] | length > 0
         fail_msg: "Proxmox OIDC JWKS is invalid or empty: {{ proxmox_oidc_jwks.stdout }}"
+      when: config.proxmox.oidc.enabled | default(true) | bool
 
     - name: Check Authentik outpost ping via NPM
       ansible.builtin.command: >-
