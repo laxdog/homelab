@@ -270,8 +270,8 @@ services:
       - docker
       - nginx_proxy_manager
     couchdb:
-      id: 165
-      ip: 10.20.30.165
+      id: 128
+      ip: 10.20.30.128
       roles:
       - docker
       - couchdb
@@ -575,7 +575,7 @@ npm:
     certificate: laxdog-internal-le
   - name: CouchDB
     domain: couchdb.laxdog.uk
-    forward_host: 10.20.30.165
+    forward_host: 10.20.30.128
     forward_port: 5984
     access_list: Internal Access
     ssl: true
@@ -935,7 +935,7 @@ validation:
     host: 10.20.30.159
     port: 8000
   - name: couchdb
-    host: 10.20.30.165
+    host: 10.20.30.128
     port: 5984
   - name: browser
     host: 10.20.30.162
