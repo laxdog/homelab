@@ -16,13 +16,15 @@ Source of truth: `config/homelab.yaml`.
 1. `pip install -r scripts/requirements.txt`
 2. Provide vault password (recommended: `~/.ansible_vault_pass`).
 3. `scripts/run.py apply` (uses `terraform_user_password` from vault if present)
+4. `scripts/run.py metadata` (optional manual re-sync of Proxmox tags/notes)
 
 ## Validate
 - Run `scripts/run.py validate` after changes.
 - Validation covers:
 - Vault secrets presence.
-- Proxmox host storage/datasets/realm and subnet collision checks.
+- Proxmox host storage/datasets and subnet collision checks.
 - Guest SSH reachability and apt-cacher proxy config.
+- Proxmox VM/CT metadata drift check (`scripts/proxmox_metadata.py --check`).
 - Docker/compose presence on Docker guests.
 - AdGuard DNS behavior (known good + known bad + internal rewrites).
 - NPM proxy host/access list/cert/redirect behavior.

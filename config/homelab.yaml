@@ -340,6 +340,116 @@ services:
       roles:
       - docker
       - authentik
+proxmox_metadata:
+  enabled: true
+  oidc_services:
+  - nagios
+  default_credentials:
+    ssh:
+      username: root
+      password_var: root_password
+  service_credentials:
+    media-stack:
+    - label: ui
+      username: admin
+      password_var: jellyfin_admin_password
+    nfs-server:
+    - label: ssh
+      username: root
+      password_var: root_password
+    nagios:
+    - label: ui
+      username: nagiosadmin
+      password_var: nagios_admin_password
+    - label: ssh
+      username: root
+      password_var: root_password
+    adguard:
+    - label: ui
+      username: admin
+      password_var: adguard_admin_password
+    - label: ssh
+      username: root
+      password_var: root_password
+    nginx-proxy-manager:
+    - label: ui
+      username: admin@example.com
+      password_var: npm_admin_password
+    - label: api
+      username: automation@lax.dog
+      password_var: npm_api_password
+    - label: basic_auth
+      username: adguard
+      password_var: npm_access_password
+    - label: ssh
+      username: root
+      password_var: root_password
+    couchdb:
+    - label: ui
+      username: admin
+      password_var: couchdb_admin_password
+    - label: ssh
+      username: root
+      password_var: root_password
+    apt-cacher-ng:
+    - label: ssh
+      username: root
+      password_var: root_password
+    freshrss:
+    - label: ssh
+      username: root
+      password_var: root_password
+    netalertx:
+    - label: ssh
+      username: root
+      password_var: root_password
+    healthchecks:
+    - label: ui
+      username: admin@laxdog.uk
+      password_var: healthchecks_admin_password
+    - label: ssh
+      username: root
+      password_var: root_password
+    dashboard:
+    - label: ssh
+      username: root
+      password_var: root_password
+    static-sites:
+    - label: ssh
+      username: root
+      password_var: root_password
+    browser:
+    - label: ssh
+      username: root
+      password_var: root_password
+    python-bot:
+    - label: ssh
+      username: root
+      password_var: root_password
+    organizr:
+    - label: ui
+      username: admin
+      password_var: organizr_admin_password
+    - label: registration
+      username: registration
+      password_var: organizr_registration_password
+    - label: ssh
+      username: root
+      password_var: root_password
+    heimdall:
+    - label: ssh
+      username: root
+      password_var: root_password
+    authentik:
+    - label: ui
+      username: akadmin
+      password_var: authentik_admin_password
+    - label: postgres
+      username: authentik
+      password_var: authentik_postgres_password
+    - label: ssh
+      username: root
+      password_var: root_password
 security:
   ansible_vault: true
 npm:

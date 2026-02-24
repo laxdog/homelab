@@ -178,6 +178,14 @@ def ansible_playbook(playbook: str) -> None:
     run(["ansible-playbook", str(playbook_path)], cwd=repo_root(), env=env)
 
 
+def proxmox_metadata_sync(check: bool = False) -> None:
+    script = repo_root() / "scripts" / "proxmox_metadata.py"
+    cmd = [str(script)]
+    if check:
+        cmd.append("--check")
+    run(cmd, cwd=repo_root())
+
+
 def cmd_apply() -> None:
     cfg = load_config()
     write_inventory(cfg)
@@ -186,6 +194,7 @@ def cmd_apply() -> None:
     terraform_apply(env=tf_env)
     ansible_playbook("post-terraform.yml")
     ansible_playbook("guests.yml")
+    proxmox_metadata_sync(check=False)
 
 
 def cmd_host() -> None:
@@ -204,6 +213,7 @@ def cmd_validate() -> None:
     cfg = load_config()
     inventory_path = write_inventory(cfg)
     print(f"Inventory written to {inventory_path}")
+    proxmox_metadata_sync(check=True)
     ansible_playbook("validate.yml")
 
 
@@ -213,6 +223,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("apply")
     sub.add_parser("host")
     sub.add_parser("guests")
+    sub.add_parser("metadata")
     sub.add_parser("validate")
     return parser
 
@@ -227,6 +238,8 @@ def main() -> None:
         cmd_host()
     elif args.command == "guests":
         cmd_guests()
+    elif args.command == "metadata":
+        proxmox_metadata_sync(check=False)
     elif args.command == "validate":
         cmd_validate()
     else:

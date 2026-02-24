@@ -33,7 +33,7 @@ External (`lax.dog`):
 - `auth.lax.dog` -> Authentik
 - `jellyfin.lax.dog` -> Jellyfin (native auth; no forward-auth)
 - `nagios.lax.dog` -> Nagios (Authentik SSO + TOTP)
-- `proxmox.lax.dog` -> Proxmox (Authentik SSO + TOTP)
+- `proxmox.lax.dog` -> Proxmox (native Proxmox login)
 - `netalertx.lax.dog` -> NetAlertX (Authentik forward-auth)
 - `ha.lax.dog` -> Home Assistant (Authentik forward-auth)
 
@@ -65,5 +65,7 @@ Internal (`laxdog.uk`):
 - NFS server role is a placeholder pending storage attachment strategy.
 - Internal proxy hosts use HTTPS via Let's Encrypt (DNS-01) in NPM.
 - Authentik is active as IdP and forward-auth provider for selected admin endpoints.
+- Proxmox OIDC login has been disabled; use local Proxmox realms (`pam`/`pve`).
 - Home Assistant may return HTTP 400 behind NPM until `trusted_proxies` is configured in HAOS.
 - AdGuard config export/import workflow is documented in `docs/adguard.md`.
+- Proxmox tags/notes are managed by `scripts/proxmox_metadata.py` (see `docs/proxmox-metadata.md`).
