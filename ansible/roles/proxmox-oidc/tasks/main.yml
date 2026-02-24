@@ -12,16 +12,44 @@
           | list
           | first) | default({}) }}
 
+- name: Read Proxmox realm configuration file
+  ansible.builtin.slurp:
+    src: /etc/pve/domains.cfg
+  register: proxmox_domains_cfg
+
+- name: Determine whether OIDC realm must be recreated
+  ansible.builtin.set_fact:
+    proxmox_oidc_needs_recreate: >-
+      {{
+        (proxmox_oidc_realm | length > 0)
+        and
+        (
+          (
+            proxmox_domains_cfg.content
+            | b64decode
+            | regex_search(
+                '(?ms)^openid:\\s+' ~ config.proxmox.oidc.realm ~ '\\n(?:(?:\\t|\\s{2,}).*\\n)*?\\tusername-claim\\s+'
+                ~ (config.proxmox.oidc.username_claim | default('preferred_username'))
+                ~ '(?:\\n|$)'
+              )
+          ) is none
+        )
+      }}
+
+- name: Recreate OIDC realm when username claim differs
+  ansible.builtin.command: pveum realm delete {{ config.proxmox.oidc.realm }}
+  when: proxmox_oidc_needs_recreate
+
 - name: Add OIDC realm
   ansible.builtin.command: >-
     pveum realm add {{ config.proxmox.oidc.realm }} --type openid
     --issuer-url {{ config.proxmox.oidc.issuer_url }}
     --client-id {{ proxmox_oidc_client_id }}
     --client-key {{ proxmox_oidc_client_secret }}
-    --username-claim email
+    --username-claim {{ config.proxmox.oidc.username_claim | default('preferred_username') }}
     --scopes "openid profile email"
     --autocreate 1
-  when: proxmox_oidc_realm | length == 0
+  when: proxmox_oidc_realm | length == 0 or proxmox_oidc_needs_recreate
 
 - name: Update OIDC realm
   ansible.builtin.command: >-
@@ -29,7 +57,7 @@
     --issuer-url {{ config.proxmox.oidc.issuer_url }}
     --client-id {{ proxmox_oidc_client_id }}
     --client-key {{ proxmox_oidc_client_secret }}
-  when: proxmox_oidc_realm | length > 0
+  when: proxmox_oidc_realm | length > 0 and not proxmox_oidc_needs_recreate
   changed_when: false
 
 - name: Read Proxmox users
