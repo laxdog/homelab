@@ -8,7 +8,7 @@ Source of truth: `config/homelab.yaml`.
 - Proxmox host: 10.20.30.46 (vmbr0)
 
 ## Reserved
-- AdGuard/DNS: 10.20.30.153 (temporary; .53 already in use)
+- AdGuard/DNS: 10.20.30.53
 - Authentik: 10.20.30.170
 - Home Assistant: 10.20.30.134
 - Nagios: 10.20.30.133

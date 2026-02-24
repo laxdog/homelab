@@ -247,7 +247,7 @@ clients:
     name: Ryan-s-S22.lax.dog
     source: rDNS
   - whois_info: {}
-    ip: 10.20.30.153
+    ip: 10.20.30.53
     name: TIZEN.lax.dog
     source: rDNS
   - whois_info: {}

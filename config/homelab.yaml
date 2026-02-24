@@ -7,7 +7,7 @@ network:
   bridge: vmbr0
   reserved:
     router: 10.20.30.1
-    adguard: 10.20.30.153
+    adguard: 10.20.30.53
     proxmox: 10.20.30.46
   ranges:
     guests:
@@ -260,7 +260,7 @@ services:
   lxcs:
     adguard:
       id: 153
-      ip: 10.20.30.153
+      ip: 10.20.30.53
       roles:
       - adguard
     nginx-proxy-manager:
@@ -518,7 +518,7 @@ npm:
   proxy_hosts:
   - name: AdGuard Internal
     domain: dns.laxdog.uk
-    forward_host: 10.20.30.153
+    forward_host: 10.20.30.53
     forward_port: 80
     access_list: Internal Access
     ssl: true
@@ -779,7 +779,7 @@ nagios:
     address: 10.20.30.46
     check_ssh: true
   - name: adguard
-    address: 10.20.30.153
+    address: 10.20.30.53
     check_ssh: true
   - name: nginx-proxy-manager
     address: 10.20.30.154
@@ -819,7 +819,7 @@ nagios:
     check_ssh: false
   dns_checks:
   - name: adguard-dns
-    server: 10.20.30.153
+    server: 10.20.30.53
     domain: example.com
     host: adguard
 cloudflare:
@@ -905,10 +905,10 @@ validation:
     - 302
   service_ports:
   - name: adguard-http
-    host: 10.20.30.153
+    host: 10.20.30.53
     port: 80
   - name: adguard-dns
-    host: 10.20.30.153
+    host: 10.20.30.53
     port: 53
   - name: nginx-proxy-manager
     host: 10.20.30.154
