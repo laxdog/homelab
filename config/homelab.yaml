@@ -190,6 +190,8 @@ adguard:
     answer: 10.20.30.154
   - domain: unifi-secondary.laxdog.uk
     answer: 10.20.30.154
+  - domain: raffle-raptor-dev.laxdog.uk
+    answer: 10.20.30.163
   user_rules:
   - '@@||click.figma.com^$client=''10.20.30.201'''
   - '@@||analytics.google.com^$client=''10.20.30.201'''
@@ -325,11 +327,18 @@ services:
       roles:
       - docker
       - browser
-    python-bot:
+    raffle-raptor-dev:
       id: 163
       ip: 10.20.30.163
       roles:
+      - docker
       - python_bot
+      users:
+      - name: mrobinson
+        groups:
+        - sudo
+        passwordless_sudo: true
+        ssh_key_path: /home/mrobinson/.ssh/id_rsa.pub
     organizr:
       id: 164
       ip: 10.20.30.164
@@ -432,9 +441,9 @@ proxmox_metadata:
     - label: ssh
       username: root
       password_var: root_password
-    python-bot:
+    raffle-raptor-dev:
     - label: ssh
-      username: root
+      username: mrobinson
       password_var: root_password
     organizr:
     - label: ui
@@ -827,6 +836,9 @@ nagios:
   - name: unifi-secondary
     address: 10.20.30.51
     check_ssh: false
+  - name: raffle-raptor-dev
+    address: 10.20.30.163
+    check_ssh: true
   dns_checks:
   - name: adguard-dns
     server: 10.20.30.53
@@ -866,6 +878,10 @@ cloudflare:
     proxied: true
   - type: A
     name: ha.lax.dog
+    content: public_ip
+    proxied: true
+  - type: A
+    name: raffle-raptor-dev.lax.dog
     content: public_ip
     proxied: true
 validation:

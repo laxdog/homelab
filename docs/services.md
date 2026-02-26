@@ -19,7 +19,7 @@ Source of truth: `config/homelab.yaml`.
 - dashboard
 - static-sites
 - browser
-- python-bot
+- raffle-raptor-dev
 - organizr
 - heimdall
 - authentik
