@@ -7,3 +7,4 @@
   roles:
     - proxmox-haos
     - proxmox-container-ssh
+    - proxmox-lxc-tun

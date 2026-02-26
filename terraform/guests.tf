@@ -44,6 +44,7 @@ resource "proxmox_virtual_environment_container" "lxcs" {
 
   features {
     nesting = try(each.value.nesting, local.defaults.lxc.nesting)
+    keyctl  = try(each.value.keyctl, local.defaults.lxc.keyctl)
   }
 
   cpu {

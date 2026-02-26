@@ -134,6 +134,17 @@
           - unexpected_guest_ips | length == 0
         fail_msg: "Unexpected live IPs in guest range: {{ unexpected_guest_ips | join(', ') }}"
 
+    - name: Build list of tun-required LXCs
+      ansible.builtin.set_fact:
+        tun_required_lxcs: "{{ services.lxcs | dict2items | selectattr('value.tun_required', 'defined') | selectattr('value.tun_required') | list }}"
+
+    - name: Verify /dev/net/tun exists in tun-required LXCs
+      ansible.builtin.command: "pct exec {{ item.value.id }} -- test -c /dev/net/tun"
+      changed_when: false
+      loop: "{{ tun_required_lxcs }}"
+      loop_control:
+        label: "{{ item.key }} ({{ item.value.id }})"
+
 - name: Validate guest access
   hosts: guests
   gather_facts: false

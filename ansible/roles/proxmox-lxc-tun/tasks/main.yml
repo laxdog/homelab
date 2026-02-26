@@ -1,0 +1,108 @@
+---
+- name: Build list of LXCs that require /dev/net/tun
+  ansible.builtin.set_fact:
+    proxmox_tun_lxcs: "{{ config.services.lxcs | dict2items | selectattr('value.tun_required', 'defined') | selectattr('value.tun_required') | list }}"
+
+- name: Ensure tun kernel module is loaded at boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/homelab-tun.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      tun
+  when: proxmox_tun_lxcs | length > 0
+
+- name: Load tun kernel module now
+  ansible.builtin.command: modprobe tun
+  changed_when: false
+  when: proxmox_tun_lxcs | length > 0
+
+- name: Assert host /dev/net/tun exists
+  ansible.builtin.stat:
+    path: /dev/net/tun
+  register: proxmox_host_tun_device
+  when: proxmox_tun_lxcs | length > 0
+
+- name: Fail if host /dev/net/tun is unavailable
+  ansible.builtin.assert:
+    that:
+      - proxmox_host_tun_device.stat.exists
+      - proxmox_host_tun_device.stat.ischr | default(false)
+    fail_msg: "/dev/net/tun is not available on the Proxmox host."
+  when: proxmox_tun_lxcs | length > 0
+
+- name: Ensure required LXC features for tun-enabled guests
+  ansible.builtin.lineinfile:
+    path: "/etc/pve/lxc/{{ item.value.id }}.conf"
+    regexp: '^features:\s*'
+    line: 'features: keyctl=1,nesting=1'
+  loop: "{{ proxmox_tun_lxcs }}"
+  loop_control:
+    label: "{{ item.key }} ({{ item.value.id }})"
+  register: proxmox_tun_features
+
+- name: Allow /dev/net/tun device in LXC cgroup
+  ansible.builtin.lineinfile:
+    path: "/etc/pve/lxc/{{ item.value.id }}.conf"
+    regexp: '^lxc\.cgroup2\.devices\.allow:\s+.*10:200.*$'
+    line: 'lxc.cgroup2.devices.allow: c 10:200 rwm'
+  loop: "{{ proxmox_tun_lxcs }}"
+  loop_control:
+    label: "{{ item.key }} ({{ item.value.id }})"
+  register: proxmox_tun_cgroup
+
+- name: Bind-mount /dev/net/tun into LXC
+  ansible.builtin.lineinfile:
+    path: "/etc/pve/lxc/{{ item.value.id }}.conf"
+    regexp: '^lxc\.mount\.entry:\s+/dev/net/tun\s+dev/net/tun\s+none\s+bind,create=file$'
+    line: 'lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file'
+  loop: "{{ proxmox_tun_lxcs }}"
+  loop_control:
+    label: "{{ item.key }} ({{ item.value.id }})"
+  register: proxmox_tun_mount
+
+- name: Build list of tun-enabled LXCs requiring restart
+  ansible.builtin.set_fact:
+    proxmox_tun_restart_ids: >-
+      {{
+        (
+          (proxmox_tun_features.results | default([]))
+          + (proxmox_tun_cgroup.results | default([]))
+          + (proxmox_tun_mount.results | default([]))
+        )
+        | selectattr('changed')
+        | map(attribute='item.value.id')
+        | map('int')
+        | unique
+        | list
+      }}
+  when: proxmox_tun_lxcs | length > 0
+
+- name: Restart tun-enabled LXCs when config changed
+  block:
+    - name: Shutdown changed LXC
+      ansible.builtin.command: "pct shutdown {{ item }} --timeout 60"
+      changed_when: true
+      failed_when: false
+      loop: "{{ proxmox_tun_restart_ids | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Start changed LXC
+      ansible.builtin.command: "pct start {{ item }}"
+      changed_when: true
+      loop: "{{ proxmox_tun_restart_ids | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+  when:
+    - proxmox_tun_lxcs | length > 0
+    - proxmox_tun_restart_ids | default([]) | length > 0
+
+- name: Verify /dev/net/tun exists in tun-enabled LXCs
+  ansible.builtin.command: "pct exec {{ item.value.id }} -- test -c /dev/net/tun"
+  changed_when: false
+  loop: "{{ proxmox_tun_lxcs }}"
+  loop_control:
+    label: "{{ item.key }} ({{ item.value.id }})"
+  when: proxmox_tun_lxcs | length > 0
