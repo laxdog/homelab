@@ -191,7 +191,7 @@ adguard:
   - domain: unifi-secondary.laxdog.uk
     answer: 10.20.30.154
   - domain: raffle-raptor-dev.laxdog.uk
-    answer: 10.20.30.163
+    answer: 10.20.30.154
   user_rules:
   - '@@||click.figma.com^$client=''10.20.30.201'''
   - '@@||analytics.google.com^$client=''10.20.30.201'''
@@ -526,6 +526,7 @@ npm:
     - router.laxdog.uk
     - unifi-primary.laxdog.uk
     - unifi-secondary.laxdog.uk
+    - raffle-raptor-dev.laxdog.uk
   - name: laxdog-external-le
     type: letsencrypt
     dns_provider: cloudflare
@@ -536,6 +537,7 @@ npm:
     - jellyfin.lax.dog
     - netalertx.lax.dog
     - ha.lax.dog
+    - raffle-raptor-dev.lax.dog
   proxy_hosts:
   - name: AdGuard Internal
     domain: dns.laxdog.uk
@@ -682,6 +684,13 @@ npm:
     ssl: true
     certificate: laxdog-internal-le
     authentik_protect: true
+  - name: Raffle Raptor Dev
+    domain: raffle-raptor-dev.laxdog.uk
+    forward_host: 10.20.30.163
+    forward_port: 8081
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
   external_proxy_hosts:
   - name: Authentik External
     domain: auth.lax.dog
@@ -733,6 +742,13 @@ npm:
     ssl: true
     certificate: laxdog-external-le
     authentik_protect: true
+  - name: Raffle Raptor Dev External
+    domain: raffle-raptor-dev.lax.dog
+    forward_host: 10.20.30.163
+    forward_port: 8081
+    access_list: External Public
+    ssl: true
+    certificate: laxdog-external-le
 organizr:
   admin_user: admin
   admin_email: admin@laxdog.uk
@@ -916,11 +932,13 @@ validation:
   - proxmox.laxdog.uk
   - nagios.laxdog.uk
   - auth.laxdog.uk
+  - raffle-raptor-dev.laxdog.uk
   fast_http_domains_external:
   - auth.lax.dog
   - nagios.lax.dog
   - proxmox.lax.dog
   - jellyfin.lax.dog
+  - raffle-raptor-dev.lax.dog
   http_expected_codes:
     apt.laxdog.uk:
     - 200
@@ -942,6 +960,16 @@ validation:
     - 200
     - 301
     - 302
+    raffle-raptor-dev.laxdog.uk:
+    - 200
+    - 301
+    - 302
+    - 404
+    raffle-raptor-dev.lax.dog:
+    - 200
+    - 301
+    - 302
+    - 404
   service_ports:
   - name: adguard-http
     host: 10.20.30.53
