@@ -908,6 +908,17 @@ validation:
   - healthchecks_secret_key
   - nagios_admin_password
   - jellyfin_admin_password
+  fast_http_domains_internal:
+  - dns.laxdog.uk
+  - npm.laxdog.uk
+  - proxmox.laxdog.uk
+  - nagios.laxdog.uk
+  - auth.laxdog.uk
+  fast_http_domains_external:
+  - auth.lax.dog
+  - nagios.lax.dog
+  - proxmox.lax.dog
+  - jellyfin.lax.dog
   http_expected_codes:
     apt.laxdog.uk:
     - 200

@@ -163,7 +163,7 @@ def resolve_terraform_env(cfg: dict) -> dict:
     )
 
 
-def ansible_playbook(playbook: str) -> None:
+def ansible_playbook(playbook: str, extra_args: Optional[List[str]] = None) -> None:
     playbook_path = repo_root() / "ansible" / "playbooks" / playbook
     if not playbook_path.exists():
         raise FileNotFoundError(playbook_path)
@@ -175,7 +175,10 @@ def ansible_playbook(playbook: str) -> None:
         "ANSIBLE_LOCAL_TMP": str(tmp_root / "tmp"),
         "ANSIBLE_COLLECTIONS_PATHS": str(tmp_root / "collections"),
     }
-    run(["ansible-playbook", str(playbook_path)], cwd=repo_root(), env=env)
+    cmd = ["ansible-playbook", str(playbook_path)]
+    if extra_args:
+        cmd.extend(extra_args)
+    run(cmd, cwd=repo_root(), env=env)
 
 
 def proxmox_metadata_sync(check: bool = False) -> None:
@@ -209,12 +212,13 @@ def cmd_guests() -> None:
     ansible_playbook("guests.yml")
 
 
-def cmd_validate() -> None:
+def cmd_validate(mode: str) -> None:
     cfg = load_config()
     inventory_path = write_inventory(cfg)
     print(f"Inventory written to {inventory_path}")
     proxmox_metadata_sync(check=True)
-    ansible_playbook("validate.yml")
+    playbook = "validate_fast.yml" if mode == "fast" else "validate.yml"
+    ansible_playbook(playbook)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -224,7 +228,13 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("host")
     sub.add_parser("guests")
     sub.add_parser("metadata")
-    sub.add_parser("validate")
+    validate_parser = sub.add_parser("validate")
+    validate_parser.add_argument(
+        "--mode",
+        choices=["fast", "full"],
+        default="fast",
+        help="Validation scope: fast (default) or full.",
+    )
     return parser
 
 
@@ -241,7 +251,7 @@ def main() -> None:
     elif args.command == "metadata":
         proxmox_metadata_sync(check=False)
     elif args.command == "validate":
-        cmd_validate()
+        cmd_validate(args.mode)
     else:
         raise SystemExit(f"Unknown command: {args.command}")
 

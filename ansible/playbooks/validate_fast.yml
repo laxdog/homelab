@@ -1,0 +1,274 @@
+---
+- name: Validate vault secrets
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  tasks:
+    - name: Assert vault password file configured
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+        fail_msg: "ANSIBLE_VAULT_PASSWORD_FILE not set; unable to validate vault secrets."
+
+    - name: Load vault secrets
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+
+    - name: Assert required vault secrets are defined
+      ansible.builtin.assert:
+        that:
+          - vars[item] is defined
+          - (vars[item] | string | length) > 0
+        fail_msg: "Vault secret '{{ item }}' is missing or empty."
+      loop: "{{ config.validation.vault_required_vars | default([]) }}"
+
+- name: Validate Proxmox essentials
+  hosts: proxmox_hosts
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../config/homelab.yaml"
+  tasks:
+    - name: Check Proxmox version
+      ansible.builtin.command: pveversion -v
+      changed_when: false
+
+    - name: Read ZFS datasets
+      ansible.builtin.command: zfs list -H -o name
+      register: zfs_list
+      changed_when: false
+
+    - name: Assert expected datasets exist
+      ansible.builtin.assert:
+        that:
+          - item.name in zfs_list.stdout_lines
+        fail_msg: "Missing ZFS dataset: {{ item.name }}"
+      loop: "{{ storage.zfs.datasets }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Read Proxmox storage status
+      ansible.builtin.command: pvesm status
+      register: pvesm_status
+      changed_when: false
+
+    - name: Assert expected storages exist
+      ansible.builtin.assert:
+        that:
+          - item in pvesm_status.stdout
+        fail_msg: "Missing Proxmox storage ID: {{ item }}"
+      loop: "{{ proxmox.storages.values() | list }}"
+      loop_control:
+        label: "{{ item }}"
+
+- name: Validate guest SSH reachability
+  hosts: guests
+  gather_facts: false
+  tasks:
+    - name: Ensure SSH reachable
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 22
+        timeout: 5
+
+- name: Validate apt-cacher proxy configuration
+  hosts: guests
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  tasks:
+    - name: Check apt proxy configuration
+      ansible.builtin.slurp:
+        src: /etc/apt/apt.conf.d/01proxy
+      register: apt_proxy_config
+      when:
+        - config.apt_cacher.enabled | default(false)
+        - ansible_facts.os_family == 'Debian'
+        - inventory_hostname != 'apt-cacher-ng'
+
+    - name: Assert apt proxy configured for apt-cacher
+      ansible.builtin.assert:
+        that:
+          - apt_proxy_config.content | b64decode is search(config.apt_cacher.host | string)
+        fail_msg: "apt-cacher proxy config missing or incorrect on {{ inventory_hostname }}"
+      when:
+        - config.apt_cacher.enabled | default(false)
+        - ansible_facts.os_family == 'Debian'
+        - inventory_hostname != 'apt-cacher-ng'
+
+- name: Validate Docker hosts quickly
+  hosts: docker_hosts
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Check Docker service
+      ansible.builtin.command: systemctl is-active --quiet docker
+      changed_when: false
+
+- name: Validate AdGuard basics
+  hosts: adguard_hosts
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  tasks:
+    - name: Check AdGuard Home service
+      ansible.builtin.command: systemctl is-active --quiet AdGuardHome
+      changed_when: false
+
+    - name: Check AdGuard DNS port
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: "{{ config.adguard.dns.port }}"
+        timeout: 5
+
+    - name: Resolve known good domain through AdGuard
+      ansible.builtin.command: "dig +short @{{ ansible_host }} {{ config.adguard.tests.good_domain }}"
+      register: adguard_good_query
+      changed_when: false
+
+    - name: Assert known good domain resolves
+      ansible.builtin.assert:
+        that:
+          - adguard_good_query.stdout_lines | length > 0
+        fail_msg: "Expected {{ config.adguard.tests.good_domain }} to resolve via AdGuard"
+
+    - name: Resolve known bad domain through AdGuard
+      ansible.builtin.command: "dig +short @{{ ansible_host }} {{ config.adguard.tests.bad_domain }}"
+      register: adguard_bad_query
+      changed_when: false
+
+    - name: Assert known bad domain is blocked
+      ansible.builtin.assert:
+        that:
+          - (adguard_bad_query.stdout_lines | first | default('')) in ['', '0.0.0.0', '::']
+        fail_msg: "Expected {{ config.adguard.tests.bad_domain }} to be blocked via AdGuard"
+
+- name: Validate NPM essentials
+  hosts: nginx_proxy_manager_hosts
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+  tasks:
+    - name: Login to NPM API
+      ansible.builtin.uri:
+        url: http://127.0.0.1:81/api/tokens
+        method: POST
+        body_format: json
+        body:
+          identity: "{{ config.npm.api_email }}"
+          secret: "{{ npm_api_password }}"
+      register: npm_login
+
+    - name: Assert NPM API login succeeded
+      ansible.builtin.assert:
+        that:
+          - npm_login.status in [200, 201]
+          - npm_login.json.token is defined
+        fail_msg: "Unable to authenticate to NPM API."
+
+    - name: Read NPM proxy hosts
+      ansible.builtin.uri:
+        url: http://127.0.0.1:81/api/nginx/proxy-hosts
+        method: GET
+        headers:
+          Authorization: "Bearer {{ npm_login.json.token }}"
+      register: npm_proxy_hosts
+
+    - name: Normalize NPM proxy host response
+      ansible.builtin.set_fact:
+        npm_proxy_host_items: "{{ npm_proxy_hosts.json.data | default(npm_proxy_hosts.json) }}"
+
+    - name: Build effective proxy host list
+      ansible.builtin.set_fact:
+        npm_proxy_hosts_effective: >-
+          {{ config.npm.proxy_hosts
+             + ((config.npm.external_proxy_hosts | default([]))
+                if (config.npm.external_enabled | default(false)) else []) }}
+
+    - name: Assert NPM proxy hosts exist
+      ansible.builtin.assert:
+        that:
+          - (npm_proxy_host_items | selectattr('domain_names', 'contains', item.domain) | list | length) > 0
+        fail_msg: "NPM proxy host missing for {{ item.domain }}"
+      loop: "{{ npm_proxy_hosts_effective }}"
+      loop_control:
+        label: "{{ item.domain }}"
+
+- name: Validate key HTTPS endpoints
+  hosts: proxmox_hosts
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  tasks:
+    - name: Check key internal domains via NPM
+      ansible.builtin.command: >-
+        curl -k -s -o /dev/null -w "%{http_code}" --max-time 8
+        --resolve {{ item }}:443:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
+        https://{{ item }}
+      register: npm_fast_internal_checks
+      changed_when: false
+      loop: "{{ config.validation.fast_http_domains_internal | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Assert key internal domains reachable via NPM
+      ansible.builtin.assert:
+        that:
+          - item.stdout | int in (config.validation.http_expected_codes[item.item] | default([200, 301, 302, 401]))
+        fail_msg: "Unexpected HTTPS response for {{ item.item }}: {{ item.stdout }}"
+      loop: "{{ npm_fast_internal_checks.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Check key external domains via NPM
+      ansible.builtin.command: >-
+        curl -k -s -o /dev/null -w "%{http_code}" --max-time 8
+        --resolve {{ item }}:443:{{ config.services.lxcs['nginx-proxy-manager'].ip }}
+        https://{{ item }}
+      register: npm_fast_external_checks
+      changed_when: false
+      loop: "{{ config.validation.fast_http_domains_external | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+      when: config.npm.external_enabled | default(false)
+
+    - name: Assert key external domains reachable via NPM
+      ansible.builtin.assert:
+        that:
+          - item.stdout | int in (config.validation.http_expected_codes[item.item] | default([200, 301, 302, 401]))
+        fail_msg: "Unexpected HTTPS response for {{ item.item }}: {{ item.stdout }}"
+      loop: "{{ npm_fast_external_checks.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: config.npm.external_enabled | default(false)
+
+- name: Validate Nagios basics
+  hosts: nagios_hosts
+  gather_facts: false
+  become: true
+  vars:
+    nagios_cfg_path: /usr/local/nagios/etc/nagios.cfg
+  tasks:
+    - name: Check Nagios service
+      ansible.builtin.command: systemctl is-active --quiet nagios
+      changed_when: false
+
+    - name: Verify Nagios config syntax
+      ansible.builtin.command: /usr/local/nagios/bin/nagios -v {{ nagios_cfg_path }}
+      register: nagios_verify
+      changed_when: false
+
+    - name: Assert Nagios config verification succeeded
+      ansible.builtin.assert:
+        that:
+          - nagios_verify.rc == 0
+          - nagios_verify.stdout is search("Things look okay")
+        fail_msg: "Nagios config verification failed."

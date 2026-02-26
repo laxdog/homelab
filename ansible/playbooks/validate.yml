@@ -265,6 +265,8 @@
           - item.item.answer in (item.stdout_lines | default([]))
         fail_msg: "Expected {{ item.item.domain }} to resolve to {{ item.item.answer }} via AdGuard"
       loop: "{{ adguard_rewrite_queries.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.domain }}"
 
 - name: Validate Nginx Proxy Manager configuration
   hosts: nginx_proxy_manager_hosts
@@ -362,6 +364,8 @@
           - item.ansible_facts.npm_proxy_host | length > 0
         fail_msg: "NPM proxy host missing for {{ item.item.domain }}"
       loop: "{{ npm_proxy_host_results.results }}"
+      loop_control:
+        label: "{{ item.item.domain }}"
 
     - name: Assert NPM proxy hosts use access lists
       ansible.builtin.assert:
@@ -369,6 +373,8 @@
           - (item.ansible_facts.npm_proxy_host.access_list_id | int) == (npm_access_list_map[item.item.access_list] | int)
         fail_msg: "NPM proxy host missing access list for {{ item.item.domain }}"
       loop: "{{ npm_proxy_host_results.results }}"
+      loop_control:
+        label: "{{ item.item.domain }}"
 
     - name: Assert NPM proxy hosts enforce HTTPS when configured
       ansible.builtin.assert:
@@ -377,6 +383,8 @@
           - (item.item.ssl | default(false)) == false or (item.ansible_facts.npm_proxy_host.certificate_id | int) > 0
         fail_msg: "NPM proxy host missing HTTPS config for {{ item.item.domain }}"
       loop: "{{ npm_proxy_host_results.results }}"
+      loop_control:
+        label: "{{ item.item.domain }}"
 
     - name: Assert NPM proxy host forward scheme matches config
       ansible.builtin.assert:
@@ -384,6 +392,8 @@
           - (item.ansible_facts.npm_proxy_host.forward_scheme | default('http')) == (item.item.forward_scheme | default('http'))
         fail_msg: "NPM proxy host forward scheme mismatch for {{ item.item.domain }}"
       loop: "{{ npm_proxy_host_results.results }}"
+      loop_control:
+        label: "{{ item.item.domain }}"
 
 - name: Validate NPM HTTPS endpoints via Proxmox
   hosts: proxmox_hosts
@@ -413,6 +423,8 @@
           - item.stdout | int in (config.validation.http_expected_codes[item.item.domain] | default([200, 301, 302, 401]))
         fail_msg: "Unexpected HTTPS response for {{ item.item.domain }}: {{ item.stdout }}"
       loop: "{{ npm_https_checks.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.domain }}"
 
     - name: Check HTTP redirects to HTTPS via NPM for internal domains
       ansible.builtin.command: >-
@@ -429,6 +441,8 @@
           - item.stdout | int in [301, 302]
         fail_msg: "Expected HTTP redirect to HTTPS for {{ item.item.domain }}, got {{ item.stdout }}"
       loop: "{{ npm_http_checks.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.domain }}"
 
     - name: Check Authentik internal endpoint via NPM
       ansible.builtin.command: >-
@@ -580,6 +594,8 @@
           - item.json.result[0].content == (cloudflare_public_ip_value if item.item.content == 'public_ip' else item.item.content)
         fail_msg: "Cloudflare DNS record mismatch for {{ item.item.name }}"
       loop: "{{ cloudflare_record_lookup.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
 
     - name: Resolve external DNS records via public resolver
       ansible.builtin.command: "dig +short @1.1.1.1 {{ item.name }}"
@@ -593,6 +609,8 @@
           - item.item.content in (item.stdout_lines | default([]))
         fail_msg: "Expected {{ item.item.name }} to resolve to {{ item.item.content }} via public DNS"
       loop: "{{ external_dns_queries.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.name }}"
 
     - name: Look up Cloudflare records that should be removed
       ansible.builtin.uri:
@@ -614,6 +632,8 @@
           - item.json.result | length == 0
         fail_msg: "Cloudflare DNS record still present for {{ item.item }}"
       loop: "{{ cloudflare_remove_lookup.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item }}"
 
 - name: Validate Organizr
   hosts: organizr_hosts
@@ -691,6 +711,8 @@
           - (item.stdout | default('')) | length > 0
         fail_msg: "Heimdall item missing for https://{{ item.item.domain }}"
       loop: "{{ heimdall_item_check.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.domain }}"
 
 - name: Validate Nagios
   hosts: nagios_hosts
