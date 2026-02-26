@@ -69,3 +69,4 @@ Internal (`laxdog.uk`):
 - Home Assistant may return HTTP 400 behind NPM until `trusted_proxies` is configured in HAOS.
 - AdGuard config export/import workflow is documented in `docs/adguard.md`.
 - Proxmox tags/notes are managed by `scripts/proxmox_metadata.py` (see `docs/proxmox-metadata.md`).
+- `raffle-raptor-dev` is marked `tun_required` and receives `/dev/net/tun` passthrough from Proxmox for Gluetun-based networking.
