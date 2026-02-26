@@ -20,7 +20,7 @@ Source of truth: `config/homelab.yaml`.
 - Script path: `/usr/local/bin/nagios-discord.sh`.
 
 ## Validation coverage
-`scripts/run.py validate` includes Nagios-specific checks for:
+`scripts/run.py validate --mode full` includes Nagios-specific checks for:
 - service active state (`nagios`)
 - core version matches `config.nagios.core_version`
 - full config syntax check: `nagios -v /usr/local/nagios/etc/nagios.cfg`
@@ -30,5 +30,6 @@ Source of truth: `config/homelab.yaml`.
 
 ## Useful commands
 - Apply only Nagios role: `ansible-playbook ansible/playbooks/guests.yml -l nagios`
-- Validate only: `scripts/run.py validate`
+- Fast validate: `scripts/run.py validate`
+- Full validate: `scripts/run.py validate --mode full`
 - Inspect generated object file: `ssh root@10.20.30.133 'sed -n "1,220p" /usr/local/nagios/etc/objects/homelab.cfg'`

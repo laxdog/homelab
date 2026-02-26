@@ -19,7 +19,8 @@ Source of truth: `config/homelab.yaml`.
 4. `scripts/run.py metadata` (optional manual re-sync of Proxmox tags/notes)
 
 ## Validate
-- Run `scripts/run.py validate` after changes.
+- Run fast validation (default): `scripts/run.py validate`
+- Run full validation: `scripts/run.py validate --mode full`
 - Validation covers:
 - Vault secrets presence.
 - Proxmox host storage/datasets and subnet collision checks.
@@ -32,6 +33,9 @@ Source of truth: `config/homelab.yaml`.
 - Organizr and Heimdall entries for all NPM internal hosts.
 - Nagios service, version, config syntax, rendered object counts, and web endpoint checks.
 - Service port checks for core services.
+
+`--mode fast` is optimized for routine checks (critical health, key DNS/HTTPS paths, metadata drift).
+`--mode full` runs the complete end-to-end validation suite.
 
 ## Repo layout
 - `config/`: single source-of-truth

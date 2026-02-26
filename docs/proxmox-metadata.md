@@ -40,4 +40,4 @@ This repo manages Proxmox VM/CT tags and Notes (description field) via:
 - `python3 scripts/proxmox_metadata.py --verbose`
 
 `scripts/run.py apply` applies metadata automatically.
-`scripts/run.py validate` includes metadata drift checking.
+Both `scripts/run.py validate` (fast) and `scripts/run.py validate --mode full` include metadata drift checking.
