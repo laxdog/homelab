@@ -241,6 +241,18 @@
           - (adguard_bad_query.stdout_lines | first | default('')) in ['', '0.0.0.0', '::']
         fail_msg: "Expected {{ config.adguard.tests.bad_domain }} to be blocked via AdGuard"
 
+    - name: Resolve YouTube host through AdGuard
+      ansible.builtin.command: "dig +short @{{ ansible_host }} www.youtube.com"
+      register: adguard_youtube_query
+      changed_when: false
+
+    - name: Assert YouTube is not forced into restricted mode when safe-search is disabled
+      ansible.builtin.assert:
+        that:
+          - "'restrictmoderate.youtube.com.' not in (adguard_youtube_query.stdout_lines | default([]))"
+        fail_msg: "YouTube is still being forced to restricted mode via AdGuard"
+      when: not (config.adguard.filtering.safe_search.enabled | default(false) | bool)
+
     - name: Resolve internal rewrites through AdGuard
       ansible.builtin.command: "dig +short @{{ ansible_host }} {{ item.domain }}"
       register: adguard_rewrite_queries

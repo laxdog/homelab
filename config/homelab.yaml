@@ -97,6 +97,16 @@ adguard:
   admin_user: admin
   bind_host: 0.0.0.0
   bind_port: 80
+  filtering:
+    safe_search:
+      enabled: false
+      bing: false
+      duckduckgo: false
+      ecosia: false
+      google: false
+      pixabay: false
+      yandex: false
+      youtube: false
   dns:
     bind_hosts:
     - 0.0.0.0

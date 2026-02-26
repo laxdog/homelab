@@ -34,6 +34,15 @@ filters:
 {% endfor %}
 
 filtering:
+  safe_search:
+    enabled: {{ (config.adguard.filtering.safe_search.enabled | default(false)) | bool | lower }}
+    bing: {{ (config.adguard.filtering.safe_search.bing | default(false)) | bool | lower }}
+    duckduckgo: {{ (config.adguard.filtering.safe_search.duckduckgo | default(false)) | bool | lower }}
+    ecosia: {{ (config.adguard.filtering.safe_search.ecosia | default(false)) | bool | lower }}
+    google: {{ (config.adguard.filtering.safe_search.google | default(false)) | bool | lower }}
+    pixabay: {{ (config.adguard.filtering.safe_search.pixabay | default(false)) | bool | lower }}
+    yandex: {{ (config.adguard.filtering.safe_search.yandex | default(false)) | bool | lower }}
+    youtube: {{ (config.adguard.filtering.safe_search.youtube | default(false)) | bool | lower }}
   rewrites_enabled: true
   rewrites:
 {% for rewrite in config.adguard.rewrites | default([]) %}
