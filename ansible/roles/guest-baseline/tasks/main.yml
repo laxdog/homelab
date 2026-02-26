@@ -16,6 +16,23 @@
   ansible.builtin.command: timedatectl set-timezone {{ config.homelab.timezone }}
   when: current_tz.stdout != config.homelab.timezone
 
+- name: Find legacy Docker apt source files with docker.gpg
+  ansible.builtin.shell: |
+    set -o pipefail
+    grep -RIl "download.docker.com/linux/ubuntu" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null || true
+  args:
+    executable: /bin/bash
+  register: baseline_docker_source_files
+  changed_when: false
+
+- name: Remove legacy Docker docker.gpg source entries
+  ansible.builtin.lineinfile:
+    path: "{{ item }}"
+    regexp: '^deb .*download\.docker\.com/linux/ubuntu .*docker\.gpg.*$'
+    state: absent
+  loop: "{{ baseline_docker_source_files.stdout_lines }}"
+  when: baseline_docker_source_files.stdout_lines | length > 0
+
 - name: Install baseline packages
   ansible.builtin.apt:
     name:
@@ -48,3 +65,38 @@
   when:
     - not (config.apt_cacher.enabled | default(false))
     - ansible_facts.os_family == 'Debian'
+
+- name: Configure per-host local users
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    groups: "{{ item.groups | default([]) | join(',') }}"
+    append: true
+    shell: /bin/bash
+    create_home: true
+    state: present
+  loop: "{{ (config.services.lxcs[inventory_hostname].users | default([])) if (config.services.lxcs[inventory_hostname] is defined) else [] }}"
+
+- name: Configure SSH keys for per-host local users
+  ansible.posix.authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ lookup('file', item.ssh_key_path | default(config.proxmox.ssh_public_key_path)) }}"
+    state: present
+  loop: "{{ (config.services.lxcs[inventory_hostname].users | default([])) if (config.services.lxcs[inventory_hostname] is defined) else [] }}"
+
+- name: Configure passwordless sudo for per-host local users
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/90-{{ item.name }}"
+    content: "{{ item.name }} ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: '0440'
+    validate: 'visudo -cf %s'
+  loop: "{{ (config.services.lxcs[inventory_hostname].users | default([])) if (config.services.lxcs[inventory_hostname] is defined) else [] }}"
+  when: item.passwordless_sudo | default(false)
+
+- name: Remove passwordless sudo for users where disabled
+  ansible.builtin.file:
+    path: "/etc/sudoers.d/90-{{ item.name }}"
+    state: absent
+  loop: "{{ (config.services.lxcs[inventory_hostname].users | default([])) if (config.services.lxcs[inventory_hostname] is defined) else [] }}"
+  when: not (item.passwordless_sudo | default(false))
