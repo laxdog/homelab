@@ -39,6 +39,8 @@ Recommended: `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`
 - `healthchecks_admin_password`
 - `healthchecks_secret_key`
 - `nagios_admin_password`
+- `jellyfin_admin_password`
+- `home_assistant_admin_password`
 - `discord_webhook` (Nagios alerts)
 
 Notes:

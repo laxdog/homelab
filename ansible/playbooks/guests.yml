@@ -127,6 +127,20 @@
   roles:
     - cloudflare-dns
 
+- name: Bootstrap Home Assistant onboarding user
+  hosts: proxmox_hosts
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+  roles:
+    - home-assistant-bootstrap
+
 - name: Configure AdGuard Home
   hosts: adguard_hosts
   become: true

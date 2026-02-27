@@ -69,6 +69,7 @@ Internal (`laxdog.uk`):
 - Authentik is active as IdP and forward-auth provider for selected admin endpoints.
 - Proxmox OIDC login has been disabled; use local Proxmox realms (`pam`/`pve`).
 - Home Assistant may return HTTP 400 behind NPM until `trusted_proxies` is configured in HAOS.
+- Home Assistant owner bootstrap is automated during onboarding with `config.home_assistant.*` and `home_assistant_admin_password`.
 - AdGuard config export/import workflow is documented in `docs/adguard.md`.
 - Proxmox tags/notes are managed by `scripts/proxmox_metadata.py` (see `docs/proxmox-metadata.md`).
 - `raffle-raptor-dev` is marked `tun_required` and receives `/dev/net/tun` passthrough from Proxmox for Gluetun-based networking.

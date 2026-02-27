@@ -1,0 +1,47 @@
+- name: Wait for Home Assistant API
+  ansible.builtin.wait_for:
+    host: "{{ config.services.vms['home-assistant'].ip }}"
+    port: 8123
+    timeout: 120
+
+- name: Read Home Assistant onboarding state
+  ansible.builtin.uri:
+    url: "http://{{ config.services.vms['home-assistant'].ip }}:8123/api/onboarding"
+    method: GET
+    status_code: 200
+  register: ha_onboarding
+
+- name: Derive onboarding user status
+  ansible.builtin.set_fact:
+    ha_user_onboarding_done: >-
+      {{
+        ha_onboarding.json
+        | selectattr('step', 'equalto', 'user')
+        | map(attribute='done')
+        | first
+        | default(true)
+      }}
+
+- name: Create Home Assistant owner user during onboarding
+  ansible.builtin.uri:
+    url: "http://{{ config.services.vms['home-assistant'].ip }}:8123/api/onboarding/users"
+    method: POST
+    body_format: json
+    status_code: 200
+    body:
+      client_id: "{{ config.home_assistant.onboarding_client_id }}"
+      name: "{{ config.home_assistant.admin_name }}"
+      username: "{{ config.home_assistant.admin_username }}"
+      password: "{{ home_assistant_admin_password }}"
+      language: "{{ config.home_assistant.language | default('en') }}"
+  register: ha_user_create
+  when: not ha_user_onboarding_done
+  no_log: true
+
+- name: Ensure Home Assistant user can be bootstrapped
+  ansible.builtin.assert:
+    that:
+      - ha_user_onboarding_done or (ha_user_create.json.auth_code is defined)
+    fail_msg: >-
+      Home Assistant onboarding user creation failed. If onboarding is already
+      completed, manage users from Home Assistant UI.

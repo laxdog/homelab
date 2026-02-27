@@ -378,6 +378,10 @@ proxmox_metadata:
     - label: ssh
       username: root
       password_var: root_password
+    home-assistant:
+    - label: ui
+      username: mrobinson
+      password_var: home_assistant_admin_password
     nagios:
     - label: ui
       username: nagiosadmin
@@ -807,6 +811,11 @@ jellyfin:
   ui_culture: en-US
   enable_remote_access: true
   enable_automatic_port_mapping: false
+home_assistant:
+  admin_name: mrobinson
+  admin_username: mrobinson
+  language: en
+  onboarding_client_id: http://homeassistant.local:8123/
 nagios:
   core_version: "4.5.11"
   admin_user: nagiosadmin
@@ -926,18 +935,21 @@ validation:
   - healthchecks_secret_key
   - nagios_admin_password
   - jellyfin_admin_password
+  - home_assistant_admin_password
   fast_http_domains_internal:
   - dns.laxdog.uk
   - npm.laxdog.uk
   - proxmox.laxdog.uk
   - nagios.laxdog.uk
   - auth.laxdog.uk
+  - ha.laxdog.uk
   - raffle-raptor-dev.laxdog.uk
   fast_http_domains_external:
   - auth.lax.dog
   - nagios.lax.dog
   - proxmox.lax.dog
   - jellyfin.lax.dog
+  - ha.lax.dog
   - raffle-raptor-dev.lax.dog
   http_expected_codes:
     apt.laxdog.uk:
@@ -947,6 +959,12 @@ validation:
     - 401
     - 406
     ha.laxdog.uk:
+    - 200
+    - 301
+    - 302
+    - 400
+    - 401
+    ha.lax.dog:
     - 200
     - 301
     - 302
