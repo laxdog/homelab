@@ -47,11 +47,32 @@
     regexp: '^deb .*download\.docker\.com/linux/ubuntu .*docker\.gpg.*$'
     state: absent
 
+- name: Remove legacy deb822 Docker source file
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/docker.sources
+    state: absent
+
+- name: Check whether docker.list still references docker.gpg
+  ansible.builtin.command: grep -q 'docker.gpg' /etc/apt/sources.list.d/docker.list
+  register: docker_list_uses_gpg
+  failed_when: false
+  changed_when: false
+
+- name: Reset Docker apt source list before canonical entry
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/docker.list
+    state: absent
+  when: docker_list_uses_gpg.rc == 0
+
 - name: Add Docker apt repository
   ansible.builtin.apt_repository:
     repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_facts['lsb']['codename'] }} stable"
     state: present
     filename: docker
+  register: docker_repo_add
+  retries: 3
+  delay: 5
+  until: docker_repo_add is succeeded
 
 - name: Install Docker Engine and Compose plugin
   ansible.builtin.apt:
@@ -62,6 +83,10 @@
       - docker-compose-plugin
     state: present
     update_cache: true
+  register: docker_packages_install
+  retries: 3
+  delay: 5
+  until: docker_packages_install is succeeded
 
 - name: Ensure Docker service is running
   ansible.builtin.service:

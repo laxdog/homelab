@@ -25,6 +25,15 @@
   register: baseline_docker_source_files
   changed_when: false
 
+- name: Find Docker sources still referencing docker.gpg
+  ansible.builtin.shell: |
+    set -o pipefail
+    grep -RIl "download.docker.com/linux/ubuntu.*docker.gpg" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null || true
+  args:
+    executable: /bin/bash
+  register: baseline_docker_gpg_files
+  changed_when: false
+
 - name: Remove legacy Docker docker.gpg source entries
   ansible.builtin.lineinfile:
     path: "{{ item }}"
@@ -32,6 +41,17 @@
     state: absent
   loop: "{{ baseline_docker_source_files.stdout_lines }}"
   when: baseline_docker_source_files.stdout_lines | length > 0
+
+- name: Remove legacy deb822 Docker source file
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/docker.sources
+    state: absent
+
+- name: Remove Docker apt source list before baseline package install
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/docker.list
+    state: absent
+  when: baseline_docker_gpg_files.stdout_lines | length > 0
 
 - name: Install baseline packages
   ansible.builtin.apt:
