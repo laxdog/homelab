@@ -701,6 +701,7 @@ npm:
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
+    monitor_http: false
   external_proxy_hosts:
   - name: Authentik External
     domain: auth.lax.dog
@@ -759,6 +760,7 @@ npm:
     access_list: External Public
     ssl: true
     certificate: laxdog-external-le
+    monitor_http: false
 organizr:
   admin_user: admin
   admin_email: admin@laxdog.uk
@@ -881,11 +883,14 @@ nagios:
   - domain: raffle-raptor-dev.laxdog.uk
     host: nagios
     target_ip: 10.20.30.154
+    path: /healthz
   - domain: raffle-raptor-dev.lax.dog
     host: nagios
     target_ip: 10.20.30.154
+    path: /healthz
   - domain: raffle-raptor.lax.dog
     host: nagios
+    path: /healthz
 cloudflare:
   zone: lax.dog
   public_ip: auto

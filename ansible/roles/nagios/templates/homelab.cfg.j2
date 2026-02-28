@@ -6,6 +6,11 @@ define command {
 }
 
 define command {
+  command_name check_http_npm_path
+  command_line /usr/lib/nagios/plugins/check_http -I $ARG2$ -H $ARG1$ -S --sni -P 443 -u $ARG3$ -j GET
+}
+
+define command {
   command_name check_dns_adguard
   command_line /usr/lib/nagios/plugins/check_dns -s $ARG1$ -H $ARG2$
 }
@@ -103,7 +108,7 @@ define service {
   use                     generic-service
   host_name               {{ check.host | default('nagios') }}
   service_description     HTTP Domain {{ check.domain }}
-  check_command           check_http_npm!{{ check.domain }}!{{ check.target_ip | default(check.domain) }}
+  check_command           check_http_npm_path!{{ check.domain }}!{{ check.target_ip | default(check.domain) }}!{{ check.path | default('/') }}
   contact_groups          admins
 }
 {% endfor %}
