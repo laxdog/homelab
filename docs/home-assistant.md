@@ -6,6 +6,8 @@ Source of truth:
 
 ## Bootstrap behavior
 - HAOS VM is provisioned by Terraform.
+- HAOS disk image is imported only when the target VM disk has no partition table
+  (prevents destructive re-image on repeated applies).
 - During `scripts/run.py guests`, role `home-assistant-bootstrap` checks `/api/onboarding`.
 - If onboarding is not complete, it creates the initial owner user via API.
 - If onboarding is already complete, no user is changed.
