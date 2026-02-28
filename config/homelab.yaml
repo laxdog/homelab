@@ -121,13 +121,6 @@ adguard:
   tests:
     good_domain: example.com
     bad_domain: doubleclick.net
-  client_overrides:
-  - name: Nvidia Shield
-    ids:
-    - 10.20.30.98
-    filtering_enabled: false
-    use_global_settings: true
-    use_global_blocked_services: true
   filters:
     blocklists:
     - name: AdGuard DNS filter
@@ -218,6 +211,12 @@ adguard:
   - '@@||amplitude.prismic.io^$client=''10.20.30.208'''
   - '@@||region1.google-analytics.com^$client=''10.20.30.75'''
   - '@@||region1.analytics.google.com^$client=''10.20.30.75'''
+  - '@@||youtube.com^$client=''10.20.30.98'''
+  - '@@||youtu.be^$client=''10.20.30.98'''
+  - '@@||youtubei.googleapis.com^$client=''10.20.30.98'''
+  - '@@||googlevideo.com^$client=''10.20.30.98'''
+  - '@@||ytimg.com^$client=''10.20.30.98'''
+  - '@@||ggpht.com^$client=''10.20.30.98'''
 apt_cacher:
   enabled: true
   host: 10.20.30.156

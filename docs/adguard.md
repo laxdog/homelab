@@ -32,6 +32,6 @@ scripts/run.py guests
 
 This updates filters, upstreams, and user rules on the managed AdGuard LXC.
 
-Example device bypass (minimal scope):
-- Keep filtering enabled globally.
-- Add a client override with `filtering_enabled: false` for a single device IP (e.g. SmartTube on Shield).
+Example SmartTube tuning (minimal scope):
+- Keep filtering enabled for the device.
+- Add client-scoped allow rules in `adguard.user_rules` for only the YouTube domains needed by that device IP.
