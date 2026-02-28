@@ -796,6 +796,7 @@
           | list
           | length
         )
+        + (config.nagios.http_domain_checks | default([]) | length)
       }}
   tasks:
     - name: Check Nagios HTTP port

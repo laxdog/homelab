@@ -877,6 +877,15 @@ nagios:
     server: 10.20.30.53
     domain: example.com
     host: adguard
+  http_domain_checks:
+  - domain: raffle-raptor-dev.laxdog.uk
+    host: nagios
+    target_ip: 10.20.30.154
+  - domain: raffle-raptor-dev.lax.dog
+    host: nagios
+    target_ip: 10.20.30.154
+  - domain: raffle-raptor.lax.dog
+    host: nagios
 cloudflare:
   zone: lax.dog
   public_ip: auto

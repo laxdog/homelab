@@ -97,3 +97,13 @@ define service {
   contact_groups          admins
 }
 {% endfor %}
+
+{% for check in config.nagios.http_domain_checks | default([]) %}
+define service {
+  use                     generic-service
+  host_name               {{ check.host | default('nagios') }}
+  service_description     HTTP Domain {{ check.domain }}
+  check_command           check_http_npm!{{ check.domain }}!{{ check.target_ip | default(check.domain) }}
+  contact_groups          admins
+}
+{% endfor %}

@@ -14,6 +14,7 @@ Source of truth: `config/homelab.yaml`.
 - Service `DNS` checks from `config.nagios.dns_checks`.
 - Service `DNS` checks for all `config.adguard.rewrites`.
 - Service `HTTP` checks for all NPM hosts with `monitor_http: true`.
+- Service `HTTP Domain` checks for explicit domains in `config.nagios.http_domain_checks` (including non-NPM endpoints).
 
 ## Alerting
 - Notifications are sent to Discord via `discord_webhook` (vault secret).
