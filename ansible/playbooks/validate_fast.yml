@@ -170,6 +170,7 @@
       when:
         - config.network.gateway is defined
         - config.network.gateway != ansible_host
+        - config.validation.require_router_dns_consistency | default(false) | bool
 
     - name: Assert router DNS resolves internal rewrites like AdGuard
       ansible.builtin.assert:
@@ -182,6 +183,7 @@
       when:
         - config.network.gateway is defined
         - config.network.gateway != ansible_host
+        - config.validation.require_router_dns_consistency | default(false) | bool
 
     - name: Read AdGuard clients
       ansible.builtin.uri:

@@ -25,6 +25,7 @@ Source of truth: `config/homelab.yaml`.
 - Root-cause note: if router DHCP hands out both `10.20.30.53` and `10.20.30.1`, clients may choose either and bypass internal rewrites.
 - Preferred fix: DHCP option 6 should advertise only `10.20.30.53`.
 - Safety fallback: router DNS (`10.20.30.1`) should forward LAN DNS queries to AdGuard (`10.20.30.53`).
+- Optional enforcement: set `config.validation.require_router_dns_consistency: true` to make validate fail when router DNS does not match AdGuard rewrites.
 
 ## Domains
 - External: `lax.dog` (Cloudflare)

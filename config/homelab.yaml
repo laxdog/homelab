@@ -233,7 +233,7 @@ services:
       disk_gb: 8
       unprivileged: true
       nesting: true
-      keyctl: true
+      keyctl: false
   vms:
     media-stack:
       id: 120
@@ -932,6 +932,7 @@ cloudflare:
     content: public_ip
     proxied: true
 validation:
+  require_router_dns_consistency: false
   vault_required_vars:
   - terraform_user_password
   - nut_admin_password

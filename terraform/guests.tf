@@ -57,6 +57,16 @@ resource "proxmox_virtual_environment_container" "lxcs" {
 
   started       = true
   start_on_boot = true
+
+  lifecycle {
+    ignore_changes = [
+      description,
+      features[0].keyctl,
+      initialization,
+      operating_system[0].template_file_id,
+      tags,
+    ]
+  }
 }
 
 resource "proxmox_virtual_environment_vm" "vms" {
@@ -118,6 +128,13 @@ resource "proxmox_virtual_environment_vm" "vms" {
   }
 
   started = true
+
+  lifecycle {
+    ignore_changes = [
+      description,
+      tags,
+    ]
+  }
 }
 
 resource "proxmox_virtual_environment_vm" "haos_vms" {
@@ -176,4 +193,11 @@ resource "proxmox_virtual_environment_vm" "haos_vms" {
   }
 
   started = true
+
+  lifecycle {
+    ignore_changes = [
+      description,
+      tags,
+    ]
+  }
 }
