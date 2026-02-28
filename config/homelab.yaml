@@ -832,6 +832,11 @@ home_assistant:
   currency: GBP
   analytics_enabled: false
   onboarding_client_id: http://homeassistant.local:8123/
+  shelly_devices:
+  - host: 10.20.30.99
+    port: 80
+  - host: 10.20.30.251
+    port: 80
 nagios:
   core_version: "4.5.11"
   admin_user: nagiosadmin

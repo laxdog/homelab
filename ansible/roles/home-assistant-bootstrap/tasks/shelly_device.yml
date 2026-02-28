@@ -1,0 +1,30 @@
+- name: Start Shelly config flow
+  ansible.builtin.uri:
+    url: "http://{{ config.services.vms['home-assistant'].ip }}:8123/api/config/config_entries/flow"
+    method: POST
+    body_format: json
+    status_code: 200
+    headers:
+      Authorization: "Bearer {{ ha_token.json.access_token }}"
+    body:
+      handler: shelly
+      show_advanced_options: false
+  register: ha_shelly_flow
+
+- name: Submit Shelly host to config flow
+  ansible.builtin.uri:
+    url: "http://{{ config.services.vms['home-assistant'].ip }}:8123/api/config/config_entries/flow/{{ ha_shelly_flow.json.flow_id }}"
+    method: POST
+    body_format: json
+    status_code: 200
+    headers:
+      Authorization: "Bearer {{ ha_token.json.access_token }}"
+    body:
+      host: "{{ shelly_device.host }}"
+      port: "{{ shelly_device.port | default(80) | int }}"
+  register: ha_shelly_flow_submit
+  changed_when: ha_shelly_flow_submit.json.type == 'create_entry'
+  failed_when: >-
+    (ha_shelly_flow_submit.json.type == 'abort' and
+     (ha_shelly_flow_submit.json.reason | default('')) != 'already_configured') or
+    (ha_shelly_flow_submit.json.type not in ['create_entry', 'abort'])

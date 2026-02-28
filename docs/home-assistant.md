@@ -15,10 +15,19 @@ Source of truth:
   - `analytics` (enabled/disabled)
   - `integration`
 - If onboarding is already complete, no onboarding data is changed.
+- Shelly devices listed in `config.home_assistant.shelly_devices` are configured
+  via Home Assistant config-entry flow during `scripts/run.py guests`.
+  Re-runs are idempotent (`already_configured` is treated as no-change).
 
 ## Access
 - Internal: `https://ha.laxdog.uk`
 - External: `https://ha.lax.dog` (behind NPM/Authentik policy)
+
+## Automation helpers
+- `python3 scripts/home_assistant.py apply-core`
+  - Applies core runtime config (location name, coordinates, unit system, timezone, currency) to an already-onboarded HA instance.
+- `python3 scripts/home_assistant.py summary`
+  - Prints current HA config, integration entries, and unavailable entities.
 
 ## Credential reference
 - Username: `config.home_assistant.admin_username` (currently `mrobinson`)

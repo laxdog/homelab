@@ -157,3 +157,11 @@
       client_id: "{{ config.home_assistant.onboarding_client_id }}"
       redirect_uri: "{{ config.home_assistant.onboarding_client_id }}"
   when: not ha_integration_onboarding_done
+
+- name: Configure Shelly integrations in Home Assistant
+  ansible.builtin.include_tasks: shelly_device.yml
+  vars:
+    shelly_device: "{{ item }}"
+  loop: "{{ config.home_assistant.shelly_devices | default([]) }}"
+  loop_control:
+    label: "{{ item.host }}:{{ item.port | default(80) }}"
