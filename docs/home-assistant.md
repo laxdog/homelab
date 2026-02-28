@@ -17,3 +17,6 @@ Source of truth:
 ## Credential reference
 - Username: `config.home_assistant.admin_username` (currently `mrobinson`)
 - Password variable: `home_assistant_admin_password`
+- Proxmox note field (VM metadata) is managed from `config.homelab.yaml` and includes:
+  - `ui:mrobinson|home_assistant_admin_password`
+  - `ssh:root|root_password`

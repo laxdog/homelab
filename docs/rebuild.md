@@ -25,3 +25,5 @@ Ensure your router has a DHCP reservation for `10.20.30.134` (or update `config/
 ## Access notes
 - Guests are reachable via SSH keys.
 - A single vaulted root password is also set for guest console access.
+- Per-service login references are written to Proxmox Notes by `scripts/proxmox_metadata.py` from `config/homelab.yaml`.
+- Proxmox Notes store vault variable names only (not cleartext passwords).

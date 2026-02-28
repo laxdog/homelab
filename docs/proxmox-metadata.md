@@ -19,6 +19,7 @@ This repo manages Proxmox VM/CT tags and Notes (description field) via:
 - OIDC flag
 - associated domains
 - credential references (`label:username|vault_var`)
+- no cleartext passwords are written to Proxmox notes
 
 ## Source of truth
 
@@ -27,6 +28,11 @@ This repo manages Proxmox VM/CT tags and Notes (description field) via:
 - `proxmox_metadata.service_credentials`
 - `npm.proxy_hosts`
 - `npm.external_proxy_hosts`
+- `services.vms` / `services.lxcs` (service names, IDs, IPs)
+
+Credential variables referenced in notes are defined in:
+- `ansible/secrets.yml`
+- `config/homelab.yaml` -> `validation.vault_required_vars`
 
 ## Commands
 
@@ -41,3 +47,12 @@ This repo manages Proxmox VM/CT tags and Notes (description field) via:
 
 `scripts/run.py apply` applies metadata automatically.
 Both `scripts/run.py validate` (fast) and `scripts/run.py validate --mode full` include metadata drift checking.
+
+## Home Assistant example
+
+`home-assistant` note references:
+- `ui:mrobinson|home_assistant_admin_password`
+- `ssh:root|root_password`
+
+Read secret value from vault when needed:
+- `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass ansible localhost -c local -m ansible.builtin.debug -a "var=home_assistant_admin_password" -e @ansible/secrets.yml`
