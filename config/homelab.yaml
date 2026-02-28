@@ -823,6 +823,14 @@ home_assistant:
   admin_name: mrobinson
   admin_username: mrobinson
   language: en
+  location_name: Ellis Street, Carrickfergus
+  latitude: 54.7164073
+  longitude: -5.8170579
+  elevation_m: 13
+  unit_system: metric
+  time_zone: Europe/Dublin
+  currency: GBP
+  analytics_enabled: false
   onboarding_client_id: http://homeassistant.local:8123/
 nagios:
   core_version: "4.5.11"

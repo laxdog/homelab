@@ -21,6 +21,30 @@
         | first
         | default(true)
       }}
+    ha_core_onboarding_done: >-
+      {{
+        ha_onboarding.json
+        | selectattr('step', 'equalto', 'core_config')
+        | map(attribute='done')
+        | first
+        | default(true)
+      }}
+    ha_analytics_onboarding_done: >-
+      {{
+        ha_onboarding.json
+        | selectattr('step', 'equalto', 'analytics')
+        | map(attribute='done')
+        | first
+        | default(true)
+      }}
+    ha_integration_onboarding_done: >-
+      {{
+        ha_onboarding.json
+        | selectattr('step', 'equalto', 'integration')
+        | map(attribute='done')
+        | first
+        | default(true)
+      }}
 
 - name: Create Home Assistant owner user during onboarding
   ansible.builtin.uri:
@@ -45,3 +69,91 @@
     fail_msg: >-
       Home Assistant onboarding user creation failed. If onboarding is already
       completed, manage users from Home Assistant UI.
+
+- name: Start Home Assistant login flow for bootstrap token
+  ansible.builtin.uri:
+    url: "http://{{ config.services.vms['home-assistant'].ip }}:8123/auth/login_flow"
+    method: POST
+    body_format: json
+    status_code: 200
+    body:
+      client_id: "{{ config.home_assistant.onboarding_client_id }}"
+      redirect_uri: "{{ config.home_assistant.onboarding_client_id }}"
+      handler:
+        - homeassistant
+        - null
+  register: ha_login_flow
+  no_log: true
+
+- name: Submit Home Assistant login flow credentials
+  ansible.builtin.uri:
+    url: "http://{{ config.services.vms['home-assistant'].ip }}:8123/auth/login_flow/{{ ha_login_flow.json.flow_id }}"
+    method: POST
+    body_format: json
+    status_code: 200
+    body:
+      client_id: "{{ config.home_assistant.onboarding_client_id }}"
+      username: "{{ config.home_assistant.admin_username }}"
+      password: "{{ home_assistant_admin_password }}"
+  register: ha_login_flow_submit
+  no_log: true
+
+- name: Exchange Home Assistant auth code for API token
+  ansible.builtin.uri:
+    url: "http://{{ config.services.vms['home-assistant'].ip }}:8123/auth/token"
+    method: POST
+    body_format: form-urlencoded
+    status_code: 200
+    body:
+      grant_type: authorization_code
+      code: "{{ ha_login_flow_submit.json.result }}"
+      client_id: "{{ config.home_assistant.onboarding_client_id }}"
+  register: ha_token
+  no_log: true
+
+- name: Complete Home Assistant core onboarding config
+  ansible.builtin.uri:
+    url: "http://{{ config.services.vms['home-assistant'].ip }}:8123/api/onboarding/core_config"
+    method: POST
+    body_format: json
+    status_code: 200
+    headers:
+      Authorization: "Bearer {{ ha_token.json.access_token }}"
+    body:
+      location_name: "{{ config.home_assistant.location_name }}"
+      latitude: "{{ config.home_assistant.latitude }}"
+      longitude: "{{ config.home_assistant.longitude }}"
+      elevation: "{{ config.home_assistant.elevation_m | int }}"
+      unit_system: "{{ config.home_assistant.unit_system | default('metric') }}"
+      currency: "{{ config.home_assistant.currency | default('GBP') }}"
+      time_zone: "{{ config.home_assistant.time_zone | default('Europe/Dublin') }}"
+  when: not ha_core_onboarding_done
+
+- name: Complete Home Assistant analytics onboarding config
+  ansible.builtin.uri:
+    url: "http://{{ config.services.vms['home-assistant'].ip }}:8123/api/onboarding/analytics"
+    method: POST
+    body_format: json
+    status_code: 200
+    headers:
+      Authorization: "Bearer {{ ha_token.json.access_token }}"
+    body:
+      preferences:
+        base: "{{ config.home_assistant.analytics_enabled | default(false) | bool }}"
+        diagnostics: "{{ config.home_assistant.analytics_enabled | default(false) | bool }}"
+        statistics: "{{ config.home_assistant.analytics_enabled | default(false) | bool }}"
+        usage: "{{ config.home_assistant.analytics_enabled | default(false) | bool }}"
+  when: not ha_analytics_onboarding_done
+
+- name: Complete Home Assistant integration onboarding config
+  ansible.builtin.uri:
+    url: "http://{{ config.services.vms['home-assistant'].ip }}:8123/api/onboarding/integration"
+    method: POST
+    body_format: json
+    status_code: 200
+    headers:
+      Authorization: "Bearer {{ ha_token.json.access_token }}"
+    body:
+      client_id: "{{ config.home_assistant.onboarding_client_id }}"
+      redirect_uri: "{{ config.home_assistant.onboarding_client_id }}"
+  when: not ha_integration_onboarding_done

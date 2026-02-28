@@ -10,7 +10,11 @@ Source of truth:
   (prevents destructive re-image on repeated applies).
 - During `scripts/run.py guests`, role `home-assistant-bootstrap` checks `/api/onboarding`.
 - If onboarding is not complete, it creates the initial owner user via API.
-- If onboarding is already complete, no user is changed.
+- The same role also completes onboarding steps from `config/homelab.yaml`:
+  - `core_config` (location, coordinates, elevation, units, timezone, currency)
+  - `analytics` (enabled/disabled)
+  - `integration`
+- If onboarding is already complete, no onboarding data is changed.
 
 ## Access
 - Internal: `https://ha.laxdog.uk`
