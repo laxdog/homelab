@@ -15,6 +15,8 @@ Source of truth: `config/homelab.yaml`.
 - Service `DNS` checks for all `config.adguard.rewrites`.
 - Service `HTTP` checks for all NPM hosts with `monitor_http: true`.
 - Service `HTTP Domain` checks for explicit domains in `config.nagios.http_domain_checks` (including non-NPM endpoints), e.g. `/healthz` probes.
+- Service `RaffleRaptor Healthz` and `RaffleRaptor Statusz` checks from `config.nagios.raffle_raptor_checks` using `/usr/local/nagios/libexec/check_raffle_raptor.py`.
+  These checks implement the contract in `/home/mrobinson/source/raffle-raptor/docs/monitoring.md`.
 
 ## Alerting
 - Notifications are sent to Discord via `discord_webhook` (vault secret).
@@ -34,3 +36,6 @@ Source of truth: `config/homelab.yaml`.
 - Fast validate: `scripts/run.py validate`
 - Full validate: `scripts/run.py validate --mode full`
 - Inspect generated object file: `ssh root@10.20.30.133 'sed -n "1,220p" /usr/local/nagios/etc/objects/homelab.cfg'`
+- Manual plugin examples:
+  - `ssh root@10.20.30.133 '/usr/local/nagios/libexec/check_raffle_raptor.py --mode healthz --base-url https://raffle-raptor-dev.lax.dog --target-ip 10.20.30.154'`
+  - `ssh root@10.20.30.133 '/usr/local/nagios/libexec/check_raffle_raptor.py --mode statusz --base-url https://raffle-raptor-dev.lax.dog --target-ip 10.20.30.154 --success-fresh-minutes 15'`

@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import subprocess
+import sys
+from datetime import datetime, timezone
+from urllib.parse import urlparse
+
+
+OK = 0
+WARN = 1
+CRIT = 2
+UNKNOWN = 3
+
+
+REQUIRED_STATUS_FIELDS = [
+    "worker_enabled",
+    "worker_running",
+    "lock_acquired",
+    "worker_owner_id",
+    "last_attempt_utc",
+    "last_success_utc",
+    "success_count_5m",
+    "failure_count_5m",
+    "success_rate_5m",
+    "consecutive_failures",
+    "in_global_backoff",
+    "global_backoff_until_utc",
+    "last_error_category",
+    "tracked_active_count",
+    "queue_depth",
+    "overdue_count",
+    "next_scheduled_utc",
+    "scrape_mode",
+    "avg_scrape_duration_ms_5m",
+    "p95_scrape_duration_ms_5m",
+]
+
+
+def fetch_json(url: str, timeout: int, target_ip: str = ""):
+    parsed = urlparse(url)
+    cmd = [
+        "curl",
+        "-sS",
+        "--max-time",
+        str(timeout),
+        "--connect-timeout",
+        str(min(timeout, 5)),
+        "-H",
+        "Accept: application/json",
+        "-w",
+        "\n%{http_code}",
+    ]
+    if target_ip and parsed.scheme == "https":
+        port = parsed.port or 443
+        cmd.extend(["--resolve", f"{parsed.hostname}:{port}:{target_ip}"])
+    cmd.append(url)
+
+    proc = subprocess.run(cmd, text=True, capture_output=True)
+    if proc.returncode != 0:
+        raise RuntimeError(f"curl failed: {proc.stderr.strip() or 'unknown error'}")
+
+    lines = proc.stdout.splitlines()
+    if not lines:
+        raise RuntimeError("empty response from curl")
+
+    status_line = lines[-1].strip()
+    body = "\n".join(lines[:-1]).strip()
+    try:
+        status = int(status_line)
+    except ValueError as exc:
+        raise RuntimeError(f"invalid HTTP status marker from curl: {status_line}") from exc
+
+    return status, body
+
+
+def parse_utc(ts):
+    if ts in (None, ""):
+        return None
+    if isinstance(ts, str) and ts.endswith("Z"):
+        ts = ts[:-1] + "+00:00"
+    dt = datetime.fromisoformat(ts)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def out(code: int, msg: str):
+    print(msg)
+    sys.exit(code)
+
+
+def eval_health(base_url: str, timeout: int, target_ip: str):
+    url = base_url.rstrip("/") + "/healthz"
+    try:
+        status, body = fetch_json(url, timeout, target_ip)
+    except Exception as exc:
+        out(CRIT, f"CRIT - /healthz transport failure: {exc}")
+
+    if status != 200:
+        out(CRIT, f"CRIT - /healthz returned HTTP {status}")
+
+    try:
+        payload = json.loads(body or "{}")
+    except Exception as exc:
+        out(CRIT, f"CRIT - /healthz JSON parse failed: {exc}")
+
+    if payload.get("status") != "ok":
+        out(CRIT, f"CRIT - /healthz invalid payload status={payload.get('status')!r}")
+
+    out(OK, "OK - /healthz status=ok")
+
+
+def eval_status(base_url: str, timeout: int, target_ip: str, success_fresh_minutes: int, startup_grace_minutes: int):
+    url = base_url.rstrip("/") + "/statusz"
+    try:
+        status, body = fetch_json(url, timeout, target_ip)
+    except Exception as exc:
+        out(CRIT, f"CRIT - /statusz transport failure: {exc}")
+
+    if status != 200:
+        out(CRIT, f"CRIT - /statusz returned HTTP {status}")
+
+    try:
+        payload = json.loads(body or "{}")
+    except Exception as exc:
+        out(CRIT, f"CRIT - /statusz JSON parse failed: {exc}")
+
+    missing = [k for k in REQUIRED_STATUS_FIELDS if k not in payload]
+    if missing:
+        out(UNKNOWN, "UNKNOWN - /statusz missing fields: " + ",".join(missing))
+
+    now = datetime.now(timezone.utc)
+    crit = []
+    warn = []
+
+    worker_enabled = bool(payload.get("worker_enabled"))
+    worker_running = bool(payload.get("worker_running"))
+    lock_acquired = bool(payload.get("lock_acquired"))
+    in_global_backoff = bool(payload.get("in_global_backoff"))
+
+    last_success = parse_utc(payload.get("last_success_utc"))
+    last_attempt = parse_utc(payload.get("last_attempt_utc"))
+    backoff_until = parse_utc(payload.get("global_backoff_until_utc"))
+
+    if worker_enabled and not worker_running:
+        crit.append("worker enabled but not running")
+    if worker_enabled and not lock_acquired:
+        crit.append("worker enabled but lock not acquired")
+
+    if worker_enabled and last_success is None and startup_grace_minutes <= 0:
+        crit.append("worker enabled but last_success_utc is null")
+    if worker_enabled and last_attempt is None and startup_grace_minutes <= 0:
+        crit.append("worker enabled but last_attempt_utc is null")
+
+    if worker_enabled and last_success is not None:
+        age_sec = (now - last_success).total_seconds()
+        if age_sec > (success_fresh_minutes * 60):
+            crit.append(
+                f"no successful scrapes in {success_fresh_minutes}m; last_success_utc={payload.get('last_success_utc')}"
+            )
+
+    success_rate = payload.get("success_rate_5m")
+    if success_rate is not None:
+        try:
+            success_rate = float(success_rate)
+            if success_rate < 0.70:
+                warn.append(f"success_rate_5m={success_rate:.2f}<0.70")
+        except Exception:
+            out(UNKNOWN, f"UNKNOWN - invalid success_rate_5m={success_rate!r}")
+
+    overdue_count = payload.get("overdue_count")
+    if isinstance(overdue_count, int) and overdue_count > 0:
+        warn.append(f"overdue_count={overdue_count}")
+
+    p95 = payload.get("p95_scrape_duration_ms_5m")
+    if p95 is not None:
+        try:
+            p95 = int(p95)
+            if p95 > 30000:
+                crit.append(f"p95_scrape_duration_ms_5m={p95}>30000")
+            elif p95 > 10000:
+                warn.append(f"p95_scrape_duration_ms_5m={p95}>10000")
+        except Exception:
+            out(UNKNOWN, f"UNKNOWN - invalid p95_scrape_duration_ms_5m={p95!r}")
+
+    if in_global_backoff:
+        if backoff_until is None:
+            warn.append("in_global_backoff=true with missing global_backoff_until_utc")
+        else:
+            seconds_left = int((backoff_until - now).total_seconds())
+            if seconds_left > 600:
+                crit.append(f"in_global_backoff=true remaining={seconds_left}s")
+            else:
+                warn.append(f"in_global_backoff=true remaining={max(seconds_left, 0)}s")
+
+    perf = []
+    if success_rate is not None:
+        perf.append(f"success_rate_5m={success_rate:.4f};0.70;;0;1")
+    if isinstance(overdue_count, int):
+        perf.append(f"overdue_count={overdue_count};0;;0;")
+    if isinstance(p95, int):
+        perf.append(f"p95_scrape_duration_ms_5m={p95};10000;30000;0;")
+
+    summary = (
+        f"worker_running={worker_running}, success_rate_5m={payload.get('success_rate_5m')}, "
+        f"overdue_count={payload.get('overdue_count')}, p95_ms={payload.get('p95_scrape_duration_ms_5m')}"
+    )
+
+    if crit:
+        msg = "CRIT - " + "; ".join(crit)
+        if perf:
+            msg += " | " + " ".join(perf)
+        out(CRIT, msg)
+    if warn:
+        msg = "WARN - " + "; ".join(warn)
+        if perf:
+            msg += " | " + " ".join(perf)
+        out(WARN, msg)
+
+    msg = "OK - " + summary
+    if perf:
+        msg += " | " + " ".join(perf)
+    out(OK, msg)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Nagios check for raffle-raptor healthz/statusz contract")
+    parser.add_argument("--base-url", required=True, help="Base URL, e.g. https://raffle-raptor-dev.lax.dog")
+    parser.add_argument("--mode", required=True, choices=["healthz", "statusz"])
+    parser.add_argument("--target-ip", default="", help="Optional IP to force for TLS endpoint (curl --resolve)")
+    parser.add_argument("--timeout", type=int, default=8)
+    parser.add_argument("--success-fresh-minutes", type=int, default=15)
+    parser.add_argument("--startup-grace-minutes", type=int, default=0)
+    args = parser.parse_args()
+
+    if args.mode == "healthz":
+        eval_health(args.base_url, args.timeout, args.target_ip)
+    else:
+        eval_status(
+            args.base_url,
+            args.timeout,
+            args.target_ip,
+            args.success_fresh_minutes,
+            args.startup_grace_minutes,
+        )
+
+
+if __name__ == "__main__":
+    main()

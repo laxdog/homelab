@@ -21,6 +21,16 @@ define command {
 }
 
 define command {
+  command_name check_raffle_raptor_healthz
+  command_line /usr/local/nagios/libexec/check_raffle_raptor.py --mode healthz --base-url '$ARG1$' --target-ip '$ARG2$' --timeout 8
+}
+
+define command {
+  command_name check_raffle_raptor_statusz
+  command_line /usr/local/nagios/libexec/check_raffle_raptor.py --mode statusz --base-url '$ARG1$' --target-ip '$ARG2$' --timeout 8 --success-fresh-minutes 15 --startup-grace-minutes 0
+}
+
+define command {
   command_name notify-host-by-discord
   command_line /usr/local/bin/nagios-discord.sh host $HOSTNAME$ $HOSTSTATE$ "$HOSTOUTPUT$"
 }
@@ -109,6 +119,24 @@ define service {
   host_name               {{ check.host | default('nagios') }}
   service_description     HTTP Domain {{ check.domain }}
   check_command           check_http_npm_path!{{ check.domain }}!{{ check.target_ip | default(check.domain) }}!{{ check.path | default('/') }}
+  contact_groups          admins
+}
+{% endfor %}
+
+{% for check in config.nagios.raffle_raptor_checks | default([]) %}
+define service {
+  use                     generic-service
+  host_name               {{ check.host | default('nagios') }}
+  service_description     RaffleRaptor Healthz {{ check.name }}
+  check_command           check_raffle_raptor_healthz!{{ check.base_url }}!{{ check.target_ip | default('') }}
+  contact_groups          admins
+}
+
+define service {
+  use                     generic-service
+  host_name               {{ check.host | default('nagios') }}
+  service_description     RaffleRaptor Statusz {{ check.name }}
+  check_command           check_raffle_raptor_statusz!{{ check.base_url }}!{{ check.target_ip | default('') }}
   contact_groups          admins
 }
 {% endfor %}

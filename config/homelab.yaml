@@ -899,6 +899,18 @@ nagios:
   - domain: raffle-raptor.lax.dog
     host: nagios
     path: /healthz
+  raffle_raptor_checks:
+  - name: raffle-raptor-dev-external
+    host: nagios
+    base_url: https://raffle-raptor-dev.lax.dog
+    target_ip: 10.20.30.154
+  - name: raffle-raptor-dev-internal
+    host: nagios
+    base_url: https://raffle-raptor-dev.laxdog.uk
+    target_ip: 10.20.30.154
+  - name: raffle-raptor-prod
+    host: nagios
+    base_url: https://raffle-raptor.lax.dog
 cloudflare:
   zone: lax.dog
   public_ip: auto

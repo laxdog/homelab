@@ -170,6 +170,15 @@
     dest: /usr/local/nagios/libexec
     state: link
 
+- name: Install raffle-raptor Nagios plugin
+  ansible.builtin.template:
+    src: check_raffle_raptor.py.j2
+    dest: /usr/local/nagios/libexec/check_raffle_raptor.py
+    owner: root
+    group: root
+    mode: '0755'
+  notify: Restart Nagios
+
 - name: Ensure Nagios resource.cfg permissions
   ansible.builtin.file:
     path: /usr/local/nagios/etc/resource.cfg
