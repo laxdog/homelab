@@ -837,6 +837,22 @@ home_assistant:
     port: 80
   - host: 10.20.30.251
     port: 80
+  device_overrides:
+  - integration: shelly
+    identifier: E4B32329D38C
+    name: Living Room Light
+    area: Living Room
+  - integration: shelly
+    identifier: 78EE4CC4B590
+    name: Gas Boiler
+    area: Alleyway
+  tplink:
+    username_var: tplink_username
+    password_var: tplink_password
+    hubs:
+    - name: KH100 Hub
+      host: 10.20.30.55
+      mac: 9c:53:22:14:a4:01
 nagios:
   core_version: "4.5.11"
   admin_user: nagiosadmin

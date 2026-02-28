@@ -6,6 +6,7 @@ import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
 import requests
 import websocket
@@ -70,7 +71,7 @@ def ha_token(base_url: str, username: str, password: str, client_id: str) -> str
     return r.json()["access_token"]
 
 
-def ws_core_update(base_url: str, token: str, payload: dict) -> dict:
+def ws_call(base_url: str, token: str, message_type: str, **payload: Any) -> Any:
     ws_url = base_url.replace("http://", "ws://").replace("https://", "wss://") + "/api/websocket"
     ws = websocket.create_connection(ws_url, timeout=10)
     try:
@@ -81,27 +82,74 @@ def ws_core_update(base_url: str, token: str, payload: dict) -> dict:
         auth = json.loads(ws.recv())
         if auth.get("type") != "auth_ok":
             raise RuntimeError(f"Websocket auth failed: {auth}")
-        ws.send(json.dumps({"id": 1, "type": "config/core/update", **payload}))
+        message = {"id": 1, "type": message_type}
+        message.update(payload)
+        ws.send(json.dumps(message))
         while True:
             msg = json.loads(ws.recv())
             if msg.get("id") == 1:
                 if not msg.get("success", False):
-                    raise RuntimeError(f"config/core/update failed: {msg}")
-                return msg.get("result", {})
+                    raise RuntimeError(f"{message_type} failed: {msg}")
+                return msg.get("result")
     finally:
         ws.close()
 
 
-def cmd_apply_core() -> None:
+def ws_core_update(base_url: str, token: str, payload: dict) -> dict:
+    result = ws_call(base_url, token, "config/core/update", **payload)
+    return result if isinstance(result, dict) else {}
+
+
+def ha_auth_from_config() -> Tuple[dict, str, str]:
     cfg = load_config()
     ha_cfg = cfg["home_assistant"]
     base = f"http://{cfg['services']['vms']['home-assistant']['ip']}:8123"
     password = read_vault_var("home_assistant_admin_password")
     token = ha_token(base, ha_cfg["admin_username"], password, ha_cfg["onboarding_client_id"])
+    return cfg, base, token
 
+
+def ensure_area(base_url: str, token: str, area_name: str) -> str:
+    areas = ws_call(base_url, token, "config/area_registry/list")
+    for area in areas:
+        if area.get("name") == area_name:
+            return area["area_id"]
+    created = ws_call(base_url, token, "config/area_registry/create", name=area_name)
+    return created["area_id"]
+
+
+def shelly_entity_name(base_name: str, entity_id: str) -> str:
+    domain = entity_id.split(".", 1)[0]
+    object_id = entity_id.split(".", 1)[1]
+    if domain == "switch":
+        return base_name
+    if domain == "binary_sensor" and entity_id.endswith("_input_0"):
+        return f"{base_name} Input"
+    if domain == "binary_sensor" and entity_id.endswith("_cloud"):
+        return f"{base_name} Cloud"
+    if domain == "binary_sensor" and entity_id.endswith("_restart_required"):
+        return f"{base_name} Restart Required"
+    if domain == "button" and entity_id.endswith("_restart"):
+        return f"{base_name} Restart"
+    if domain == "sensor" and entity_id.endswith("_temperature"):
+        return f"{base_name} Temperature"
+    if domain == "sensor" and entity_id.endswith("_signal_strength"):
+        return f"{base_name} Signal Strength"
+    if domain == "sensor" and entity_id.endswith("_last_restart"):
+        return f"{base_name} Last Restart"
+    if domain == "update" and entity_id.endswith("_firmware"):
+        return f"{base_name} Firmware"
+    if domain == "update" and entity_id.endswith("_beta_firmware"):
+        return f"{base_name} Beta Firmware"
+    tail = object_id.split("_")[-1].replace("-", " ").title()
+    return f"{base_name} {tail}".strip()
+
+
+def cmd_apply_core() -> None:
+    cfg, base, token = ha_auth_from_config()
+    ha_cfg = cfg["home_assistant"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Public REST service for lat/lon/elevation.
     requests.post(
         f"{base}/api/services/homeassistant/set_location",
         headers=headers,
@@ -113,7 +161,6 @@ def cmd_apply_core() -> None:
         timeout=10,
     ).raise_for_status()
 
-    # Websocket core update for remaining core config keys.
     ws_core_update(
         base,
         token,
@@ -141,12 +188,176 @@ def cmd_apply_core() -> None:
     )
 
 
+def cmd_sync_devices() -> None:
+    cfg, base, token = ha_auth_from_config()
+    overrides = cfg.get("home_assistant", {}).get("device_overrides", [])
+    if not overrides:
+        print("No home_assistant.device_overrides configured; nothing to do.")
+        return
+
+    devices = ws_call(base, token, "config/device_registry/list")
+    entities = ws_call(base, token, "config/entity_registry/list")
+    entities_by_device: Dict[str, List[dict]] = {}
+    for entity in entities:
+        device_id = entity.get("device_id")
+        if device_id:
+            entities_by_device.setdefault(device_id, []).append(entity)
+
+    changed = 0
+    for override in overrides:
+        integration = override["integration"]
+        identifier = override["identifier"]
+        desired_name = override["name"]
+        desired_area = override.get("area")
+
+        device = next(
+            (
+                d
+                for d in devices
+                if any(
+                    pair
+                    and len(pair) == 2
+                    and pair[0] == integration
+                    and str(pair[1]).upper() == str(identifier).upper()
+                    for pair in d.get("identifiers", [])
+                )
+            ),
+            None,
+        )
+        if not device:
+            print(f"WARN: no device found for {integration}:{identifier}")
+            continue
+
+        update_payload: Dict[str, Any] = {"device_id": device["id"]}
+        if desired_area:
+            area_id = ensure_area(base, token, desired_area)
+            if device.get("area_id") != area_id:
+                update_payload["area_id"] = area_id
+        if device.get("name_by_user") != desired_name:
+            update_payload["name_by_user"] = desired_name
+
+        if len(update_payload) > 1:
+            ws_call(base, token, "config/device_registry/update", **update_payload)
+            changed += 1
+            print(f"Updated device: {desired_name}")
+        else:
+            print(f"Device already correct: {desired_name}")
+
+        for entity in entities_by_device.get(device["id"], []):
+            if integration == "shelly":
+                expected_name = shelly_entity_name(desired_name, entity["entity_id"])
+            else:
+                expected_name = desired_name
+            if entity.get("name") != expected_name:
+                ws_call(
+                    base,
+                    token,
+                    "config/entity_registry/update",
+                    entity_id=entity["entity_id"],
+                    name=expected_name,
+                )
+                changed += 1
+                print(f"Updated entity name: {entity['entity_id']} -> {expected_name}")
+
+    print(f"Device sync complete. Changes applied: {changed}")
+
+
+def cmd_add_tplink() -> None:
+    cfg, base, token = ha_auth_from_config()
+    tplink_cfg = cfg.get("home_assistant", {}).get("tplink", {})
+    hubs = tplink_cfg.get("hubs", [])
+    if not hubs:
+        print("No home_assistant.tplink.hubs configured; nothing to do.")
+        return
+
+    username_var = tplink_cfg.get("username_var", "tplink_username")
+    password_var = tplink_cfg.get("password_var", "tplink_password")
+    try:
+        username = read_vault_var(username_var)
+        password = read_vault_var(password_var)
+    except Exception as exc:
+        raise RuntimeError(
+            f"TP-Link credentials missing. Add vault vars '{username_var}' and '{password_var}'."
+        ) from exc
+
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+    for hub in hubs:
+        hub_name = hub.get("name", hub.get("host", "tplink-hub"))
+        host = hub.get("host", "")
+        mac = str(hub.get("mac", "")).lower()
+
+        start = requests.post(
+            f"{base}/api/config/config_entries/flow",
+            headers=headers,
+            json={"handler": "tplink", "show_advanced_options": False},
+            timeout=20,
+        )
+        start.raise_for_status()
+        flow_id = start.json()["flow_id"]
+
+        step = requests.post(
+            f"{base}/api/config/config_entries/flow/{flow_id}",
+            headers=headers,
+            json={"host": host},
+            timeout=30,
+        )
+        step.raise_for_status()
+        step_json = step.json()
+
+        if step_json.get("type") == "abort":
+            reason = step_json.get("reason", "")
+            if reason == "already_configured":
+                print(f"TP-Link hub already configured: {hub_name}")
+                continue
+            raise RuntimeError(f"TP-Link flow aborted for {hub_name}: {step_json}")
+
+        if step_json.get("step_id") == "pick_device":
+            options = step_json.get("data_schema", [{}])[0].get("options", [])
+            selected = None
+            for option in options:
+                if not isinstance(option, list) or len(option) != 2:
+                    continue
+                option_id, option_label = option
+                if mac and mac in str(option_id).lower():
+                    selected = option_id
+                    break
+                if host and host in str(option_label):
+                    selected = option_id
+            if not selected:
+                raise RuntimeError(f"Could not match discovered TP-Link device for {hub_name}")
+            step = requests.post(
+                f"{base}/api/config/config_entries/flow/{flow_id}",
+                headers=headers,
+                json={"device": selected},
+                timeout=30,
+            )
+            step.raise_for_status()
+            step_json = step.json()
+
+        if step_json.get("step_id") == "user_auth_confirm":
+            final = requests.post(
+                f"{base}/api/config/config_entries/flow/{flow_id}",
+                headers=headers,
+                json={"username": username, "password": password},
+                timeout=30,
+            )
+            final.raise_for_status()
+            result = final.json()
+        else:
+            result = step_json
+
+        if result.get("type") == "create_entry":
+            print(f"Configured TP-Link hub: {hub_name}")
+            continue
+        if result.get("type") == "abort" and result.get("reason") == "already_configured":
+            print(f"TP-Link hub already configured: {hub_name}")
+            continue
+        raise RuntimeError(f"Unexpected TP-Link flow result for {hub_name}: {result}")
+
+
 def cmd_summary() -> None:
-    cfg = load_config()
-    ha_cfg = cfg["home_assistant"]
-    base = f"http://{cfg['services']['vms']['home-assistant']['ip']}:8123"
-    password = read_vault_var("home_assistant_admin_password")
-    token = ha_token(base, ha_cfg["admin_username"], password, ha_cfg["onboarding_client_id"])
+    cfg, base, token = ha_auth_from_config()
     headers = {"Authorization": f"Bearer {token}"}
 
     config = requests.get(f"{base}/api/config", headers=headers, timeout=10).json()
@@ -183,11 +394,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Home Assistant helper")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("apply-core")
+    sub.add_parser("sync-devices")
+    sub.add_parser("add-tplink")
     sub.add_parser("summary")
     args = parser.parse_args()
 
     if args.command == "apply-core":
         cmd_apply_core()
+    elif args.command == "sync-devices":
+        cmd_sync_devices()
+    elif args.command == "add-tplink":
+        cmd_add_tplink()
     elif args.command == "summary":
         cmd_summary()
 

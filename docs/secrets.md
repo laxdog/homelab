@@ -42,6 +42,8 @@ Recommended: `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`
 - `jellyfin_admin_password`
 - `home_assistant_admin_password`
 - `discord_webhook` (Nagios alerts)
+- `tplink_username` (optional; required for HA TP-Link/KH100 integration)
+- `tplink_password` (optional; required for HA TP-Link/KH100 integration)
 
 Notes:
 - `scripts/run.py apply` will use `terraform_user_password` when the vault password file is available.

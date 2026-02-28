@@ -26,8 +26,21 @@ Source of truth:
 ## Automation helpers
 - `python3 scripts/home_assistant.py apply-core`
   - Applies core runtime config (location name, coordinates, unit system, timezone, currency) to an already-onboarded HA instance.
+- `python3 scripts/home_assistant.py sync-devices`
+  - Applies `config.home_assistant.device_overrides` (device names, areas, and Shelly entity naming conventions).
+- `python3 scripts/home_assistant.py add-tplink`
+  - Attempts TP-Link integration for `config.home_assistant.tplink.hubs`.
+  - Requires vault vars referenced by `config.home_assistant.tplink.username_var` and `config.home_assistant.tplink.password_var`.
 - `python3 scripts/home_assistant.py summary`
   - Prints current HA config, integration entries, and unavailable entities.
+
+## Device mapping (in code)
+- Shelly device naming/areas are defined in `config.home_assistant.device_overrides`.
+- Current mappings:
+  - `E4B32329D38C` -> `Living Room Light` in `Living Room`
+  - `78EE4CC4B590` -> `Gas Boiler` in `Alleyway`
+- TP-Link hub target is defined in `config.home_assistant.tplink.hubs`:
+  - `KH100 Hub` at `10.20.30.55` (`9c:53:22:14:a4:01`)
 
 ## Credential reference
 - Username: `config.home_assistant.admin_username` (currently `mrobinson`)
