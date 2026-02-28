@@ -21,6 +21,10 @@ Source of truth: `config/homelab.yaml`.
 
 ## DHCP
 - 10.20.30.200-249
+- LAN clients must use `10.20.30.53` as primary DNS.
+- Root-cause note: if router DHCP hands out both `10.20.30.53` and `10.20.30.1`, clients may choose either and bypass internal rewrites.
+- Preferred fix: DHCP option 6 should advertise only `10.20.30.53`.
+- Safety fallback: router DNS (`10.20.30.1`) should forward LAN DNS queries to AdGuard (`10.20.30.53`).
 
 ## Domains
 - External: `lax.dog` (Cloudflare)

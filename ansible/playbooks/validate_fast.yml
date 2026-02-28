@@ -162,6 +162,27 @@
           - (adguard_bad_query.stdout_lines | first | default('')) in ['', '0.0.0.0', '::']
         fail_msg: "Expected {{ config.adguard.tests.bad_domain }} to be blocked via AdGuard"
 
+    - name: Resolve internal rewrites through router DNS
+      ansible.builtin.command: "dig +short @{{ config.network.gateway }} {{ item.domain }}"
+      register: router_rewrite_queries
+      changed_when: false
+      loop: "{{ config.adguard.rewrites | default([]) }}"
+      when:
+        - config.network.gateway is defined
+        - config.network.gateway != ansible_host
+
+    - name: Assert router DNS resolves internal rewrites like AdGuard
+      ansible.builtin.assert:
+        that:
+          - item.item.answer in (item.stdout_lines | default([]))
+        fail_msg: "Router DNS {{ config.network.gateway }} is not forwarding {{ item.item.domain }} to AdGuard correctly"
+      loop: "{{ router_rewrite_queries.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.domain }}"
+      when:
+        - config.network.gateway is defined
+        - config.network.gateway != ansible_host
+
     - name: Read AdGuard clients
       ansible.builtin.uri:
         url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/clients"
