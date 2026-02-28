@@ -3,6 +3,7 @@
 AdGuard is managed in two ways:
 - Base config (filters, upstreams, rewrites, user rules) is stored in `config/homelab.yaml`.
 - An export script can pull config from a running instance into the repo for backup/sync.
+- Per-device behavior is managed with `adguard.client_overrides` in `config/homelab.yaml`.
 
 ## Export from a running instance
 
@@ -30,3 +31,7 @@ scripts/run.py guests
 ```
 
 This updates filters, upstreams, and user rules on the managed AdGuard LXC.
+
+Example device bypass (minimal scope):
+- Keep filtering enabled globally.
+- Add a client override with `filtering_enabled: false` for a single device IP (e.g. SmartTube on Shield).

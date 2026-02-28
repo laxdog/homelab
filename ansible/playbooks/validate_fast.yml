@@ -123,6 +123,12 @@
   gather_facts: false
   vars:
     config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
   tasks:
     - name: Check AdGuard Home service
       ansible.builtin.command: systemctl is-active --quiet AdGuardHome
@@ -155,6 +161,30 @@
         that:
           - (adguard_bad_query.stdout_lines | first | default('')) in ['', '0.0.0.0', '::']
         fail_msg: "Expected {{ config.adguard.tests.bad_domain }} to be blocked via AdGuard"
+
+    - name: Read AdGuard clients
+      ansible.builtin.uri:
+        url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/clients"
+        method: GET
+        user: "{{ config.adguard.admin_user }}"
+        password: "{{ adguard_admin_password }}"
+        force_basic_auth: true
+        return_content: true
+        status_code: 200
+      register: adguard_clients
+      when: config.adguard.client_overrides | default([]) | length > 0
+
+    - name: Assert AdGuard client overrides are present
+      ansible.builtin.assert:
+        that:
+          - (adguard_clients.json.clients | default([]) | selectattr('name', 'equalto', item.name) | list | length) == 1
+          - ((adguard_clients.json.clients | default([]) | selectattr('name', 'equalto', item.name) | map(attribute='ids') | first | default([]) | sort) == (item.ids | default([]) | sort))
+          - ((adguard_clients.json.clients | default([]) | selectattr('name', 'equalto', item.name) | map(attribute='filtering_enabled') | first | default(true) | bool) == (item.filtering_enabled | default(true) | bool))
+        fail_msg: "AdGuard client override missing or incorrect for {{ item.name }}"
+      loop: "{{ config.adguard.client_overrides | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: config.adguard.client_overrides | default([]) | length > 0
 
 - name: Validate NPM essentials
   hosts: nginx_proxy_manager_hosts

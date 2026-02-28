@@ -151,6 +151,77 @@
     - config.adguard.filtering.safe_search.enabled | default(false) | bool
     - not (adguard_safesearch_status.json.enabled | default(false) | bool)
 
+- name: Read existing AdGuard clients
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/clients"
+    method: GET
+    user: "{{ config.adguard.admin_user }}"
+    password: "{{ adguard_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    status_code: 200
+  register: adguard_clients_state
+  when: config.adguard.client_overrides | default([]) | length > 0
+
+- name: Build AdGuard client override drift list
+  ansible.builtin.set_fact:
+    adguard_client_overrides_drift: "{{ (adguard_client_overrides_drift | default([])) + [item] }}"
+  loop: "{{ config.adguard.client_overrides | default([]) }}"
+  vars:
+    existing_client: >-
+      {{
+        (adguard_clients_state.json.clients | default([]))
+        | selectattr('name', 'equalto', item.name)
+        | first
+        | default({})
+      }}
+  when:
+    - config.adguard.client_overrides | default([]) | length > 0
+    - existing_client == {}
+      or ((existing_client.ids | default([]) | sort) != (item.ids | default([]) | sort))
+      or ((existing_client.filtering_enabled | default(true) | bool) != (item.filtering_enabled | default(true) | bool))
+      or ((existing_client.use_global_settings | default(true) | bool) != (item.use_global_settings | default(true) | bool))
+      or ((existing_client.use_global_blocked_services | default(true) | bool) != (item.use_global_blocked_services | default(true) | bool))
+
+- name: Remove drifted AdGuard clients before recreate
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/clients/delete"
+    method: POST
+    user: "{{ config.adguard.admin_user }}"
+    password: "{{ adguard_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+    status_code: 200
+  loop: "{{ adguard_client_overrides_drift | default([]) }}"
+  vars:
+    existing_client: >-
+      {{
+        (adguard_clients_state.json.clients | default([]))
+        | selectattr('name', 'equalto', item.name)
+        | first
+        | default({})
+      }}
+  when: existing_client != {}
+
+- name: Apply AdGuard client overrides
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/clients/add"
+    method: POST
+    user: "{{ config.adguard.admin_user }}"
+    password: "{{ adguard_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      ids: "{{ item.ids | default([]) }}"
+      filtering_enabled: "{{ item.filtering_enabled | default(true) | bool }}"
+      use_global_settings: "{{ item.use_global_settings | default(true) | bool }}"
+      use_global_blocked_services: "{{ item.use_global_blocked_services | default(true) | bool }}"
+    status_code: 200
+  loop: "{{ adguard_client_overrides_drift | default([]) }}"
+
 - name: Read existing AdGuard user rules
   ansible.builtin.uri:
     url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/filtering/status"
