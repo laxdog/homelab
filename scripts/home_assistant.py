@@ -521,40 +521,6 @@ def cmd_sync_heating_dashboard() -> None:
                 ],
             }
         )
-        if mini_graph_present:
-            cards.append(
-                {
-                    "type": "custom:mini-graph-card",
-                    "name": "TRV Temperatures (24h)",
-                    "hours_to_show": 24,
-                    "points_per_hour": 4,
-                    "line_width": 2,
-                    "show": {
-                        "icon": False,
-                        "name": True,
-                        "state": False,
-                        "legend": True,
-                    },
-                    "entities": [
-                        {
-                            "entity": entity_id,
-                            "attribute": "current_temperature",
-                            "name": pretty_climate_name(entity_id),
-                        }
-                        for entity_id in climate_entities
-                    ],
-                }
-            )
-        else:
-            cards.append(
-                {
-                    "type": "markdown",
-                    "title": "TRV Temperature Graph",
-                    "content": (
-                        "Install HACS `mini-graph-card` to enable a 24h TRV temperature chart on this page."
-                    ),
-                }
-            )
         climate_cards = []
         for entity_id in climate_entities:
             climate_cards.append(
@@ -574,6 +540,78 @@ def cmd_sync_heating_dashboard() -> None:
                 "cards": climate_cards,
             }
         )
+        if mini_graph_present:
+            cards.append(
+                {
+                    "type": "custom:mini-graph-card",
+                    "name": "TRV Temperatures (48h)",
+                    "hours_to_show": 48,
+                    "points_per_hour": 4,
+                    "line_width": 2,
+                    "show": {
+                        "icon": False,
+                        "name": True,
+                        "state": False,
+                        "legend": True,
+                    },
+                    "entities": [
+                        {
+                            "entity": entity_id,
+                            "attribute": "current_temperature",
+                            "name": pretty_climate_name(entity_id),
+                        }
+                        for entity_id in climate_entities
+                    ],
+                }
+            )
+            cards.append(
+                {
+                    "type": "grid",
+                    "title": "TRV Graphs",
+                    "columns": 2,
+                    "square": False,
+                    "cards": [
+                        {
+                            "type": "custom:mini-graph-card",
+                            "name": pretty_climate_name(entity_id),
+                            "hours_to_show": 24,
+                            "points_per_hour": 4,
+                            "line_width": 2,
+                            "show": {
+                                "icon": False,
+                                "name": True,
+                                "state": True,
+                                "legend": True,
+                            },
+                            "entities": [
+                                {
+                                    "entity": entity_id,
+                                    "attribute": "current_temperature",
+                                    "name": "Current",
+                                    "color": "#42a5f5",
+                                },
+                                {
+                                    "entity": entity_id,
+                                    "attribute": "temperature",
+                                    "name": "Target",
+                                    "color": "#ff9800",
+                                },
+                            ],
+                        }
+                        for entity_id in climate_entities
+                    ],
+                }
+            )
+        else:
+            cards.append(
+                {
+                    "type": "markdown",
+                    "title": "TRV Temperature Graphs",
+                    "content": (
+                        "Install HACS `mini-graph-card` to enable TRV temperature charts on this page."
+                    ),
+                }
+            )
     else:
         if boiler_entity:
             cards.append(
