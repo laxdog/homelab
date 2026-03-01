@@ -916,6 +916,31 @@ home_assistant:
     off_for: 00:07:00
     min_on_seconds: 480
     min_off_seconds: 300
+    schedule:
+    - name: Weekday Morning
+      start: 06:30:00
+      end: 09:30:00
+      weekdays:
+      - mon
+      - tue
+      - wed
+      - thu
+      - fri
+    - name: Weekday Evening
+      start: 16:30:00
+      end: 22:30:00
+      weekdays:
+      - mon
+      - tue
+      - wed
+      - thu
+      - fri
+    - name: Weekend Day
+      start: 07:30:00
+      end: 22:30:00
+      weekdays:
+      - sat
+      - sun
 nagios:
   core_version: "4.5.11"
   admin_user: nagiosadmin

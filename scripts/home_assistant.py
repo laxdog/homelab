@@ -402,6 +402,9 @@ def cmd_sync_heating_dashboard() -> None:
     style = dashboard_cfg.get("style", "default")
     boiler_entity = dashboard_cfg.get("boiler_entity")
     climate_entities = dashboard_cfg.get("climate_entities", [])
+    lockout_enable_script = "script.heating_lockout_enable"
+    lockout_disable_script = "script.heating_lockout_disable"
+    on_automation_entity = "automation.heating_boiler_on_demand"
 
     cards = []
     if style == "mushroom":
@@ -425,6 +428,55 @@ def cmd_sync_heating_dashboard() -> None:
                     "fill_container": False,
                 }
             )
+        cards.append(
+            {
+                "type": "grid",
+                "title": "Heating Control",
+                "columns": 2,
+                "square": False,
+                "cards": [
+                    {
+                        "type": "custom:mushroom-template-card",
+                        "primary": "Automation Status",
+                        "secondary": (
+                            "{{ 'Enabled (Automatic Heating)' if is_state('"
+                            + on_automation_entity
+                            + "', 'on') else 'Lockout Active' }}"
+                        ),
+                        "icon": "mdi:radiator",
+                        "icon_color": (
+                            "{{ 'red' if is_state('"
+                            + on_automation_entity
+                            + "', 'on') else 'grey' }}"
+                        ),
+                    },
+                    {
+                        "type": "custom:mushroom-template-card",
+                        "primary": "Enable Lockout",
+                        "secondary": "Disable auto-heating and turn boiler off",
+                        "icon": "mdi:snowflake-alert",
+                        "icon_color": "blue",
+                        "tap_action": {
+                            "action": "call-service",
+                            "service": "script.turn_on",
+                            "target": {"entity_id": lockout_enable_script},
+                        },
+                    },
+                    {
+                        "type": "custom:mushroom-template-card",
+                        "primary": "Disable Lockout",
+                        "secondary": "Resume automatic heating control",
+                        "icon": "mdi:radiator",
+                        "icon_color": "red",
+                        "tap_action": {
+                            "action": "call-service",
+                            "service": "script.turn_on",
+                            "target": {"entity_id": lockout_disable_script},
+                        },
+                    },
+                ],
+            }
+        )
         climate_cards = []
         for entity_id in climate_entities:
             climate_cards.append(
@@ -532,6 +584,65 @@ def build_heating_demand_template(climate_entities: list, deadband_c: float, inv
     return "\n".join(lines)
 
 
+def build_schedule_template(schedule_windows: list, invert: bool = False) -> str:
+    if not schedule_windows:
+        return "{{ false }}" if invert else "{{ true }}"
+
+    weekday_map = {
+        "mon": 0,
+        "tue": 1,
+        "wed": 2,
+        "thu": 3,
+        "fri": 4,
+        "sat": 5,
+        "sun": 6,
+    }
+    windows = []
+    for idx, window in enumerate(schedule_windows):
+        start = str(window.get("start", "00:00:00"))
+        end = str(window.get("end", "23:59:59"))
+        weekday_tokens = window.get("weekdays", [])
+        weekday_values = []
+        for token in weekday_tokens:
+            key = str(token).strip().lower()[:3]
+            if key not in weekday_map:
+                raise RuntimeError(
+                    f"Invalid weekday '{token}' in home_assistant.heating_control.schedule[{idx}]"
+                )
+            weekday_values.append(weekday_map[key])
+        if not weekday_values:
+            raise RuntimeError(
+                f"home_assistant.heating_control.schedule[{idx}] must include at least one weekday"
+            )
+        windows.append((start, end, weekday_values))
+
+    lines = [
+        "{% set now_dt = now() %}",
+        "{% set current_wd = now_dt.weekday() %}",
+        "{% set current_time = now_dt.strftime('%H:%M:%S') %}",
+        "{% set ns = namespace(active=false) %}",
+    ]
+    for idx, (start, end, weekdays) in enumerate(windows):
+        weekday_literal = "[" + ", ".join(str(x) for x in weekdays) + "]"
+        lines.append(f"{{% set start_{idx} = '{start}' %}}")
+        lines.append(f"{{% set end_{idx} = '{end}' %}}")
+        lines.append(f"{{% set weekdays_{idx} = {weekday_literal} %}}")
+        lines.append(f"{{% if current_wd in weekdays_{idx} %}}")
+        lines.append(f"  {{% if start_{idx} <= end_{idx} %}}")
+        lines.append(f"    {{% if current_time >= start_{idx} and current_time < end_{idx} %}}")
+        lines.append("      {% set ns.active = true %}")
+        lines.append("    {% endif %}")
+        lines.append("  {% else %}")
+        lines.append(f"    {{% if current_time >= start_{idx} or current_time < end_{idx} %}}")
+        lines.append("      {% set ns.active = true %}")
+        lines.append("    {% endif %}")
+        lines.append("  {% endif %}")
+        lines.append("{% endif %}")
+
+    lines.append("{{ not ns.active }}" if invert else "{{ ns.active }}")
+    return "\n".join(lines)
+
+
 def cmd_sync_heating_control() -> None:
     cfg, base, token = ha_auth_from_config()
     dashboard_cfg = cfg.get("home_assistant", {}).get("heating_dashboard", {})
@@ -546,19 +657,49 @@ def cmd_sync_heating_control() -> None:
     deadband_c = float(control_cfg.get("deadband_c", 0.5))
     on_for = control_cfg.get("on_for", "00:02:00")
     off_for = control_cfg.get("off_for", "00:07:00")
+    schedule_off_for = control_cfg.get("schedule_off_for", "00:02:00")
     min_on_seconds = int(control_cfg.get("min_on_seconds", 480))
     min_off_seconds = int(control_cfg.get("min_off_seconds", 300))
+    schedule_windows = control_cfg.get("schedule", [])
 
     demand_template = build_heating_demand_template(climate_entities, deadband_c)
     no_demand_template = build_heating_demand_template(climate_entities, deadband_c, invert=True)
+    schedule_active_template = build_schedule_template(schedule_windows)
+    schedule_inactive_template = build_schedule_template(schedule_windows, invert=True)
+
+    lockout_enable_script = {
+        "alias": "Heating Lockout Enable",
+        "sequence": [
+            {
+                "action": "automation.turn_off",
+                "target": {"entity_id": "automation.heating_boiler_on_demand"},
+            },
+            {
+                "action": "switch.turn_off",
+                "target": {"entity_id": boiler_entity},
+            },
+        ],
+        "mode": "single",
+    }
+    lockout_disable_script = {
+        "alias": "Heating Lockout Disable",
+        "sequence": [
+            {
+                "action": "automation.turn_on",
+                "target": {"entity_id": "automation.heating_boiler_on_demand"},
+            }
+        ],
+        "mode": "single",
+    }
 
     on_automation = {
         "alias": "Heating Boiler On Demand",
-        "description": "Turn boiler on when any configured TRV demands heat.",
+        "description": "Turn boiler on when any configured TRV demands heat inside configured schedule windows.",
         "mode": "single",
         "triggers": [{"trigger": "template", "value_template": demand_template, "for": on_for}],
         "conditions": [
             {"condition": "state", "entity_id": boiler_entity, "state": "off"},
+            {"condition": "template", "value_template": schedule_active_template},
             {
                 "condition": "template",
                 "value_template": (
@@ -584,11 +725,47 @@ def cmd_sync_heating_control() -> None:
         ],
         "actions": [{"action": "switch.turn_off", "target": {"entity_id": boiler_entity}}],
     }
+    schedule_off_automation = {
+        "alias": "Heating Boiler Off Outside Schedule",
+        "description": "Turn boiler off when outside configured heating schedule windows.",
+        "mode": "single",
+        "triggers": [
+            {
+                "trigger": "template",
+                "value_template": schedule_inactive_template,
+                "for": schedule_off_for,
+            }
+        ],
+        "conditions": [
+            {"condition": "state", "entity_id": boiler_entity, "state": "on"},
+            {
+                "condition": "template",
+                "value_template": (
+                    f"{{{{ (as_timestamp(now()) - as_timestamp(states['{boiler_entity}'].last_changed, 0)) >= {min_on_seconds} }}}}"
+                ),
+            },
+        ],
+        "actions": [{"action": "switch.turn_off", "target": {"entity_id": boiler_entity}}],
+    }
 
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    for script_id, payload in [
+        ("heating_lockout_enable", lockout_enable_script),
+        ("heating_lockout_disable", lockout_disable_script),
+    ]:
+        response = requests.post(
+            f"{base}/api/config/script/config/{script_id}",
+            headers=headers,
+            json=payload,
+            timeout=20,
+        )
+        response.raise_for_status()
+        print(f"Synced script.{script_id}")
+
     for entity_id, payload in [
         ("automation.heating_boiler_on_demand", on_automation),
         ("automation.heating_boiler_off_when_satisfied", off_automation),
+        ("automation.heating_boiler_off_outside_schedule", schedule_off_automation),
     ]:
         response = requests.post(
             f"{base}/api/config/automation/config/{entity_id}",
@@ -598,6 +775,15 @@ def cmd_sync_heating_control() -> None:
         )
         response.raise_for_status()
         print(f"Synced {entity_id}")
+
+    scripts_reload_response = requests.post(
+        f"{base}/api/services/script/reload",
+        headers=headers,
+        json={},
+        timeout=20,
+    )
+    scripts_reload_response.raise_for_status()
+    print("Reloaded scripts")
 
     reload_response = requests.post(
         f"{base}/api/services/automation/reload",

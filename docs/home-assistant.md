@@ -37,18 +37,28 @@ Source of truth:
   - Requires vault vars referenced by `config.home_assistant.tplink.username_var` and `config.home_assistant.tplink.password_var`.
 - `python3 scripts/home_assistant.py sync-heating-dashboard`
   - Ensures a dedicated Heating dashboard exists in Lovelace using `config.home_assistant.heating_dashboard`.
-  - Adds boiler control and thermostat cards for configured TRVs.
+  - Adds boiler control, lockout controls, and thermostat cards for configured TRVs.
+  - Lockout actions are available directly on this heating page:
+    - `Enable Lockout` (disables auto-heating + turns boiler off)
+    - `Disable Lockout` (re-enables auto-heating)
   - Current URL path is `/<dashboard_url_path>/<view_path>` (default `/heating-overview/overview`).
   - Supports `style: mushroom` (HACS Mushroom cards) or `style: default`.
   - `style: mushroom` requires HACS + Mushroom to already be installed in Home Assistant.
 - `python3 scripts/home_assistant.py sync-heating-control`
-  - Creates/updates two HA automations:
+  - Creates/updates two HA scripts:
+    - `script.heating_lockout_enable`
+    - `script.heating_lockout_disable`
+  - Creates/updates three HA automations:
     - `automation.heating_boiler_on_demand`
     - `automation.heating_boiler_off_when_satisfied`
+    - `automation.heating_boiler_off_outside_schedule`
   - Demand logic uses TRV `hvac_action == heating`, with fallback to
     `(target - current) >= deadband_c`.
+  - Schedule windows are read from `config.home_assistant.heating_control.schedule`.
+  - Boiler-on automation only runs during configured schedule windows.
+  - Boiler-off automation enforces shutdown outside schedule windows.
   - Anti-cycling controls are configurable in `config.home_assistant.heating_control`:
-    `deadband_c`, `on_for`, `off_for`, `min_on_seconds`, `min_off_seconds`.
+    `deadband_c`, `on_for`, `off_for`, `schedule_off_for`, `min_on_seconds`, `min_off_seconds`.
   - This replaces the need for a separate Active Heating Manager add-on for this setup.
 - `python3 scripts/home_assistant.py summary`
   - Prints current HA config, integration entries, and unavailable entities.
