@@ -42,11 +42,11 @@ Source of truth:
     - `Enable Lockout` (disables auto-heating + turns boiler off)
     - `Disable Lockout` (re-enables auto-heating)
   - Group controls are available directly on this heating page:
-    - `House Target` slider + `Apply House`
-    - `Upstairs Target` slider + `Apply Upstairs`
-    - `Downstairs Target` slider + `Apply Downstairs`
-  - Slider changes auto-apply to mapped TRV groups after a short debounce (`2s`).
-  - `Apply ...` buttons are still available as an immediate/manual force-sync.
+    - `House Target` slider
+    - `Upstairs Target` slider
+    - `Downstairs Target` slider
+  - Slider changes auto-apply to mapped TRV groups with a short `1s` settle delay.
+  - Some TRVs can take several seconds before the new setpoint is reflected in entity state.
   - Current URL path is `/<dashboard_url_path>/<view_path>` (default `/heating-overview/overview`).
   - Supports `style: mushroom` (HACS Mushroom cards) or `style: default`.
   - `style: mushroom` requires HACS + Mushroom to already be installed in Home Assistant.

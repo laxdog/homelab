@@ -483,42 +483,6 @@ def cmd_sync_heating_dashboard() -> None:
                     },
                     {
                         "type": "custom:mushroom-template-card",
-                        "primary": "Apply House",
-                        "secondary": "Apply house target slider",
-                        "icon": "mdi:home-import-outline",
-                        "icon_color": "orange",
-                        "tap_action": {
-                            "action": "call-service",
-                            "service": "script.turn_on",
-                            "target": {"entity_id": house_set_script},
-                        },
-                    },
-                    {
-                        "type": "custom:mushroom-template-card",
-                        "primary": "Apply Upstairs",
-                        "secondary": "Apply upstairs target slider",
-                        "icon": "mdi:stairs-up-box",
-                        "icon_color": "orange",
-                        "tap_action": {
-                            "action": "call-service",
-                            "service": "script.turn_on",
-                            "target": {"entity_id": upstairs_set_script},
-                        },
-                    },
-                    {
-                        "type": "custom:mushroom-template-card",
-                        "primary": "Apply Downstairs",
-                        "secondary": "Apply downstairs target slider",
-                        "icon": "mdi:stairs-down-box",
-                        "icon_color": "green",
-                        "tap_action": {
-                            "action": "call-service",
-                            "service": "script.turn_on",
-                            "target": {"entity_id": downstairs_set_script},
-                        },
-                    },
-                    {
-                        "type": "custom:mushroom-number-card",
                         "entity": house_target_entity,
                         "name": "House Target",
                         "icon": "mdi:home-thermometer",
@@ -771,32 +735,26 @@ def cmd_sync_heating_control() -> None:
         return unique_entities(resolved)
 
     def climate_set_actions(entities: list, temperature_c: Any) -> list:
-        actions = []
-        for entity_id in entities:
-            actions.append(
-                {
-                    "action": "climate.set_hvac_mode",
-                    "target": {"entity_id": entity_id},
-                    "data": {"hvac_mode": "heat"},
-                }
-            )
-            actions.append(
-                {
-                    "action": "climate.set_temperature",
-                    "target": {"entity_id": entity_id},
-                    "data": {"temperature": temperature_c},
-                }
-            )
-        return actions
+        return [
+            {
+                "action": "climate.set_hvac_mode",
+                "target": {"entity_id": entities},
+                "data": {"hvac_mode": "heat"},
+            },
+            {
+                "action": "climate.set_temperature",
+                "target": {"entity_id": entities},
+                "data": {"temperature": temperature_c},
+            },
+        ]
 
     def climate_off_actions(entities: list) -> list:
         return [
             {
                 "action": "climate.set_hvac_mode",
-                "target": {"entity_id": entity_id},
+                "target": {"entity_id": entities},
                 "data": {"hvac_mode": "off"},
             }
-            for entity_id in entities
         ]
 
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
@@ -833,21 +791,33 @@ def cmd_sync_heating_control() -> None:
         "heating_set_house_temp": {
             "alias": "Heating Set House Temperature",
             "sequence": climate_set_actions(
-                house_entities, f"{{{{ states('{house_target_entity}') | float({default_bulk_temp}) }}}}"
+                house_entities,
+                (
+                    f"{{{{ target_temp | default(states('{house_target_entity}')) "
+                    f"| float({default_bulk_temp}) }}}}"
+                ),
             ),
             "mode": "single",
         },
         "heating_set_upstairs_temp": {
             "alias": "Heating Set Upstairs Temperature",
             "sequence": climate_set_actions(
-                upstairs_entities, f"{{{{ states('{upstairs_target_entity}') | float({default_bulk_temp}) }}}}"
+                upstairs_entities,
+                (
+                    f"{{{{ target_temp | default(states('{upstairs_target_entity}')) "
+                    f"| float({default_bulk_temp}) }}}}"
+                ),
             ),
             "mode": "single",
         },
         "heating_set_downstairs_temp": {
             "alias": "Heating Set Downstairs Temperature",
             "sequence": climate_set_actions(
-                downstairs_entities, f"{{{{ states('{downstairs_target_entity}') | float({default_bulk_temp}) }}}}"
+                downstairs_entities,
+                (
+                    f"{{{{ target_temp | default(states('{downstairs_target_entity}')) "
+                    f"| float({default_bulk_temp}) }}}}"
+                ),
             ),
             "mode": "single",
         },
@@ -911,29 +881,43 @@ def cmd_sync_heating_control() -> None:
     house_slider_automation = {
         "alias": "Heating Apply House Target On Change",
         "description": "Apply house target helper value to all house TRVs when slider changes.",
-        "mode": "single",
-        "triggers": [{"trigger": "state", "entity_id": house_target_entity, "for": "00:00:02"}],
+        "mode": "restart",
+        "triggers": [{"trigger": "state", "entity_id": house_target_entity, "for": "00:00:01"}],
         "conditions": [],
-        "actions": [{"action": "script.turn_on", "target": {"entity_id": "script.heating_set_house_temp"}}],
+        "actions": [
+            {
+                "action": "script.turn_on",
+                "target": {"entity_id": "script.heating_set_house_temp"},
+                "data": {"variables": {"target_temp": "{{ trigger.to_state.state }}"}},
+            }
+        ],
     }
     upstairs_slider_automation = {
         "alias": "Heating Apply Upstairs Target On Change",
         "description": "Apply upstairs target helper value to upstairs TRVs when slider changes.",
-        "mode": "single",
-        "triggers": [{"trigger": "state", "entity_id": upstairs_target_entity, "for": "00:00:02"}],
+        "mode": "restart",
+        "triggers": [{"trigger": "state", "entity_id": upstairs_target_entity, "for": "00:00:01"}],
         "conditions": [],
         "actions": [
-            {"action": "script.turn_on", "target": {"entity_id": "script.heating_set_upstairs_temp"}}
+            {
+                "action": "script.turn_on",
+                "target": {"entity_id": "script.heating_set_upstairs_temp"},
+                "data": {"variables": {"target_temp": "{{ trigger.to_state.state }}"}},
+            }
         ],
     }
     downstairs_slider_automation = {
         "alias": "Heating Apply Downstairs Target On Change",
         "description": "Apply downstairs target helper value to downstairs TRVs when slider changes.",
-        "mode": "single",
-        "triggers": [{"trigger": "state", "entity_id": downstairs_target_entity, "for": "00:00:02"}],
+        "mode": "restart",
+        "triggers": [{"trigger": "state", "entity_id": downstairs_target_entity, "for": "00:00:01"}],
         "conditions": [],
         "actions": [
-            {"action": "script.turn_on", "target": {"entity_id": "script.heating_set_downstairs_temp"}}
+            {
+                "action": "script.turn_on",
+                "target": {"entity_id": "script.heating_set_downstairs_temp"},
+                "data": {"variables": {"target_temp": "{{ trigger.to_state.state }}"}},
+            }
         ],
     }
 
