@@ -40,6 +40,7 @@ Source of truth:
   - Uses a panel-width dashboard layout to maximize horizontal space usage.
   - Adds boiler control, lockout controls, group target sliders, apply buttons, and thermostat cards for configured TRVs.
   - Adds a 48h combined TRV temperature graph plus one per-TRV graph card (current vs target) when HACS `mini-graph-card` is installed.
+  - If HACS `apexcharts-card` is installed, per-TRV graphs use ApexCharts with a smooth `Current` line and stepline `Target`.
   - If `mini-graph-card` is not installed, a reminder card is shown instead.
   - Lockout actions are available directly on this heating page:
     - `Enable Lockout` (disables auto-heating + turns boiler off)

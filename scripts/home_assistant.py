@@ -432,6 +432,11 @@ def cmd_sync_heating_dashboard() -> None:
             and "mini-graph-card" in str(resource.get("url", ""))
             for resource in resources
         )
+        apexcharts_present = any(
+            isinstance(resource, dict)
+            and "apexcharts-card" in str(resource.get("url", ""))
+            for resource in resources
+        )
         if not mushroom_present:
             raise RuntimeError(
                 "Mushroom card resource is missing. Install HACS + Mushroom first, then rerun sync-heating-dashboard."
@@ -571,38 +576,66 @@ def cmd_sync_heating_dashboard() -> None:
                     "title": "TRV Graphs",
                     "columns": 4,
                     "square": False,
-                    "cards": [
-                        {
-                            "type": "custom:mini-graph-card",
-                            "name": pretty_climate_name(entity_id),
-                            "hours_to_show": 24,
-                            "points_per_hour": 4,
-                            "line_width": 2,
-                            "show": {
-                                "icon": False,
-                                "name": True,
-                                "state": True,
-                                "legend": True,
-                            },
-                            "entities": [
-                                {
-                                    "entity": entity_id,
-                                    "attribute": "current_temperature",
-                                    "name": "Current",
-                                    "color": "#42a5f5",
+                    "cards": (
+                        [
+                            {
+                                "type": "custom:apexcharts-card",
+                                "header": {"show": True, "title": pretty_climate_name(entity_id)},
+                                "graph_span": "24h",
+                                "apex_config": {
+                                    "stroke": {"width": [2, 2], "curve": ["smooth", "stepline"]}
                                 },
-                                {
-                                    "entity": entity_id,
-                                    "attribute": "temperature",
-                                    "name": "Target",
-                                    "color": "#ff9800",
-                                    "show_line": False,
-                                    "show_points": True,
+                                "series": [
+                                    {
+                                        "entity": entity_id,
+                                        "attribute": "current_temperature",
+                                        "name": "Current",
+                                        "color": "#42a5f5",
+                                    },
+                                    {
+                                        "entity": entity_id,
+                                        "attribute": "temperature",
+                                        "name": "Target",
+                                        "color": "#ff9800",
+                                    },
+                                ],
+                            }
+                            for entity_id in climate_entities
+                        ]
+                        if apexcharts_present
+                        else [
+                            {
+                                "type": "custom:mini-graph-card",
+                                "name": pretty_climate_name(entity_id),
+                                "hours_to_show": 24,
+                                "points_per_hour": 4,
+                                "line_width": 2,
+                                "show": {
+                                    "icon": False,
+                                    "name": True,
+                                    "state": True,
+                                    "legend": True,
                                 },
-                            ],
-                        }
-                        for entity_id in climate_entities
-                    ],
+                                "entities": [
+                                    {
+                                        "entity": entity_id,
+                                        "attribute": "current_temperature",
+                                        "name": "Current",
+                                        "color": "#42a5f5",
+                                    },
+                                    {
+                                        "entity": entity_id,
+                                        "attribute": "temperature",
+                                        "name": "Target",
+                                        "color": "#ff9800",
+                                        "show_line": False,
+                                        "show_points": True,
+                                    },
+                                ],
+                            }
+                            for entity_id in climate_entities
+                        ]
+                    ),
                 }
             )
         else:
