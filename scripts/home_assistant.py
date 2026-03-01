@@ -396,7 +396,8 @@ def cmd_sync_heating_dashboard() -> None:
         return
 
     title = dashboard_cfg.get("title", "Heating")
-    path = dashboard_cfg.get("path", "heating")
+    dashboard_url_path = dashboard_cfg.get("dashboard_url_path", "heating-overview")
+    view_path = dashboard_cfg.get("view_path", "overview")
     icon = dashboard_cfg.get("icon", "mdi:radiator")
     boiler_entity = dashboard_cfg.get("boiler_entity")
     climate_entities = dashboard_cfg.get("climate_entities", [])
@@ -416,14 +417,27 @@ def cmd_sync_heating_dashboard() -> None:
 
     heating_view = {
         "title": title,
-        "path": path,
+        "path": view_path,
         "icon": icon,
         "cards": cards,
         "badges": [],
     }
 
+    dashboards = ws_call(base, token, "lovelace/dashboards/list")
+    if not any(d.get("url_path") == dashboard_url_path for d in dashboards):
+        ws_call(
+            base,
+            token,
+            "lovelace/dashboards/create",
+            url_path=dashboard_url_path,
+            title=title,
+            icon=icon,
+            show_in_sidebar=True,
+            require_admin=False,
+        )
+
     try:
-        lovelace_config = ws_call(base, token, "lovelace/config")
+        lovelace_config = ws_call(base, token, "lovelace/config", url_path=dashboard_url_path)
     except RuntimeError as exc:
         if "config_not_found" in str(exc):
             lovelace_config = {"views": []}
@@ -438,7 +452,7 @@ def cmd_sync_heating_dashboard() -> None:
 
     replaced = False
     for idx, view in enumerate(views):
-        if isinstance(view, dict) and view.get("path") == path:
+        if isinstance(view, dict) and view.get("path") == view_path:
             views[idx] = heating_view
             replaced = True
             break
@@ -446,9 +460,9 @@ def cmd_sync_heating_dashboard() -> None:
         views.append(heating_view)
 
     lovelace_config["views"] = views
-    ws_call(base, token, "lovelace/config/save", config=lovelace_config)
+    ws_call(base, token, "lovelace/config/save", url_path=dashboard_url_path, config=lovelace_config)
     action = "Updated" if replaced else "Created"
-    print(f"{action} Heating dashboard view at /lovelace/{path}")
+    print(f"{action} Heating dashboard at /{dashboard_url_path}/{view_path}")
 
 
 def main() -> None:

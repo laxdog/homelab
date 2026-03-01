@@ -33,8 +33,9 @@ Source of truth:
   - Attempts TP-Link integration for `config.home_assistant.tplink.hubs`.
   - Requires vault vars referenced by `config.home_assistant.tplink.username_var` and `config.home_assistant.tplink.password_var`.
 - `python3 scripts/home_assistant.py sync-heating-dashboard`
-  - Ensures a Heating view exists in Lovelace using `config.home_assistant.heating_dashboard`.
+  - Ensures a dedicated Heating dashboard exists in Lovelace using `config.home_assistant.heating_dashboard`.
   - Adds boiler control and thermostat cards for configured TRVs.
+  - Current URL path is `/<dashboard_url_path>/<view_path>` (default `/heating-overview/overview`).
 - `python3 scripts/home_assistant.py summary`
   - Prints current HA config, integration entries, and unavailable entities.
 
