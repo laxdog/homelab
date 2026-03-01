@@ -596,6 +596,8 @@ def cmd_sync_heating_dashboard() -> None:
                                     "attribute": "temperature",
                                     "name": "Target",
                                     "color": "#ff9800",
+                                    "show_line": False,
+                                    "show_points": True,
                                 },
                             ],
                         }
