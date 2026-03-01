@@ -37,6 +37,7 @@ Source of truth:
   - Requires vault vars referenced by `config.home_assistant.tplink.username_var` and `config.home_assistant.tplink.password_var`.
 - `python3 scripts/home_assistant.py sync-heating-dashboard`
   - Ensures a dedicated Heating dashboard exists in Lovelace using `config.home_assistant.heating_dashboard`.
+  - Uses a Sections-based layout for better large-card placement.
   - Adds boiler control, lockout controls, group target sliders, apply buttons, and thermostat cards for configured TRVs.
   - Adds a 48h combined TRV temperature graph plus one per-TRV graph card (current vs target) when HACS `mini-graph-card` is installed.
   - If `mini-graph-card` is not installed, a reminder card is shown instead.

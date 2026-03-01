@@ -419,6 +419,7 @@ def cmd_sync_heating_dashboard() -> None:
     on_automation_entity = "automation.heating_boiler_on_demand"
 
     cards = []
+    section_cards = []
     if style == "mushroom":
         resources = ws_call(base, token, "lovelace/resources")
         mushroom_present = any(
@@ -436,7 +437,7 @@ def cmd_sync_heating_dashboard() -> None:
                 "Mushroom card resource is missing. Install HACS + Mushroom first, then rerun sync-heating-dashboard."
             )
         if boiler_entity:
-            cards.append(
+            section_cards.append(
                 {
                     "type": "custom:mushroom-entity-card",
                     "entity": boiler_entity,
@@ -445,7 +446,7 @@ def cmd_sync_heating_dashboard() -> None:
                     "fill_container": False,
                 }
             )
-        cards.append(
+        section_cards.append(
             {
                 "type": "grid",
                 "title": "Heating Control",
@@ -531,7 +532,7 @@ def cmd_sync_heating_dashboard() -> None:
                     "fill_container": False,
                 }
             )
-        cards.append(
+        section_cards.append(
             {
                 "type": "grid",
                 "title": "TRVs",
@@ -541,7 +542,7 @@ def cmd_sync_heating_dashboard() -> None:
             }
         )
         if mini_graph_present:
-            cards.append(
+            section_cards.append(
                 {
                     "type": "custom:mini-graph-card",
                     "name": "TRV Temperatures (48h)",
@@ -562,9 +563,10 @@ def cmd_sync_heating_dashboard() -> None:
                         }
                         for entity_id in climate_entities
                     ],
+                    "grid_options": {"columns": 12},
                 }
             )
-            cards.append(
+            section_cards.append(
                 {
                     "type": "grid",
                     "title": "TRV Graphs",
@@ -600,10 +602,11 @@ def cmd_sync_heating_dashboard() -> None:
                         }
                         for entity_id in climate_entities
                     ],
+                    "grid_options": {"columns": 12},
                 }
             )
         else:
-            cards.append(
+            section_cards.append(
                 {
                     "type": "markdown",
                     "title": "TRV Temperature Graphs",
@@ -625,13 +628,29 @@ def cmd_sync_heating_dashboard() -> None:
         for entity_id in climate_entities:
             cards.append({"type": "thermostat", "entity": entity_id})
 
-    heating_view = {
-        "title": title,
-        "path": view_path,
-        "icon": icon,
-        "cards": cards,
-        "badges": [],
-    }
+    if style == "mushroom":
+        heating_view = {
+            "title": title,
+            "path": view_path,
+            "icon": icon,
+            "type": "sections",
+            "max_columns": 4,
+            "sections": [
+                {
+                    "type": "grid",
+                    "cards": section_cards,
+                }
+            ],
+            "badges": [],
+        }
+    else:
+        heating_view = {
+            "title": title,
+            "path": view_path,
+            "icon": icon,
+            "cards": cards,
+            "badges": [],
+        }
 
     dashboards = ws_call(base, token, "lovelace/dashboards/list")
     if not any(d.get("url_path") == dashboard_url_path for d in dashboards):
