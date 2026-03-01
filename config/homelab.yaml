@@ -910,6 +910,12 @@ home_assistant:
     - climate.games_room
     - climate.front_window
     - climate.bedroom_2
+  heating_control:
+    deadband_c: 0.5
+    on_for: 00:02:00
+    off_for: 00:07:00
+    min_on_seconds: 480
+    min_off_seconds: 300
 nagios:
   core_version: "4.5.11"
   admin_user: nagiosadmin

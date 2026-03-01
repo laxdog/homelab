@@ -507,6 +507,108 @@ def cmd_sync_heating_dashboard() -> None:
     print(f"{action} Heating dashboard at /{dashboard_url_path}/{view_path}")
 
 
+def build_heating_demand_template(climate_entities: list, deadband_c: float, invert: bool = False) -> str:
+    lines = ["{% set climate_entities = ["]
+    for entity_id in climate_entities:
+        lines.append(f"  '{entity_id}',")
+    lines.extend(
+        [
+            "] %}",
+            "{% set ns = namespace(demand=false) %}",
+            "{% for entity_id in climate_entities %}",
+            "{% set mode = states(entity_id) %}",
+            "{% set hvac_action = state_attr(entity_id, 'hvac_action') %}",
+            "{% set current = state_attr(entity_id, 'current_temperature') %}",
+            "{% set target = state_attr(entity_id, 'temperature') %}",
+            "{% if mode in ['heat', 'auto'] and (",
+            f"      hvac_action == 'heating' or (current is number and target is number and (target - current) >= {deadband_c})",
+            "   ) %}",
+            "{% set ns.demand = true %}",
+            "{% endif %}",
+            "{% endfor %}",
+            "{{ not ns.demand }}" if invert else "{{ ns.demand }}",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def cmd_sync_heating_control() -> None:
+    cfg, base, token = ha_auth_from_config()
+    dashboard_cfg = cfg.get("home_assistant", {}).get("heating_dashboard", {})
+    boiler_entity = dashboard_cfg.get("boiler_entity")
+    climate_entities = dashboard_cfg.get("climate_entities", [])
+    if not boiler_entity or not climate_entities:
+        raise RuntimeError(
+            "home_assistant.heating_dashboard.boiler_entity and climate_entities must be set."
+        )
+
+    control_cfg = cfg.get("home_assistant", {}).get("heating_control", {})
+    deadband_c = float(control_cfg.get("deadband_c", 0.5))
+    on_for = control_cfg.get("on_for", "00:02:00")
+    off_for = control_cfg.get("off_for", "00:07:00")
+    min_on_seconds = int(control_cfg.get("min_on_seconds", 480))
+    min_off_seconds = int(control_cfg.get("min_off_seconds", 300))
+
+    demand_template = build_heating_demand_template(climate_entities, deadband_c)
+    no_demand_template = build_heating_demand_template(climate_entities, deadband_c, invert=True)
+
+    on_automation = {
+        "alias": "Heating Boiler On Demand",
+        "description": "Turn boiler on when any configured TRV demands heat.",
+        "mode": "single",
+        "triggers": [{"trigger": "template", "value_template": demand_template, "for": on_for}],
+        "conditions": [
+            {"condition": "state", "entity_id": boiler_entity, "state": "off"},
+            {
+                "condition": "template",
+                "value_template": (
+                    f"{{{{ (as_timestamp(now()) - as_timestamp(states['{boiler_entity}'].last_changed, 0)) >= {min_off_seconds} }}}}"
+                ),
+            },
+        ],
+        "actions": [{"action": "switch.turn_on", "target": {"entity_id": boiler_entity}}],
+    }
+    off_automation = {
+        "alias": "Heating Boiler Off When Satisfied",
+        "description": "Turn boiler off when all configured TRVs are satisfied.",
+        "mode": "single",
+        "triggers": [{"trigger": "template", "value_template": no_demand_template, "for": off_for}],
+        "conditions": [
+            {"condition": "state", "entity_id": boiler_entity, "state": "on"},
+            {
+                "condition": "template",
+                "value_template": (
+                    f"{{{{ (as_timestamp(now()) - as_timestamp(states['{boiler_entity}'].last_changed, 0)) >= {min_on_seconds} }}}}"
+                ),
+            },
+        ],
+        "actions": [{"action": "switch.turn_off", "target": {"entity_id": boiler_entity}}],
+    }
+
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    for entity_id, payload in [
+        ("automation.heating_boiler_on_demand", on_automation),
+        ("automation.heating_boiler_off_when_satisfied", off_automation),
+    ]:
+        response = requests.post(
+            f"{base}/api/config/automation/config/{entity_id}",
+            headers=headers,
+            json=payload,
+            timeout=20,
+        )
+        response.raise_for_status()
+        print(f"Synced {entity_id}")
+
+    reload_response = requests.post(
+        f"{base}/api/services/automation/reload",
+        headers=headers,
+        json={},
+        timeout=20,
+    )
+    reload_response.raise_for_status()
+    print("Reloaded automations")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Home Assistant helper")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -514,6 +616,7 @@ def main() -> None:
     sub.add_parser("sync-devices")
     sub.add_parser("add-tplink")
     sub.add_parser("sync-heating-dashboard")
+    sub.add_parser("sync-heating-control")
     sub.add_parser("summary")
     args = parser.parse_args()
 
@@ -525,6 +628,8 @@ def main() -> None:
         cmd_add_tplink()
     elif args.command == "sync-heating-dashboard":
         cmd_sync_heating_dashboard()
+    elif args.command == "sync-heating-control":
+        cmd_sync_heating_control()
     elif args.command == "summary":
         cmd_summary()
 
