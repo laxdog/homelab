@@ -450,7 +450,7 @@ def cmd_sync_heating_dashboard() -> None:
             {
                 "type": "grid",
                 "title": "Heating Control",
-                "columns": 2,
+                "columns": 4,
                 "square": False,
                 "cards": [
                     {
@@ -536,7 +536,7 @@ def cmd_sync_heating_dashboard() -> None:
             {
                 "type": "grid",
                 "title": "TRVs",
-                "columns": 2,
+                "columns": 4,
                 "square": False,
                 "cards": climate_cards,
             }
@@ -634,7 +634,7 @@ def cmd_sync_heating_dashboard() -> None:
             "path": view_path,
             "icon": icon,
             "type": "sections",
-            "max_columns": 4,
+            "max_columns": 8,
             "sections": [
                 {
                     "type": "grid",
