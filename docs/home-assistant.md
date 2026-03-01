@@ -45,6 +45,8 @@ Source of truth:
     - `House Target` slider + `Apply House`
     - `Upstairs Target` slider + `Apply Upstairs`
     - `Downstairs Target` slider + `Apply Downstairs`
+  - Slider changes auto-apply to mapped TRV groups after a short debounce (`2s`).
+  - `Apply ...` buttons are still available as an immediate/manual force-sync.
   - Current URL path is `/<dashboard_url_path>/<view_path>` (default `/heating-overview/overview`).
   - Supports `style: mushroom` (HACS Mushroom cards) or `style: default`.
   - `style: mushroom` requires HACS + Mushroom to already be installed in Home Assistant.

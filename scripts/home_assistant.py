@@ -908,10 +908,41 @@ def cmd_sync_heating_control() -> None:
         ],
         "actions": [{"action": "switch.turn_off", "target": {"entity_id": boiler_entity}}],
     }
+    house_slider_automation = {
+        "alias": "Heating Apply House Target On Change",
+        "description": "Apply house target helper value to all house TRVs when slider changes.",
+        "mode": "single",
+        "triggers": [{"trigger": "state", "entity_id": house_target_entity, "for": "00:00:02"}],
+        "conditions": [],
+        "actions": [{"action": "script.turn_on", "target": {"entity_id": "script.heating_set_house_temp"}}],
+    }
+    upstairs_slider_automation = {
+        "alias": "Heating Apply Upstairs Target On Change",
+        "description": "Apply upstairs target helper value to upstairs TRVs when slider changes.",
+        "mode": "single",
+        "triggers": [{"trigger": "state", "entity_id": upstairs_target_entity, "for": "00:00:02"}],
+        "conditions": [],
+        "actions": [
+            {"action": "script.turn_on", "target": {"entity_id": "script.heating_set_upstairs_temp"}}
+        ],
+    }
+    downstairs_slider_automation = {
+        "alias": "Heating Apply Downstairs Target On Change",
+        "description": "Apply downstairs target helper value to downstairs TRVs when slider changes.",
+        "mode": "single",
+        "triggers": [{"trigger": "state", "entity_id": downstairs_target_entity, "for": "00:00:02"}],
+        "conditions": [],
+        "actions": [
+            {"action": "script.turn_on", "target": {"entity_id": "script.heating_set_downstairs_temp"}}
+        ],
+    }
 
     for entity_id, payload in [
         ("automation.heating_boiler_on_demand", on_automation),
         ("automation.heating_boiler_off_when_satisfied", off_automation),
+        ("automation.heating_apply_house_target_on_change", house_slider_automation),
+        ("automation.heating_apply_upstairs_target_on_change", upstairs_slider_automation),
+        ("automation.heating_apply_downstairs_target_on_change", downstairs_slider_automation),
     ]:
         response = requests.post(
             f"{base}/api/config/automation/config/{entity_id}",
