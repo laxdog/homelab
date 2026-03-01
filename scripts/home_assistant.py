@@ -145,6 +145,11 @@ def shelly_entity_name(base_name: str, entity_id: str) -> str:
     return f"{base_name} {tail}".strip()
 
 
+def pretty_climate_name(entity_id: str) -> str:
+    object_id = entity_id.split(".", 1)[1]
+    return object_id.replace("_", " ").title()
+
+
 def cmd_apply_core() -> None:
     cfg, base, token = ha_auth_from_config()
     ha_cfg = cfg["home_assistant"]
@@ -421,6 +426,11 @@ def cmd_sync_heating_dashboard() -> None:
             and "lovelace-mushroom" in str(resource.get("url", ""))
             for resource in resources
         )
+        mini_graph_present = any(
+            isinstance(resource, dict)
+            and "mini-graph-card" in str(resource.get("url", ""))
+            for resource in resources
+        )
         if not mushroom_present:
             raise RuntimeError(
                 "Mushroom card resource is missing. Install HACS + Mushroom first, then rerun sync-heating-dashboard."
@@ -511,6 +521,40 @@ def cmd_sync_heating_dashboard() -> None:
                 ],
             }
         )
+        if mini_graph_present:
+            cards.append(
+                {
+                    "type": "custom:mini-graph-card",
+                    "name": "TRV Temperatures (24h)",
+                    "hours_to_show": 24,
+                    "points_per_hour": 4,
+                    "line_width": 2,
+                    "show": {
+                        "icon": False,
+                        "name": True,
+                        "state": False,
+                        "legend": True,
+                    },
+                    "entities": [
+                        {
+                            "entity": entity_id,
+                            "attribute": "current_temperature",
+                            "name": pretty_climate_name(entity_id),
+                        }
+                        for entity_id in climate_entities
+                    ],
+                }
+            )
+        else:
+            cards.append(
+                {
+                    "type": "markdown",
+                    "title": "TRV Temperature Graph",
+                    "content": (
+                        "Install HACS `mini-graph-card` to enable a 24h TRV temperature chart on this page."
+                    ),
+                }
+            )
         climate_cards = []
         for entity_id in climate_entities:
             climate_cards.append(
