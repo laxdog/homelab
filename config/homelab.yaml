@@ -846,6 +846,49 @@ home_assistant:
     identifier: 78EE4CC4B590
     name: Gas Boiler
     area: Alleyway
+  - integration: tplink
+    identifier: 802DEFF9647C35B8DC44CFD360BB5ADE20CDEFEF
+    name: KH100 Hub
+  - integration: tplink
+    identifier: 8035EECFAF1C0886C05DE91C115AAB8120857064
+    name: Downstairs Hall
+    area: Downstairs Hall
+  - integration: tplink
+    identifier: 8035E42820DC98579793FAD92772E5832084CDE3
+    name: Bathroom
+    area: Bathroom
+  - integration: tplink
+    identifier: 80354DDDFF107F18ED98A7CE80DB16B62085D18C
+    name: Dining Area
+    area: Dining Area
+  - integration: tplink
+    identifier: 803596AD59AD6C7489AF645A029C334320BB1D14
+    name: Office
+    area: Office
+  - integration: tplink
+    identifier: 803507BFAAD264490139B04C0A79365120897D50
+    name: Games Room
+    area: Games Room
+  - integration: tplink
+    identifier: 8035FEBCEF33FC946899BAD96BF79EFE20840373
+    name: Bedroom
+    area: Bedroom
+  - integration: tplink
+    identifier: 80353A4905B682B82C083EF0CD1C7ACF2084334D
+    name: Front Window
+    area: Front Window
+  - integration: tplink
+    identifier: 8035F6A51473629B7A22C5725DF061B22085DC7E
+    name: Bedroom Charlotte
+    area: Bedroom Charlotte
+  - integration: tplink
+    identifier: 8035B09945338F9812540F1797739CE420888868
+    name: Bedroom 2
+    area: Bedroom 2
+  - integration: tplink
+    identifier: 80357F088245A580FFCD063F64E3E7372088131C
+    name: Office 2
+    area: Office 2
   tplink:
     username_var: tplink_username
     password_var: tplink_password

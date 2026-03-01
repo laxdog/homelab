@@ -27,7 +27,8 @@ Source of truth:
 - `python3 scripts/home_assistant.py apply-core`
   - Applies core runtime config (location name, coordinates, unit system, timezone, currency) to an already-onboarded HA instance.
 - `python3 scripts/home_assistant.py sync-devices`
-  - Applies `config.home_assistant.device_overrides` (device names, areas, and Shelly entity naming conventions).
+  - Applies `config.home_assistant.device_overrides` (device names and areas).
+  - Shelly entries also apply entity naming conventions (switch/sensor/update/button labels).
 - `python3 scripts/home_assistant.py add-tplink`
   - Attempts TP-Link integration for `config.home_assistant.tplink.hubs`.
   - Requires vault vars referenced by `config.home_assistant.tplink.username_var` and `config.home_assistant.tplink.password_var`.

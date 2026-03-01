@@ -243,21 +243,19 @@ def cmd_sync_devices() -> None:
         else:
             print(f"Device already correct: {desired_name}")
 
-        for entity in entities_by_device.get(device["id"], []):
-            if integration == "shelly":
+        if integration == "shelly":
+            for entity in entities_by_device.get(device["id"], []):
                 expected_name = shelly_entity_name(desired_name, entity["entity_id"])
-            else:
-                expected_name = desired_name
-            if entity.get("name") != expected_name:
-                ws_call(
-                    base,
-                    token,
-                    "config/entity_registry/update",
-                    entity_id=entity["entity_id"],
-                    name=expected_name,
-                )
-                changed += 1
-                print(f"Updated entity name: {entity['entity_id']} -> {expected_name}")
+                if entity.get("name") != expected_name:
+                    ws_call(
+                        base,
+                        token,
+                        "config/entity_registry/update",
+                        entity_id=entity["entity_id"],
+                        name=expected_name,
+                    )
+                    changed += 1
+                    print(f"Updated entity name: {entity['entity_id']} -> {expected_name}")
 
     print(f"Device sync complete. Changes applied: {changed}")
 
