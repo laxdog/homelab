@@ -582,9 +582,9 @@ def cmd_sync_heating_dashboard() -> None:
                                 "type": "custom:apexcharts-card",
                                 "header": {"show": True, "title": pretty_climate_name(entity_id)},
                                 "graph_span": "12h",
-                                "layout": {"height": 180},
                                 "apex_config": {
-                                    "stroke": {"width": [2, 2], "curve": ["smooth", "stepline"]}
+                                    "chart": {"height": 180},
+                                    "stroke": {"width": [2, 2], "curve": ["smooth", "stepline"]},
                                 },
                                 "series": [
                                     {
