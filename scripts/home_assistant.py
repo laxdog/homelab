@@ -563,7 +563,6 @@ def cmd_sync_heating_dashboard() -> None:
                         }
                         for entity_id in climate_entities
                     ],
-                    "grid_options": {"columns": 12},
                 }
             )
             section_cards.append(
@@ -602,7 +601,6 @@ def cmd_sync_heating_dashboard() -> None:
                         }
                         for entity_id in climate_entities
                     ],
-                    "grid_options": {"columns": 12},
                 }
             )
         else:
@@ -633,11 +631,10 @@ def cmd_sync_heating_dashboard() -> None:
             "title": title,
             "path": view_path,
             "icon": icon,
-            "type": "sections",
-            "max_columns": 8,
-            "sections": [
+            "panel": True,
+            "cards": [
                 {
-                    "type": "grid",
+                    "type": "vertical-stack",
                     "cards": section_cards,
                 }
             ],
