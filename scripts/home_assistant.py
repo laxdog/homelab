@@ -581,7 +581,8 @@ def cmd_sync_heating_dashboard() -> None:
                             {
                                 "type": "custom:apexcharts-card",
                                 "header": {"show": True, "title": pretty_climate_name(entity_id)},
-                                "graph_span": "24h",
+                                "graph_span": "12h",
+                                "layout": {"height": 180},
                                 "apex_config": {
                                     "stroke": {"width": [2, 2], "curve": ["smooth", "stepline"]}
                                 },
@@ -607,7 +608,7 @@ def cmd_sync_heating_dashboard() -> None:
                             {
                                 "type": "custom:mini-graph-card",
                                 "name": pretty_climate_name(entity_id),
-                                "hours_to_show": 24,
+                                "hours_to_show": 12,
                                 "points_per_hour": 4,
                                 "line_width": 2,
                                 "show": {
