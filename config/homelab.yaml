@@ -896,6 +896,22 @@ home_assistant:
     - name: KH100 Hub
       host: 10.20.30.55
       mac: 9c:53:22:14:a4:01
+  heating_dashboard:
+    title: Heating
+    path: heating
+    icon: mdi:radiator
+    boiler_entity: switch.shellyplus1_78ee4cc4b590
+    climate_entities:
+    - climate.downstairs_hall
+    - climate.bathroom
+    - climate.dining_area
+    - climate.office
+    - climate.games_room
+    - climate.bedroom
+    - climate.front_window
+    - climate.bedroom_charlotte
+    - climate.bedroom_2
+    - climate.office_2
 nagios:
   core_version: "4.5.11"
   admin_user: nagiosadmin

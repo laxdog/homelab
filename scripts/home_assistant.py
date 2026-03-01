@@ -388,12 +388,76 @@ def cmd_summary() -> None:
         print(f"- {entry.get('domain')}: {entry.get('title')} ({entry.get('state')})")
 
 
+def cmd_sync_heating_dashboard() -> None:
+    cfg, base, token = ha_auth_from_config()
+    dashboard_cfg = cfg.get("home_assistant", {}).get("heating_dashboard", {})
+    if not dashboard_cfg:
+        print("No home_assistant.heating_dashboard configured; nothing to do.")
+        return
+
+    title = dashboard_cfg.get("title", "Heating")
+    path = dashboard_cfg.get("path", "heating")
+    icon = dashboard_cfg.get("icon", "mdi:radiator")
+    boiler_entity = dashboard_cfg.get("boiler_entity")
+    climate_entities = dashboard_cfg.get("climate_entities", [])
+
+    cards = []
+    if boiler_entity:
+        cards.append(
+            {
+                "type": "entities",
+                "title": "Boiler",
+                "entities": [boiler_entity],
+                "state_color": True,
+            }
+        )
+    for entity_id in climate_entities:
+        cards.append({"type": "thermostat", "entity": entity_id})
+
+    heating_view = {
+        "title": title,
+        "path": path,
+        "icon": icon,
+        "cards": cards,
+        "badges": [],
+    }
+
+    try:
+        lovelace_config = ws_call(base, token, "lovelace/config")
+    except RuntimeError as exc:
+        if "config_not_found" in str(exc):
+            lovelace_config = {"views": []}
+        else:
+            raise
+    if not isinstance(lovelace_config, dict):
+        lovelace_config = {"views": []}
+
+    views = lovelace_config.get("views", [])
+    if not isinstance(views, list):
+        views = []
+
+    replaced = False
+    for idx, view in enumerate(views):
+        if isinstance(view, dict) and view.get("path") == path:
+            views[idx] = heating_view
+            replaced = True
+            break
+    if not replaced:
+        views.append(heating_view)
+
+    lovelace_config["views"] = views
+    ws_call(base, token, "lovelace/config/save", config=lovelace_config)
+    action = "Updated" if replaced else "Created"
+    print(f"{action} Heating dashboard view at /lovelace/{path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Home Assistant helper")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("apply-core")
     sub.add_parser("sync-devices")
     sub.add_parser("add-tplink")
+    sub.add_parser("sync-heating-dashboard")
     sub.add_parser("summary")
     args = parser.parse_args()
 
@@ -403,6 +467,8 @@ def main() -> None:
         cmd_sync_devices()
     elif args.command == "add-tplink":
         cmd_add_tplink()
+    elif args.command == "sync-heating-dashboard":
+        cmd_sync_heating_dashboard()
     elif args.command == "summary":
         cmd_summary()
 
