@@ -37,14 +37,14 @@ Source of truth:
   - Requires vault vars referenced by `config.home_assistant.tplink.username_var` and `config.home_assistant.tplink.password_var`.
 - `python3 scripts/home_assistant.py sync-heating-dashboard`
   - Ensures a dedicated Heating dashboard exists in Lovelace using `config.home_assistant.heating_dashboard`.
-  - Adds boiler control, lockout controls, group setpoint buttons, and thermostat cards for configured TRVs.
+  - Adds boiler control, lockout controls, group target sliders, apply buttons, and thermostat cards for configured TRVs.
   - Lockout actions are available directly on this heating page:
     - `Enable Lockout` (disables auto-heating + turns boiler off)
     - `Disable Lockout` (re-enables auto-heating)
-  - Group setpoint actions are available directly on this heating page:
-    - `House 20.0C`
-    - `Upstairs 20.0C`
-    - `Downstairs 20.0C`
+  - Group controls are available directly on this heating page:
+    - `House Target` slider + `Apply House`
+    - `Upstairs Target` slider + `Apply Upstairs`
+    - `Downstairs Target` slider + `Apply Downstairs`
   - Current URL path is `/<dashboard_url_path>/<view_path>` (default `/heating-overview/overview`).
   - Supports `style: mushroom` (HACS Mushroom cards) or `style: default`.
   - `style: mushroom` requires HACS + Mushroom to already be installed in Home Assistant.
@@ -83,8 +83,15 @@ Source of truth:
 - Targets can be explicit climate entities or group names: `house`, `upstairs`, `downstairs`.
 - For ad-hoc changes outside schedule, use:
   - per-room thermostat cards
-  - group setpoint buttons on the Heating page
+  - group target sliders + apply buttons on the Heating page
   - lockout buttons for maintenance/holiday behavior
+
+## Helper Requirements
+- The heating dashboard expects these HA helpers to exist:
+  - `input_number.house_target`
+  - `input_number.upstairs_target`
+  - `input_number.downstairs_target`
+- They are manually created once in HA UI (`Settings -> Devices & services -> Helpers`) and then referenced by `config.home_assistant.heating_dashboard.temp_helpers`.
 - `python3 scripts/home_assistant.py summary`
   - Prints current HA config, integration entries, and unavailable entities.
 

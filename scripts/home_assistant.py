@@ -402,7 +402,10 @@ def cmd_sync_heating_dashboard() -> None:
     style = dashboard_cfg.get("style", "default")
     boiler_entity = dashboard_cfg.get("boiler_entity")
     climate_entities = dashboard_cfg.get("climate_entities", [])
-    bulk_temp = float(dashboard_cfg.get("bulk_set_temperature_c", 20.0))
+    temp_helpers = dashboard_cfg.get("temp_helpers", {})
+    house_target_entity = temp_helpers.get("house", "input_number.house_target")
+    upstairs_target_entity = temp_helpers.get("upstairs", "input_number.upstairs_target")
+    downstairs_target_entity = temp_helpers.get("downstairs", "input_number.downstairs_target")
     lockout_enable_script = "script.heating_lockout_enable"
     lockout_disable_script = "script.heating_lockout_disable"
     house_set_script = "script.heating_set_house_temp"
@@ -480,10 +483,10 @@ def cmd_sync_heating_dashboard() -> None:
                     },
                     {
                         "type": "custom:mushroom-template-card",
-                        "primary": f"House {bulk_temp:.1f}C",
-                        "secondary": "Set all TRVs to one target",
-                        "icon": "mdi:home-thermometer",
-                        "icon_color": "red",
+                        "primary": "Apply House",
+                        "secondary": "Apply house target slider",
+                        "icon": "mdi:home-import-outline",
+                        "icon_color": "orange",
                         "tap_action": {
                             "action": "call-service",
                             "service": "script.turn_on",
@@ -492,9 +495,9 @@ def cmd_sync_heating_dashboard() -> None:
                     },
                     {
                         "type": "custom:mushroom-template-card",
-                        "primary": f"Upstairs {bulk_temp:.1f}C",
-                        "secondary": "Bedroom, Office, Games Room",
-                        "icon": "mdi:stairs-up",
+                        "primary": "Apply Upstairs",
+                        "secondary": "Apply upstairs target slider",
+                        "icon": "mdi:stairs-up-box",
                         "icon_color": "orange",
                         "tap_action": {
                             "action": "call-service",
@@ -504,15 +507,42 @@ def cmd_sync_heating_dashboard() -> None:
                     },
                     {
                         "type": "custom:mushroom-template-card",
-                        "primary": f"Downstairs {bulk_temp:.1f}C",
-                        "secondary": "Dining, Front Window, Bathroom",
-                        "icon": "mdi:stairs-down",
+                        "primary": "Apply Downstairs",
+                        "secondary": "Apply downstairs target slider",
+                        "icon": "mdi:stairs-down-box",
                         "icon_color": "green",
                         "tap_action": {
                             "action": "call-service",
                             "service": "script.turn_on",
                             "target": {"entity_id": downstairs_set_script},
                         },
+                    },
+                    {
+                        "type": "custom:mushroom-number-card",
+                        "entity": house_target_entity,
+                        "name": "House Target",
+                        "icon": "mdi:home-thermometer",
+                        "display_mode": "slider",
+                        "icon_color": "red",
+                        "fill_container": False,
+                    },
+                    {
+                        "type": "custom:mushroom-number-card",
+                        "entity": upstairs_target_entity,
+                        "name": "Upstairs Target",
+                        "icon": "mdi:stairs-up",
+                        "display_mode": "slider",
+                        "icon_color": "orange",
+                        "fill_container": False,
+                    },
+                    {
+                        "type": "custom:mushroom-number-card",
+                        "entity": downstairs_target_entity,
+                        "name": "Downstairs Target",
+                        "icon": "mdi:stairs-down",
+                        "display_mode": "slider",
+                        "icon_color": "green",
+                        "fill_container": False,
                     },
                 ],
             }
@@ -704,6 +734,10 @@ def cmd_sync_heating_control() -> None:
         "downstairs": groups_cfg.get("downstairs", []),
     }
     default_bulk_temp = float(dashboard_cfg.get("bulk_set_temperature_c", 20.0))
+    temp_helpers = dashboard_cfg.get("temp_helpers", {})
+    house_target_entity = temp_helpers.get("house", "input_number.house_target")
+    upstairs_target_entity = temp_helpers.get("upstairs", "input_number.upstairs_target")
+    downstairs_target_entity = temp_helpers.get("downstairs", "input_number.downstairs_target")
 
     control_cfg = cfg.get("home_assistant", {}).get("heating_control", {})
     deadband_c = float(control_cfg.get("deadband_c", 0.3))
@@ -736,7 +770,7 @@ def cmd_sync_heating_control() -> None:
                 )
         return unique_entities(resolved)
 
-    def climate_set_actions(entities: list, temperature_c: float) -> list:
+    def climate_set_actions(entities: list, temperature_c: Any) -> list:
         actions = []
         for entity_id in entities:
             actions.append(
@@ -750,7 +784,7 @@ def cmd_sync_heating_control() -> None:
                 {
                     "action": "climate.set_temperature",
                     "target": {"entity_id": entity_id},
-                    "data": {"temperature": float(temperature_c)},
+                    "data": {"temperature": temperature_c},
                 }
             )
         return actions
@@ -798,17 +832,23 @@ def cmd_sync_heating_control() -> None:
         "heating_lockout_disable": lockout_disable_script,
         "heating_set_house_temp": {
             "alias": "Heating Set House Temperature",
-            "sequence": climate_set_actions(house_entities, default_bulk_temp),
+            "sequence": climate_set_actions(
+                house_entities, f"{{{{ states('{house_target_entity}') | float({default_bulk_temp}) }}}}"
+            ),
             "mode": "single",
         },
         "heating_set_upstairs_temp": {
             "alias": "Heating Set Upstairs Temperature",
-            "sequence": climate_set_actions(upstairs_entities, default_bulk_temp),
+            "sequence": climate_set_actions(
+                upstairs_entities, f"{{{{ states('{upstairs_target_entity}') | float({default_bulk_temp}) }}}}"
+            ),
             "mode": "single",
         },
         "heating_set_downstairs_temp": {
             "alias": "Heating Set Downstairs Temperature",
-            "sequence": climate_set_actions(downstairs_entities, default_bulk_temp),
+            "sequence": climate_set_actions(
+                downstairs_entities, f"{{{{ states('{downstairs_target_entity}') | float({default_bulk_temp}) }}}}"
+            ),
             "mode": "single",
         },
         "heating_all_off": {

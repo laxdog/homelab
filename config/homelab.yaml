@@ -910,6 +910,10 @@ home_assistant:
     - climate.games_room
     - climate.front_window
     - climate.bedroom_2
+    temp_helpers:
+      house: input_number.house_target
+      upstairs: input_number.upstairs_target
+      downstairs: input_number.downstairs_target
     bulk_set_temperature_c: 20.0
     groups:
       house:
