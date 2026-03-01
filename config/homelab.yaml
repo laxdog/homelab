@@ -901,6 +901,7 @@ home_assistant:
     dashboard_url_path: heating-overview
     view_path: overview
     icon: mdi:radiator
+    style: mushroom
     boiler_entity: switch.shellyplus1_78ee4cc4b590
     climate_entities:
     - climate.bathroom

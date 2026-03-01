@@ -399,21 +399,63 @@ def cmd_sync_heating_dashboard() -> None:
     dashboard_url_path = dashboard_cfg.get("dashboard_url_path", "heating-overview")
     view_path = dashboard_cfg.get("view_path", "overview")
     icon = dashboard_cfg.get("icon", "mdi:radiator")
+    style = dashboard_cfg.get("style", "default")
     boiler_entity = dashboard_cfg.get("boiler_entity")
     climate_entities = dashboard_cfg.get("climate_entities", [])
 
     cards = []
-    if boiler_entity:
+    if style == "mushroom":
+        resources = ws_call(base, token, "lovelace/resources")
+        mushroom_present = any(
+            isinstance(resource, dict)
+            and "lovelace-mushroom" in str(resource.get("url", ""))
+            for resource in resources
+        )
+        if not mushroom_present:
+            raise RuntimeError(
+                "Mushroom card resource is missing. Install HACS + Mushroom first, then rerun sync-heating-dashboard."
+            )
+        if boiler_entity:
+            cards.append(
+                {
+                    "type": "custom:mushroom-entity-card",
+                    "entity": boiler_entity,
+                    "name": "Gas Boiler",
+                    "icon_color": "red",
+                    "fill_container": False,
+                }
+            )
+        climate_cards = []
+        for entity_id in climate_entities:
+            climate_cards.append(
+                {
+                    "type": "custom:mushroom-climate-card",
+                    "entity": entity_id,
+                    "show_temperature_control": True,
+                    "fill_container": False,
+                }
+            )
         cards.append(
             {
-                "type": "entities",
-                "title": "Boiler",
-                "entities": [boiler_entity],
-                "state_color": True,
+                "type": "grid",
+                "title": "TRVs",
+                "columns": 2,
+                "square": False,
+                "cards": climate_cards,
             }
         )
-    for entity_id in climate_entities:
-        cards.append({"type": "thermostat", "entity": entity_id})
+    else:
+        if boiler_entity:
+            cards.append(
+                {
+                    "type": "entities",
+                    "title": "Boiler",
+                    "entities": [boiler_entity],
+                    "state_color": True,
+                }
+            )
+        for entity_id in climate_entities:
+            cards.append({"type": "thermostat", "entity": entity_id})
 
     heating_view = {
         "title": title,

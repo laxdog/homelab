@@ -36,6 +36,8 @@ Source of truth:
   - Ensures a dedicated Heating dashboard exists in Lovelace using `config.home_assistant.heating_dashboard`.
   - Adds boiler control and thermostat cards for configured TRVs.
   - Current URL path is `/<dashboard_url_path>/<view_path>` (default `/heating-overview/overview`).
+  - Supports `style: mushroom` (HACS Mushroom cards) or `style: default`.
+  - `style: mushroom` requires HACS + Mushroom to already be installed in Home Assistant.
 - `python3 scripts/home_assistant.py summary`
   - Prints current HA config, integration entries, and unavailable entities.
 
