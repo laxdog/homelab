@@ -402,11 +402,12 @@ def cmd_sync_heating_dashboard() -> None:
     style = dashboard_cfg.get("style", "default")
     boiler_entity = dashboard_cfg.get("boiler_entity")
     climate_entities = dashboard_cfg.get("climate_entities", [])
+    bulk_temp = float(dashboard_cfg.get("bulk_set_temperature_c", 20.0))
     lockout_enable_script = "script.heating_lockout_enable"
     lockout_disable_script = "script.heating_lockout_disable"
-    override_enable_script = "script.heating_override_enable"
-    override_disable_script = "script.heating_override_disable"
-    override_boost_script = "script.heating_override_boost_1h"
+    house_set_script = "script.heating_set_house_temp"
+    upstairs_set_script = "script.heating_set_upstairs_temp"
+    downstairs_set_script = "script.heating_set_downstairs_temp"
     on_automation_entity = "automation.heating_boiler_on_demand"
 
     cards = []
@@ -455,18 +456,6 @@ def cmd_sync_heating_dashboard() -> None:
                     },
                     {
                         "type": "custom:mushroom-template-card",
-                        "primary": "Schedule Gate",
-                        "secondary": (
-                            "{{ 'Active Window' if is_state('automation.heating_schedule_gate', 'on') "
-                            "else 'Outside Schedule' }}"
-                        ),
-                        "icon": "mdi:calendar-clock",
-                        "icon_color": (
-                            "{{ 'green' if is_state('automation.heating_schedule_gate', 'on') else 'grey' }}"
-                        ),
-                    },
-                    {
-                        "type": "custom:mushroom-template-card",
                         "primary": "Enable Lockout",
                         "secondary": "Disable auto-heating and turn boiler off",
                         "icon": "mdi:snowflake-alert",
@@ -491,38 +480,38 @@ def cmd_sync_heating_dashboard() -> None:
                     },
                     {
                         "type": "custom:mushroom-template-card",
-                        "primary": "Enable Override",
-                        "secondary": "Allow heating outside schedule windows",
-                        "icon": "mdi:hand-back-right",
+                        "primary": f"House {bulk_temp:.1f}C",
+                        "secondary": "Set all TRVs to one target",
+                        "icon": "mdi:home-thermometer",
+                        "icon_color": "red",
+                        "tap_action": {
+                            "action": "call-service",
+                            "service": "script.turn_on",
+                            "target": {"entity_id": house_set_script},
+                        },
+                    },
+                    {
+                        "type": "custom:mushroom-template-card",
+                        "primary": f"Upstairs {bulk_temp:.1f}C",
+                        "secondary": "Bedroom, Office, Games Room",
+                        "icon": "mdi:stairs-up",
                         "icon_color": "orange",
                         "tap_action": {
                             "action": "call-service",
                             "service": "script.turn_on",
-                            "target": {"entity_id": override_enable_script},
+                            "target": {"entity_id": upstairs_set_script},
                         },
                     },
                     {
                         "type": "custom:mushroom-template-card",
-                        "primary": "Disable Override",
-                        "secondary": "Return to schedule-controlled behavior",
-                        "icon": "mdi:calendar-check",
+                        "primary": f"Downstairs {bulk_temp:.1f}C",
+                        "secondary": "Dining, Front Window, Bathroom",
+                        "icon": "mdi:stairs-down",
                         "icon_color": "green",
                         "tap_action": {
                             "action": "call-service",
                             "service": "script.turn_on",
-                            "target": {"entity_id": override_disable_script},
-                        },
-                    },
-                    {
-                        "type": "custom:mushroom-template-card",
-                        "primary": "Boost 1 Hour",
-                        "secondary": "Temporary manual override for 1 hour",
-                        "icon": "mdi:timer-plus",
-                        "icon_color": "amber",
-                        "tap_action": {
-                            "action": "call-service",
-                            "service": "script.turn_on",
-                            "target": {"entity_id": override_boost_script},
+                            "target": {"entity_id": downstairs_set_script},
                         },
                     },
                 ],
@@ -708,36 +697,79 @@ def cmd_sync_heating_control() -> None:
             "home_assistant.heating_dashboard.boiler_entity and climate_entities must be set."
         )
 
+    groups_cfg = dashboard_cfg.get("groups", {})
+    groups = {
+        "house": groups_cfg.get("house", climate_entities),
+        "upstairs": groups_cfg.get("upstairs", []),
+        "downstairs": groups_cfg.get("downstairs", []),
+    }
+    default_bulk_temp = float(dashboard_cfg.get("bulk_set_temperature_c", 20.0))
+
     control_cfg = cfg.get("home_assistant", {}).get("heating_control", {})
-    deadband_c = float(control_cfg.get("deadband_c", 0.5))
+    deadband_c = float(control_cfg.get("deadband_c", 0.3))
     on_for = control_cfg.get("on_for", "00:02:00")
     off_for = control_cfg.get("off_for", "00:07:00")
-    schedule_off_for = control_cfg.get("schedule_off_for", "00:02:00")
     min_on_seconds = int(control_cfg.get("min_on_seconds", 480))
     min_off_seconds = int(control_cfg.get("min_off_seconds", 300))
-    schedule_windows = control_cfg.get("schedule", [])
+    schedule_events = control_cfg.get("schedule_events", [])
 
-    demand_template = build_heating_demand_template(climate_entities, deadband_c)
-    no_demand_template = build_heating_demand_template(climate_entities, deadband_c, invert=True)
-    schedule_active_template = "{{ is_state('automation.heating_schedule_gate', 'on') }}"
-    schedule_inactive_template = "{{ is_state('automation.heating_schedule_gate', 'off') }}"
+    def unique_entities(items: list) -> list:
+        seen = set()
+        out = []
+        for entity_id in items:
+            if entity_id not in seen:
+                seen.add(entity_id)
+                out.append(entity_id)
+        return out
 
-    schedule_gate_automation = {
-        "alias": "Heating Schedule Gate",
-        "description": "Helper automation used as a UI-editable on/off gate for heating schedule windows.",
-        "mode": "single",
-        "triggers": [],
-        "conditions": [],
-        "actions": [],
-    }
-    override_gate_automation = {
-        "alias": "Heating Manual Override Gate",
-        "description": "Helper automation used as a UI-editable manual override flag for heating schedule.",
-        "mode": "single",
-        "triggers": [],
-        "conditions": [],
-        "actions": [],
-    }
+    def resolve_targets(targets: list) -> list:
+        resolved = []
+        for target in targets:
+            target_str = str(target)
+            if target_str in groups:
+                resolved.extend(groups[target_str])
+            elif target_str.startswith("climate."):
+                resolved.append(target_str)
+            else:
+                raise RuntimeError(
+                    f"Invalid heating target '{target_str}'. Use a climate entity_id or one of: {', '.join(groups.keys())}"
+                )
+        return unique_entities(resolved)
+
+    def climate_set_actions(entities: list, temperature_c: float) -> list:
+        actions = []
+        for entity_id in entities:
+            actions.append(
+                {
+                    "action": "climate.set_hvac_mode",
+                    "target": {"entity_id": entity_id},
+                    "data": {"hvac_mode": "heat"},
+                }
+            )
+            actions.append(
+                {
+                    "action": "climate.set_temperature",
+                    "target": {"entity_id": entity_id},
+                    "data": {"temperature": float(temperature_c)},
+                }
+            )
+        return actions
+
+    def climate_off_actions(entities: list) -> list:
+        return [
+            {
+                "action": "climate.set_hvac_mode",
+                "target": {"entity_id": entity_id},
+                "data": {"hvac_mode": "off"},
+            }
+            for entity_id in entities
+        ]
+
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+    house_entities = resolve_targets(["house"])
+    upstairs_entities = resolve_targets(["upstairs"]) if groups.get("upstairs") else []
+    downstairs_entities = resolve_targets(["downstairs"]) if groups.get("downstairs") else []
 
     lockout_enable_script = {
         "alias": "Heating Lockout Enable",
@@ -746,14 +778,7 @@ def cmd_sync_heating_control() -> None:
                 "action": "automation.turn_off",
                 "target": {"entity_id": "automation.heating_boiler_on_demand"},
             },
-            {
-                "action": "automation.turn_off",
-                "target": {"entity_id": "automation.heating_override_gate"},
-            },
-            {
-                "action": "switch.turn_off",
-                "target": {"entity_id": boiler_entity},
-            },
+            {"action": "switch.turn_off", "target": {"entity_id": boiler_entity}},
         ],
         "mode": "single",
     }
@@ -767,60 +792,52 @@ def cmd_sync_heating_control() -> None:
         ],
         "mode": "single",
     }
-    override_enable_script = {
-        "alias": "Heating Override Enable",
-        "sequence": [
-            {
-                "action": "automation.turn_on",
-                "target": {"entity_id": "automation.heating_override_gate"},
-            },
-            {
-                "action": "automation.turn_on",
-                "target": {"entity_id": "automation.heating_boiler_on_demand"},
-            },
-        ],
-        "mode": "single",
+
+    scripts_to_sync = {
+        "heating_lockout_enable": lockout_enable_script,
+        "heating_lockout_disable": lockout_disable_script,
+        "heating_set_house_temp": {
+            "alias": "Heating Set House Temperature",
+            "sequence": climate_set_actions(house_entities, default_bulk_temp),
+            "mode": "single",
+        },
+        "heating_set_upstairs_temp": {
+            "alias": "Heating Set Upstairs Temperature",
+            "sequence": climate_set_actions(upstairs_entities, default_bulk_temp),
+            "mode": "single",
+        },
+        "heating_set_downstairs_temp": {
+            "alias": "Heating Set Downstairs Temperature",
+            "sequence": climate_set_actions(downstairs_entities, default_bulk_temp),
+            "mode": "single",
+        },
+        "heating_all_off": {
+            "alias": "Heating All Off",
+            "sequence": climate_off_actions(house_entities),
+            "mode": "single",
+        },
     }
-    override_disable_script = {
-        "alias": "Heating Override Disable",
-        "sequence": [
-            {
-                "action": "automation.turn_off",
-                "target": {"entity_id": "automation.heating_override_gate"},
-            }
-        ],
-        "mode": "single",
-    }
-    override_boost_script = {
-        "alias": "Heating Override Boost 1h",
-        "sequence": [
-            {
-                "action": "script.turn_on",
-                "target": {"entity_id": "script.heating_override_enable"},
-            },
-            {"delay": "01:00:00"},
-            {
-                "action": "script.turn_on",
-                "target": {"entity_id": "script.heating_override_disable"},
-            },
-        ],
-        "mode": "restart",
-    }
+
+    for script_id, payload in scripts_to_sync.items():
+        response = requests.post(
+            f"{base}/api/config/script/config/{script_id}",
+            headers=headers,
+            json=payload,
+            timeout=20,
+        )
+        response.raise_for_status()
+        print(f"Synced script.{script_id}")
+
+    demand_template = build_heating_demand_template(climate_entities, deadband_c)
+    no_demand_template = build_heating_demand_template(climate_entities, deadband_c, invert=True)
 
     on_automation = {
         "alias": "Heating Boiler On Demand",
-        "description": "Turn boiler on when any configured TRV demands heat inside configured schedule windows.",
+        "description": "Turn boiler on when any configured TRV demands heat.",
         "mode": "single",
         "triggers": [{"trigger": "template", "value_template": demand_template, "for": on_for}],
         "conditions": [
             {"condition": "state", "entity_id": boiler_entity, "state": "off"},
-            {
-                "condition": "template",
-                "value_template": (
-                    "{{ is_state('automation.heating_schedule_gate', 'on') "
-                    "or is_state('automation.heating_override_gate', 'on') }}"
-                ),
-            },
             {
                 "condition": "template",
                 "value_template": (
@@ -837,7 +854,6 @@ def cmd_sync_heating_control() -> None:
         "triggers": [{"trigger": "template", "value_template": no_demand_template, "for": off_for}],
         "conditions": [
             {"condition": "state", "entity_id": boiler_entity, "state": "on"},
-            {"condition": "state", "entity_id": "automation.heating_override_gate", "state": "off"},
             {
                 "condition": "template",
                 "value_template": (
@@ -847,138 +863,10 @@ def cmd_sync_heating_control() -> None:
         ],
         "actions": [{"action": "switch.turn_off", "target": {"entity_id": boiler_entity}}],
     }
-    schedule_off_automation = {
-        "alias": "Heating Boiler Off Outside Schedule",
-        "description": "Turn boiler off when outside configured heating schedule windows.",
-        "mode": "single",
-        "triggers": [
-            {
-                "trigger": "template",
-                "value_template": schedule_inactive_template,
-                "for": schedule_off_for,
-            }
-        ],
-        "conditions": [
-            {"condition": "state", "entity_id": boiler_entity, "state": "on"},
-            {
-                "condition": "template",
-                "value_template": (
-                    f"{{{{ (as_timestamp(now()) - as_timestamp(states['{boiler_entity}'].last_changed, 0)) >= {min_on_seconds} }}}}"
-                ),
-            },
-        ],
-        "actions": [{"action": "switch.turn_off", "target": {"entity_id": boiler_entity}}],
-    }
-
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    for entity_id, payload in [
-        ("automation.heating_schedule_gate", schedule_gate_automation),
-        ("automation.heating_override_gate", override_gate_automation),
-    ]:
-        response = requests.post(
-            f"{base}/api/config/automation/config/{entity_id}",
-            headers=headers,
-            json=payload,
-            timeout=20,
-        )
-        response.raise_for_status()
-        print(f"Synced {entity_id}")
-
-    window_entities = []
-    for window in schedule_windows:
-        name = str(window.get("name", "window")).strip()
-        slug = slugify_name(name)
-        start = str(window.get("start", "00:00:00"))
-        end = str(window.get("end", "23:59:59"))
-        weekdays = [str(day).strip().lower()[:3] for day in window.get("weekdays", [])]
-        if not weekdays:
-            continue
-
-        start_id = f"automation.heating_schedule_start_{slug}"
-        end_id = f"automation.heating_schedule_end_{slug}"
-        window_entities.extend([start_id, end_id])
-
-        start_payload = {
-            "alias": f"Heating Schedule Start - {name}",
-            "description": "UI-editable schedule window start.",
-            "mode": "single",
-            "triggers": [
-                {
-                    "trigger": "time",
-                    "at": start,
-                }
-            ],
-            "conditions": [{"condition": "time", "weekday": weekdays}],
-            "actions": [
-                {
-                    "action": "automation.turn_on",
-                    "target": {"entity_id": "automation.heating_schedule_gate"},
-                }
-            ],
-        }
-        end_payload = {
-            "alias": f"Heating Schedule End - {name}",
-            "description": "UI-editable schedule window end.",
-            "mode": "single",
-            "triggers": [
-                {
-                    "trigger": "time",
-                    "at": end,
-                }
-            ],
-            "conditions": [{"condition": "time", "weekday": weekdays}],
-            "actions": [
-                {
-                    "action": "automation.turn_off",
-                    "target": {"entity_id": "automation.heating_schedule_gate"},
-                },
-                {
-                    "action": "switch.turn_off",
-                    "target": {"entity_id": boiler_entity},
-                },
-            ],
-        }
-
-        for entity_id, payload in [(start_id, start_payload), (end_id, end_payload)]:
-            existing = requests.get(
-                f"{base}/api/config/automation/config/{entity_id}",
-                headers=headers,
-                timeout=20,
-            )
-            if existing.status_code == 404:
-                create = requests.post(
-                    f"{base}/api/config/automation/config/{entity_id}",
-                    headers=headers,
-                    json=payload,
-                    timeout=20,
-                )
-                create.raise_for_status()
-                print(f"Created {entity_id} (UI can edit this schedule window)")
-            elif existing.ok:
-                print(f"Preserved {entity_id} (managed in UI)")
-            else:
-                existing.raise_for_status()
-
-    for script_id, payload in [
-        ("heating_lockout_enable", lockout_enable_script),
-        ("heating_lockout_disable", lockout_disable_script),
-        ("heating_override_enable", override_enable_script),
-        ("heating_override_disable", override_disable_script),
-        ("heating_override_boost_1h", override_boost_script),
-    ]:
-        response = requests.post(
-            f"{base}/api/config/script/config/{script_id}",
-            headers=headers,
-            json=payload,
-            timeout=20,
-        )
-        response.raise_for_status()
-        print(f"Synced script.{script_id}")
 
     for entity_id, payload in [
         ("automation.heating_boiler_on_demand", on_automation),
         ("automation.heating_boiler_off_when_satisfied", off_automation),
-        ("automation.heating_boiler_off_outside_schedule", schedule_off_automation),
     ]:
         response = requests.post(
             f"{base}/api/config/automation/config/{entity_id}",
@@ -989,35 +877,85 @@ def cmd_sync_heating_control() -> None:
         response.raise_for_status()
         print(f"Synced {entity_id}")
 
-    schedule_active_now = False
-    if schedule_windows:
-        schedule_eval = requests.post(
-            f"{base}/api/template",
-            headers=headers,
-            json={"template": schedule_active_template},
-            timeout=20,
-        )
-        schedule_eval.raise_for_status()
-        schedule_active_now = schedule_eval.text.strip().lower() == "true"
+    desired_event_entities = set()
+    for event in schedule_events:
+        event_name = str(event.get("name", "unnamed event")).strip()
+        event_slug = slugify_name(event_name)
+        entity_id = f"automation.heating_event_{event_slug}"
+        desired_event_entities.add(entity_id)
 
-    if schedule_windows and schedule_active_now:
-        set_on = requests.post(
-            f"{base}/api/services/automation/turn_on",
+        event_time = str(event.get("time", "")).strip()
+        weekdays = [str(day).strip().lower()[:3] for day in event.get("weekdays", [])]
+        action = str(event.get("action", "")).strip().lower()
+        target_entities = resolve_targets(event.get("targets", []))
+
+        if not event_time or not weekdays or not target_entities:
+            raise RuntimeError(f"Incomplete schedule event '{event_name}'")
+
+        if action == "set_temp":
+            if "temperature_c" not in event:
+                raise RuntimeError(f"schedule event '{event_name}' missing temperature_c")
+            event_actions = climate_set_actions(target_entities, float(event["temperature_c"]))
+        elif action == "off":
+            event_actions = climate_off_actions(target_entities)
+        else:
+            raise RuntimeError(f"schedule event '{event_name}' has unsupported action '{action}'")
+
+        payload = {
+            "alias": f"Heating Event - {event_name}",
+            "description": "Repo-managed heating schedule event.",
+            "mode": "single",
+            "triggers": [{"trigger": "time", "at": event_time}],
+            "conditions": [{"condition": "time", "weekday": weekdays}],
+            "actions": event_actions,
+        }
+        response = requests.post(
+            f"{base}/api/config/automation/config/{entity_id}",
             headers=headers,
-            json={"entity_id": "automation.heating_schedule_gate"},
+            json=payload,
             timeout=20,
         )
-        set_on.raise_for_status()
-        print("Enabled automation.heating_schedule_gate (inside active schedule window)")
-    else:
-        set_off = requests.post(
-            f"{base}/api/services/automation/turn_off",
+        response.raise_for_status()
+        print(f"Synced {entity_id}")
+
+    states_response = requests.get(f"{base}/api/states", headers=headers, timeout=20)
+    states_response.raise_for_status()
+    all_entities = [state.get("entity_id", "") for state in states_response.json()]
+
+    legacy_automation_ids = {
+        "automation.heating_boiler_off_outside_schedule",
+        "automation.heating_schedule_gate",
+        "automation.heating_override_gate",
+    }
+    for entity_id in all_entities:
+        if entity_id.startswith("automation.heating_schedule_start_") or entity_id.startswith(
+            "automation.heating_schedule_end_"
+        ):
+            legacy_automation_ids.add(entity_id)
+        if entity_id.startswith("automation.heating_event_") and entity_id not in desired_event_entities:
+            legacy_automation_ids.add(entity_id)
+
+    for entity_id in sorted(legacy_automation_ids):
+        delete_response = requests.delete(
+            f"{base}/api/config/automation/config/{entity_id}",
             headers=headers,
-            json={"entity_id": "automation.heating_schedule_gate"},
             timeout=20,
         )
-        set_off.raise_for_status()
-        print("Disabled automation.heating_schedule_gate (outside active schedule window)")
+        if delete_response.status_code in {200, 204}:
+            print(f"Deleted {entity_id}")
+        elif delete_response.status_code != 404:
+            delete_response.raise_for_status()
+
+    for script_id in ["heating_override_enable", "heating_override_disable", "heating_override_boost_1h"]:
+        delete_response = requests.delete(
+            f"{base}/api/config/script/config/{script_id}",
+            headers=headers,
+            timeout=20,
+        )
+        if delete_response.status_code in {200, 204}:
+            print(f"Deleted script.{script_id}")
+        elif delete_response.status_code != 404:
+            delete_response.raise_for_status()
 
     scripts_reload_response = requests.post(
         f"{base}/api/services/script/reload",
@@ -1036,7 +974,6 @@ def cmd_sync_heating_control() -> None:
     )
     reload_response.raise_for_status()
     print("Reloaded automations")
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Home Assistant helper")

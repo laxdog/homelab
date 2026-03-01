@@ -37,50 +37,44 @@ Source of truth:
   - Requires vault vars referenced by `config.home_assistant.tplink.username_var` and `config.home_assistant.tplink.password_var`.
 - `python3 scripts/home_assistant.py sync-heating-dashboard`
   - Ensures a dedicated Heating dashboard exists in Lovelace using `config.home_assistant.heating_dashboard`.
-  - Adds boiler control, schedule/override status, lockout controls, override controls, and thermostat cards for configured TRVs.
+  - Adds boiler control, lockout controls, group setpoint buttons, and thermostat cards for configured TRVs.
   - Lockout actions are available directly on this heating page:
     - `Enable Lockout` (disables auto-heating + turns boiler off)
     - `Disable Lockout` (re-enables auto-heating)
-  - Override actions are available directly on this heating page:
-    - `Enable Override` (allow heating outside schedule windows)
-    - `Disable Override` (return to schedule control)
-    - `Boost 1 Hour` (temporary override for one hour)
+  - Group setpoint actions are available directly on this heating page:
+    - `House 20.0C`
+    - `Upstairs 20.0C`
+    - `Downstairs 20.0C`
   - Current URL path is `/<dashboard_url_path>/<view_path>` (default `/heating-overview/overview`).
   - Supports `style: mushroom` (HACS Mushroom cards) or `style: default`.
   - `style: mushroom` requires HACS + Mushroom to already be installed in Home Assistant.
 - `python3 scripts/home_assistant.py sync-heating-control`
-  - Creates/updates five HA scripts:
+  - Creates/updates six HA scripts:
     - `script.heating_lockout_enable`
     - `script.heating_lockout_disable`
-    - `script.heating_override_enable`
-    - `script.heating_override_disable`
-    - `script.heating_override_boost_1h`
-  - Creates/updates five HA automations:
-    - `automation.heating_schedule_gate`
-    - `automation.heating_override_gate`
+    - `script.heating_set_house_temp`
+    - `script.heating_set_upstairs_temp`
+    - `script.heating_set_downstairs_temp`
+    - `script.heating_all_off`
+  - Creates/updates boiler control automations:
     - `automation.heating_boiler_on_demand`
     - `automation.heating_boiler_off_when_satisfied`
-    - `automation.heating_boiler_off_outside_schedule`
-  - Creates schedule window automations from `config.home_assistant.heating_control.schedule`:
-    - `automation.heating_schedule_start_*`
-    - `automation.heating_schedule_end_*`
-  - Schedule window automations are preserved if they already exist so they can be edited in HA UI without Git changes.
+  - Creates/updates schedule event automations from `config.home_assistant.heating_control.schedule_events`:
+    - `automation.heating_event_*`
   - Demand logic uses TRV `hvac_action == heating`, with fallback to
     `(target - current) >= deadband_c`.
-  - Boiler-on automation runs when schedule gate is on, or manual override is on.
-  - Boiler-off automation enforces shutdown outside schedule windows.
   - Anti-cycling controls are configurable in `config.home_assistant.heating_control`:
-    `deadband_c`, `on_for`, `off_for`, `schedule_off_for`, `min_on_seconds`, `min_off_seconds`.
+    `deadband_c`, `on_for`, `off_for`, `min_on_seconds`, `min_off_seconds`.
   - This replaces the need for a separate Active Heating Manager add-on for this setup.
 
-## UI schedule control
-- After initial sync, schedule windows can be edited in Home Assistant UI without repo changes:
-  - `Settings -> Automations & Scenes`
-  - Edit `Heating Schedule Start - ...` and `Heating Schedule End - ...` automations.
-- Schedule automations are only auto-created when missing; rerunning sync preserves existing UI-edited window automations.
-- Use Heating dashboard actions for ad-hoc control:
-  - `Enable Override`, `Disable Override`, `Boost 1 Hour`
-  - `Enable Lockout`, `Disable Lockout`
+## Scheduling
+- Schedule is code-defined in `config.home_assistant.heating_control.schedule_events`.
+- Each event declares `time`, `weekdays`, `action` (`set_temp` or `"off"`), and `targets`.
+- Targets can be explicit climate entities or group names: `house`, `upstairs`, `downstairs`.
+- For ad-hoc changes outside schedule, use:
+  - per-room thermostat cards
+  - group setpoint buttons on the Heating page
+  - lockout buttons for maintenance/holiday behavior
 - `python3 scripts/home_assistant.py summary`
   - Prints current HA config, integration entries, and unavailable entities.
 

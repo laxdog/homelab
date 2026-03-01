@@ -910,34 +910,92 @@ home_assistant:
     - climate.games_room
     - climate.front_window
     - climate.bedroom_2
+    bulk_set_temperature_c: 20.0
+    groups:
+      house:
+      - climate.bathroom
+      - climate.dining_area
+      - climate.office
+      - climate.games_room
+      - climate.front_window
+      - climate.bedroom_2
+      upstairs:
+      - climate.bedroom_2
+      - climate.office
+      - climate.games_room
+      downstairs:
+      - climate.dining_area
+      - climate.front_window
+      - climate.bathroom
   heating_control:
-    deadband_c: 0.5
+    deadband_c: 0.3
     on_for: 00:02:00
     off_for: 00:07:00
     min_on_seconds: 480
     min_off_seconds: 300
-    schedule:
-    - name: Weekday Morning
-      start: 06:30:00
-      end: 09:30:00
+    schedule_events:
+    - name: Weekday Morning Warmup
+      time: "07:00:00"
+      action: set_temp
+      temperature_c: 20.0
+      targets:
+      - climate.bathroom
+      - climate.dining_area
+      - climate.front_window
+      - climate.bedroom_2
       weekdays:
       - mon
       - tue
       - wed
       - thu
-      - fri
-    - name: Weekday Evening
-      start: 16:30:00
-      end: 22:30:00
+    - name: Weekday Morning Off
+      time: "07:35:00"
+      action: "off"
+      targets:
+      - house
       weekdays:
       - mon
       - tue
       - wed
       - thu
+    - name: Tuesday Night Downstairs
+      time: "22:00:00"
+      action: set_temp
+      temperature_c: 20.0
+      targets:
+      - downstairs
+      weekdays:
+      - tue
+    - name: Wednesday Games Room
+      time: "18:30:00"
+      action: set_temp
+      temperature_c: 20.0
+      targets:
+      - climate.games_room
+      weekdays:
+      - wed
+    - name: Friday Office
+      time: "09:00:00"
+      action: set_temp
+      temperature_c: 20.0
+      targets:
+      - climate.office
+      weekdays:
       - fri
-    - name: Weekend Day
-      start: 07:30:00
-      end: 22:30:00
+    - name: Weekend Morning On
+      time: "08:00:00"
+      action: set_temp
+      temperature_c: 20.0
+      targets:
+      - house
+      weekdays:
+      - sat
+      - sun
+    - name: Weekend Morning Off
+      time: "09:00:00"
+      action: "off"
+      targets:
+      - house
       weekdays:
       - sat
       - sun
