@@ -570,7 +570,7 @@ def cmd_sync_heating_dashboard() -> None:
                 {
                     "type": "grid",
                     "title": "TRV Graphs",
-                    "columns": 2,
+                    "columns": 4,
                     "square": False,
                     "cards": [
                         {
