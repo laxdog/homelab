@@ -849,11 +849,16 @@ def cmd_sync_heating_control() -> None:
     }
     off_automation = {
         "alias": "Heating Boiler Off When Satisfied",
-        "description": "Turn boiler off when all configured TRVs are satisfied.",
+        "description": "Turn boiler off when all configured TRVs are satisfied; includes periodic fallback evaluation.",
         "mode": "single",
-        "triggers": [{"trigger": "template", "value_template": no_demand_template, "for": off_for}],
+        "triggers": [
+            {"trigger": "template", "value_template": no_demand_template, "for": off_for},
+            {"trigger": "homeassistant", "event": "start"},
+            {"trigger": "time_pattern", "minutes": "/1"},
+        ],
         "conditions": [
             {"condition": "state", "entity_id": boiler_entity, "state": "on"},
+            {"condition": "template", "value_template": no_demand_template},
             {
                 "condition": "template",
                 "value_template": (
@@ -943,6 +948,8 @@ def cmd_sync_heating_control() -> None:
         )
         if delete_response.status_code in {200, 204}:
             print(f"Deleted {entity_id}")
+        elif delete_response.status_code == 400:
+            print(f"Skipped deleting {entity_id} (not storage-managed)")
         elif delete_response.status_code != 404:
             delete_response.raise_for_status()
 
@@ -954,6 +961,8 @@ def cmd_sync_heating_control() -> None:
         )
         if delete_response.status_code in {200, 204}:
             print(f"Deleted script.{script_id}")
+        elif delete_response.status_code == 400:
+            print(f"Skipped deleting script.{script_id} (not storage-managed)")
         elif delete_response.status_code != 404:
             delete_response.raise_for_status()
 

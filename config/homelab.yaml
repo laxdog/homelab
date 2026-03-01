@@ -928,10 +928,10 @@ home_assistant:
       - climate.front_window
       - climate.bathroom
   heating_control:
-    deadband_c: 0.3
+    deadband_c: 0.5
     on_for: 00:02:00
     off_for: 00:07:00
-    min_on_seconds: 480
+    min_on_seconds: 420
     min_off_seconds: 300
     schedule_events:
     - name: Weekday Morning Warmup
