@@ -65,6 +65,16 @@ Source of truth:
     `(target - current) >= deadband_c`.
   - Anti-cycling controls are configurable in `config.home_assistant.heating_control`:
     `deadband_c`, `on_for`, `off_for`, `min_on_seconds`, `min_off_seconds`.
+  - Current tuning:
+    - `deadband_c: 0.5`
+    - `on_for: 00:02:00`
+    - `off_for: 00:03:00`
+    - `min_on_seconds: 180`
+    - `min_off_seconds: 300`
+  - Semantics:
+    - `off_for` = no-demand hold time before boiler off is allowed.
+    - `min_on_seconds` = minimum boiler runtime before off is allowed.
+    - Effective off timing is the later of those two conditions.
   - This replaces the need for a separate Active Heating Manager add-on for this setup.
 
 ## Scheduling
