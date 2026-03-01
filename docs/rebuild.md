@@ -18,6 +18,16 @@
 
 Any remaining manual steps should be documented here.
 
+## Home Assistant manual bootstrap (HAOS)
+HAOS is appliance-style, so HACS installation is a one-time manual step.
+
+1. Complete HA onboarding (handled by repo on first run).
+2. Install HACS using the official guide: `https://www.hacs.xyz/docs/setup/download`
+3. In HACS, install `Mushroom` (Lovelace card).
+4. Restart Home Assistant.
+5. Re-apply dashboard config from repo:
+   - `python3 scripts/home_assistant.py sync-heating-dashboard`
+
 ## HAOS note
 Home Assistant OS uses its own networking stack and does not consume cloud-init.
 Ensure your router has a DHCP reservation for `10.20.30.134` (or update `config/homelab.yaml` and NPM/AdGuard rewrites).

@@ -18,6 +18,9 @@ Source of truth:
 - Shelly devices listed in `config.home_assistant.shelly_devices` are configured
   via Home Assistant config-entry flow during `scripts/run.py guests`.
   Re-runs are idempotent (`already_configured` is treated as no-change).
+- HACS is not installed by automation on HAOS; treat it as a one-time manual
+  bootstrap step. After HACS + Mushroom are installed, dashboard layout is
+  managed from repo via `scripts/home_assistant.py sync-heating-dashboard`.
 
 ## Access
 - Internal: `https://ha.laxdog.uk`
