@@ -883,7 +883,7 @@ home_assistant:
     area: Bedroom Charlotte
   - integration: tplink
     identifier: 8035B09945338F9812540F1797739CE420888868
-    name: Bedroom 2
+    name: Bedroom
     area: Bedroom 2
   - integration: tplink
     identifier: 80357F088245A580FFCD063F64E3E7372088131C
@@ -903,16 +903,12 @@ home_assistant:
     icon: mdi:radiator
     boiler_entity: switch.shellyplus1_78ee4cc4b590
     climate_entities:
-    - climate.downstairs_hall
     - climate.bathroom
     - climate.dining_area
     - climate.office
     - climate.games_room
-    - climate.bedroom
     - climate.front_window
-    - climate.bedroom_charlotte
     - climate.bedroom_2
-    - climate.office_2
 nagios:
   core_version: "4.5.11"
   admin_user: nagiosadmin
