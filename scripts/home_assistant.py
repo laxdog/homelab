@@ -482,7 +482,7 @@ def cmd_sync_heating_dashboard() -> None:
                         },
                     },
                     {
-                        "type": "custom:mushroom-template-card",
+                        "type": "custom:mushroom-number-card",
                         "entity": house_target_entity,
                         "name": "House Target",
                         "icon": "mdi:home-thermometer",
