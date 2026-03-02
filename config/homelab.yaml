@@ -738,6 +738,7 @@ npm:
     access_list: External Public
     ssl: true
     certificate: laxdog-external-le
+    authentik_protect: true
   - name: NetAlertX External
     domain: netalertx.lax.dog
     forward_host: 10.20.30.158
@@ -797,6 +798,9 @@ authentik:
   - name: Home Assistant
     slug: home-assistant
     external_host: https://ha.lax.dog
+  - name: Jellyfin
+    slug: jellyfin
+    external_host: https://jellyfin.lax.dog
 couchdb:
   admin_user: admin
   port: 5984
