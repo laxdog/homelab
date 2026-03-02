@@ -2,12 +2,17 @@
 
 define command {
   command_name check_http_npm
-  command_line /usr/lib/nagios/plugins/check_http -I $ARG2$ -H $ARG1$ -S --sni -P 443 -j GET
+  command_line /usr/lib/nagios/plugins/check_http -I $ARG2$ -H $ARG1$ -S --sni -p 443 -j GET
+}
+
+define command {
+  command_name check_http_npm_redirect_ok
+  command_line /usr/lib/nagios/plugins/check_http -I $ARG2$ -H $ARG1$ -S --sni -p 443 -j GET -f ok
 }
 
 define command {
   command_name check_http_npm_path
-  command_line /usr/lib/nagios/plugins/check_http -I $ARG2$ -H $ARG1$ -S --sni -P 443 -u $ARG3$ -j GET
+  command_line /usr/lib/nagios/plugins/check_http -I $ARG2$ -H $ARG1$ -S --sni -p 443 -u $ARG3$ -j GET
 }
 
 define command {
@@ -108,7 +113,11 @@ define service {
   use                     generic-service
   host_name               nginx-proxy-manager
   service_description     HTTP {{ host.domain }}
+{% if host.authentik_protect | default(false) %}
+  check_command           check_http_npm_redirect_ok!{{ host.domain }}!{{ config.services.lxcs['nginx-proxy-manager'].ip }}
+{% else %}
   check_command           check_http_npm!{{ host.domain }}!{{ config.services.lxcs['nginx-proxy-manager'].ip }}
+{% endif %}
   contact_groups          admins
 }
 {% endfor %}

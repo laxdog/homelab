@@ -730,6 +730,7 @@ npm:
     access_list: External Public
     ssl: true
     certificate: laxdog-external-le
+    authentik_protect: true
   - name: Jellyfin External
     domain: jellyfin.lax.dog
     forward_host: 10.20.30.120
@@ -775,6 +776,9 @@ authentik:
   internal_domain: auth.laxdog.uk
   external_domain: auth.lax.dog
   proxy_apps:
+  - name: Proxmox
+    slug: proxmox
+    external_host: https://proxmox.lax.dog
   - name: Nagios
     slug: nagios
     external_host: https://nagios.lax.dog
