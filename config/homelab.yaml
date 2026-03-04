@@ -337,6 +337,7 @@ services:
     raffle-raptor-dev:
       id: 163
       ip: 10.20.30.163
+      disk_gb: 40
       tun_required: true
       roles:
       - docker
