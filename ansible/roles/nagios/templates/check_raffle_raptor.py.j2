@@ -224,10 +224,144 @@ def eval_status(base_url: str, timeout: int, target_ip: str, success_fresh_minut
     out(OK, msg)
 
 
+def fetch_status_payload(base_url: str, timeout: int, target_ip: str):
+    url = base_url.rstrip("/") + "/statusz"
+    try:
+        status, body = fetch_json(url, timeout, target_ip)
+    except Exception as exc:
+        out(CRIT, f"CRIT - /statusz transport failure: {exc}")
+
+    if status != 200:
+        out(CRIT, f"CRIT - /statusz returned HTTP {status}")
+
+    try:
+        payload = json.loads(body or "{}")
+    except Exception as exc:
+        out(CRIT, f"CRIT - /statusz JSON parse failed: {exc}")
+    return payload
+
+
+def require_fields(payload, fields):
+    missing = [k for k in fields if k not in payload]
+    if missing:
+        out(UNKNOWN, "UNKNOWN - /statusz missing fields: " + ",".join(missing))
+
+
+def eval_status_snapshot(base_url: str, timeout: int, target_ip: str):
+    payload = fetch_status_payload(base_url, timeout, target_ip)
+    require_fields(payload, ["oldest_active_snapshot_age_sec"])
+    age = payload.get("oldest_active_snapshot_age_sec")
+    if age is None:
+        out(WARN, "WARN - oldest_active_snapshot_age_sec is null")
+    try:
+        age = int(age)
+    except Exception:
+        out(UNKNOWN, f"UNKNOWN - invalid oldest_active_snapshot_age_sec={age!r}")
+    if age > 3600:
+        out(CRIT, f"CRIT - oldest_active_snapshot_age_sec={age}>3600")
+    if age > 1200:
+        out(WARN, f"WARN - oldest_active_snapshot_age_sec={age}>1200")
+    out(OK, f"OK - oldest_active_snapshot_age_sec={age}")
+
+
+def eval_status_vpn(base_url: str, timeout: int, target_ip: str):
+    payload = fetch_status_payload(base_url, timeout, target_ip)
+    require_fields(payload, ["vpn_active", "vpn_ip_allowlist_match", "egress_ip_check_error"])
+
+    if not bool(payload.get("vpn_active")):
+        out(CRIT, "CRIT - vpn_active=false")
+
+    allowlist = payload.get("vpn_ip_allowlist_match")
+    egress_error = payload.get("egress_ip_check_error")
+
+    warns = []
+    if allowlist is False:
+        warns.append("vpn_ip_allowlist_match=false")
+    if egress_error not in (None, ""):
+        warns.append(f"egress_ip_check_error={egress_error}")
+
+    if warns:
+        out(WARN, "WARN - " + "; ".join(warns))
+    out(OK, "OK - vpn_active=true")
+
+
+def eval_status_cf(base_url: str, timeout: int, target_ip: str):
+    payload = fetch_status_payload(base_url, timeout, target_ip)
+    require_fields(
+        payload,
+        [
+            "in_global_backoff",
+            "global_backoff_until_utc",
+            "requests_http_403_count_5m",
+            "requests_cloudflare_marker_count_5m",
+            "cf_retreat_active",
+            "cf_retreat_until_utc",
+        ],
+    )
+
+    warns = []
+    crit = []
+    now = datetime.now(timezone.utc)
+
+    if payload.get("requests_http_403_count_5m", 0) > 0:
+        warns.append(f"requests_http_403_count_5m={payload.get('requests_http_403_count_5m')}")
+    if payload.get("requests_cloudflare_marker_count_5m", 0) > 0:
+        warns.append(f"requests_cloudflare_marker_count_5m={payload.get('requests_cloudflare_marker_count_5m')}")
+
+    if bool(payload.get("cf_retreat_active")):
+        until = parse_utc(payload.get("cf_retreat_until_utc"))
+        if until is None:
+            warns.append("cf_retreat_active=true with missing cf_retreat_until_utc")
+        else:
+            seconds_left = int((until - now).total_seconds())
+            if seconds_left > 600:
+                crit.append(f"cf_retreat_active=true remaining={seconds_left}s")
+            else:
+                warns.append(f"cf_retreat_active=true remaining={max(seconds_left, 0)}s")
+
+    if bool(payload.get("in_global_backoff")):
+        until = parse_utc(payload.get("global_backoff_until_utc"))
+        if until is None:
+            warns.append("in_global_backoff=true with missing global_backoff_until_utc")
+        else:
+            seconds_left = int((until - now).total_seconds())
+            if seconds_left > 600:
+                crit.append(f"in_global_backoff=true remaining={seconds_left}s")
+            else:
+                warns.append(f"in_global_backoff=true remaining={max(seconds_left, 0)}s")
+
+    if crit:
+        out(CRIT, "CRIT - " + "; ".join(crit))
+    if warns:
+        out(WARN, "WARN - " + "; ".join(warns))
+    out(OK, "OK - no Cloudflare/backoff pressure signals")
+
+
+def eval_status_total_perf(base_url: str, timeout: int, target_ip: str):
+    payload = fetch_status_payload(base_url, timeout, target_ip)
+    require_fields(payload, ["p95_total_duration_ms_5m"])
+    p95_total = payload.get("p95_total_duration_ms_5m")
+    if p95_total is None:
+        out(OK, "OK - p95_total_duration_ms_5m is null (no recent attempts)")
+    try:
+        p95_total = int(p95_total)
+    except Exception:
+        out(UNKNOWN, f"UNKNOWN - invalid p95_total_duration_ms_5m={p95_total!r}")
+    if p95_total > 30000:
+        out(CRIT, f"CRIT - p95_total_duration_ms_5m={p95_total}>30000")
+    if p95_total > 10000:
+        out(WARN, f"WARN - p95_total_duration_ms_5m={p95_total}>10000")
+    out(OK, f"OK - p95_total_duration_ms_5m={p95_total}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Nagios check for raffle-raptor healthz/statusz contract")
     parser.add_argument("--base-url", required=True, help="Base URL, e.g. https://raffle-raptor-dev.lax.dog")
-    parser.add_argument("--mode", required=True, choices=["healthz", "statusz"])
+    parser.add_argument(
+        "--mode",
+        required=True,
+        choices=["healthz", "statusz", "statusz-snapshot", "statusz-vpn", "statusz-cf", "statusz-total-perf"],
+    )
     parser.add_argument("--target-ip", default="", help="Optional IP to force for TLS endpoint (curl --resolve)")
     parser.add_argument("--timeout", type=int, default=8)
     parser.add_argument("--success-fresh-minutes", type=int, default=15)
@@ -236,7 +370,7 @@ def main():
 
     if args.mode == "healthz":
         eval_health(args.base_url, args.timeout, args.target_ip)
-    else:
+    elif args.mode == "statusz":
         eval_status(
             args.base_url,
             args.timeout,
@@ -244,6 +378,14 @@ def main():
             args.success_fresh_minutes,
             args.startup_grace_minutes,
         )
+    elif args.mode == "statusz-snapshot":
+        eval_status_snapshot(args.base_url, args.timeout, args.target_ip)
+    elif args.mode == "statusz-vpn":
+        eval_status_vpn(args.base_url, args.timeout, args.target_ip)
+    elif args.mode == "statusz-cf":
+        eval_status_cf(args.base_url, args.timeout, args.target_ip)
+    else:
+        eval_status_total_perf(args.base_url, args.timeout, args.target_ip)
 
 
 if __name__ == "__main__":

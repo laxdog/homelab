@@ -1085,12 +1085,14 @@ nagios:
     host: nagios
     base_url: https://raffle-raptor-dev.lax.dog
     target_ip: 10.20.30.154
-    monitor_statusz: false
+    notify: false
+    extra_checks: true
   - name: raffle-raptor-dev-internal
     host: nagios
     base_url: https://raffle-raptor-dev.laxdog.uk
     target_ip: 10.20.30.154
-    monitor_statusz: false
+    notify: false
+    extra_checks: true
   - name: raffle-raptor-prod
     host: nagios
     base_url: https://raffle-raptor.lax.dog
