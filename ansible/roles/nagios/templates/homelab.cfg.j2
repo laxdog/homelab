@@ -141,6 +141,7 @@ define service {
   contact_groups          admins
 }
 
+{% if check.monitor_statusz | default(true) %}
 define service {
   use                     generic-service
   host_name               {{ check.host | default('nagios') }}
@@ -148,4 +149,5 @@ define service {
   check_command           check_raffle_raptor_statusz!{{ check.base_url }}!{{ check.target_ip | default('') }}
   contact_groups          admins
 }
+{% endif %}
 {% endfor %}

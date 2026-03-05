@@ -650,6 +650,7 @@ npm:
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
+    monitor_http: false
   - name: Nagios
     domain: nagios.laxdog.uk
     forward_host: 10.20.30.133
@@ -1084,10 +1085,12 @@ nagios:
     host: nagios
     base_url: https://raffle-raptor-dev.lax.dog
     target_ip: 10.20.30.154
+    monitor_statusz: false
   - name: raffle-raptor-dev-internal
     host: nagios
     base_url: https://raffle-raptor-dev.laxdog.uk
     target_ip: 10.20.30.154
+    monitor_statusz: false
   - name: raffle-raptor-prod
     host: nagios
     base_url: https://raffle-raptor.lax.dog
