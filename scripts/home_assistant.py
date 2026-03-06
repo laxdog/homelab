@@ -1213,18 +1213,12 @@ def cmd_sync_hue_scenes() -> None:
     scene_names = [str(scene["name"]).strip() for scene in scenes if str(scene.get("name", "")).strip()]
     if not scene_names:
         raise RuntimeError("hue_scene_cycle.scenes must include at least one named scene")
-    press_types = [
-        "remote_button_short_press",
-        "remote_button_double_press",
-        "remote_button_triple_press",
-        "remote_button_quadruple_press",
-        "remote_button_quintuple_press",
-    ]
-    trigger_ids = []
-    actions = []
-    for idx, scene in enumerate(scenes[: len(press_types)]):
+    scene_map: Dict[str, Dict[str, Any]] = {}
+    for scene in scenes:
         scene_name = str(scene["name"]).strip()
-        light_data = {
+        if not scene_name:
+            continue
+        light_data: Dict[str, Any] = {
             "brightness_pct": int(scene.get("brightness_pct", 70)),
             "transition": 0.7,
         }
@@ -1232,42 +1226,100 @@ def cmd_sync_hue_scenes() -> None:
             light_data["rgb_color"] = scene.get("rgb_color")
         elif "color_temp_kelvin" in scene and scene.get("color_temp_kelvin") is not None:
             light_data["color_temp_kelvin"] = int(scene.get("color_temp_kelvin", 3000))
+        scene_map[scene_name.lower()] = light_data
 
-        trigger_id = f"scene_{slugify_name(scene_name)}"
-        trigger_ids.append(
-            {
-                "trigger": "device",
-                "domain": "zha",
-                "device_id": remote_device["id"],
-                "type": press_types[idx],
-                "subtype": trigger_subtype,
-                "id": trigger_id,
-            }
-        )
-        actions.append(
-            {
-                "conditions": [{"condition": "trigger", "id": trigger_id}],
-                "sequence": [
-                    {
-                        "action": "light.turn_on",
-                        "target": {"entity_id": light_entity},
-                        "data": light_data,
-                    }
-                ],
-            }
-        )
+    relax = scene_map.get("relax", {"brightness_pct": 45, "color_temp_kelvin": 2200, "transition": 0.7})
+    read = scene_map.get("read", {"brightness_pct": 80, "color_temp_kelvin": 2900, "transition": 0.7})
+    concentrate = scene_map.get("concentrate", {"brightness_pct": 90, "color_temp_kelvin": 4300, "transition": 0.7})
+    energize = scene_map.get("energize", {"brightness_pct": 100, "color_temp_kelvin": 6500, "transition": 0.7})
+    nightlight = scene_map.get("nightlight", {"brightness_pct": 15, "rgb_color": [255, 140, 80], "transition": 0.7})
 
     automation_id = automation_entity.split(".", 1)[1]
     automation_payload = {
         "alias": "Living Room Hue Scene Cycle",
         "description": (
-            "Hue-like popular scene shortcuts on remote. "
-            "Short/double/triple/quad/quintuple press map to configured scenes."
+            "Cycle popular Hue-like scenes on Hue button short release."
         ),
         "mode": "single",
-        "triggers": trigger_ids,
+        "triggers": [
+            {
+                "trigger": "event",
+                "event_type": "zha_event",
+                "event_data": {
+                    "device_ieee": remote_identifier.lower(),
+                    "command": "off_short_release",
+                },
+            }
+        ],
         "conditions": [],
-        "actions": [{"choose": actions}],
+        "actions": [
+            {
+                "choose": [
+                    {
+                        "conditions": [{"condition": "state", "entity_id": light_entity, "state": "off"}],
+                        "sequence": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": relax}],
+                    },
+                    {
+                        "conditions": [
+                            {
+                                "condition": "template",
+                                "value_template": (
+                                    "{{ is_state('"
+                                    + light_entity
+                                    + "', 'on') and (state_attr('"
+                                    + light_entity
+                                    + "', 'color_temp_kelvin') | int(0)) <= 2400 }}"
+                                ),
+                            }
+                        ],
+                        "sequence": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": read}],
+                    },
+                    {
+                        "conditions": [
+                            {
+                                "condition": "template",
+                                "value_template": (
+                                    "{{ is_state('"
+                                    + light_entity
+                                    + "', 'on') and (state_attr('"
+                                    + light_entity
+                                    + "', 'color_temp_kelvin') | int(0)) > 2400 and (state_attr('"
+                                    + light_entity
+                                    + "', 'color_temp_kelvin') | int(0)) <= 3400 }}"
+                                ),
+                            }
+                        ],
+                        "sequence": [
+                            {"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": concentrate}
+                        ],
+                    },
+                    {
+                        "conditions": [
+                            {
+                                "condition": "template",
+                                "value_template": (
+                                    "{{ is_state('"
+                                    + light_entity
+                                    + "', 'on') and (state_attr('"
+                                    + light_entity
+                                    + "', 'color_temp_kelvin') | int(0)) > 3400 and (state_attr('"
+                                    + light_entity
+                                    + "', 'color_temp_kelvin') | int(0)) <= 5200 }}"
+                                ),
+                            }
+                        ],
+                        "sequence": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": energize}],
+                    },
+                    {
+                        "conditions": [{"condition": "template", "value_template": "{{ is_state('" + light_entity + "', 'on') }}"}],
+                        "sequence": [
+                            {"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": nightlight}
+                        ],
+                    },
+                ],
+                "default": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": relax}],
+            }
+        ],
     }
     resp = requests.post(
         f"{base}/api/config/automation/config/{automation_id}",
