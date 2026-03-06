@@ -914,6 +914,27 @@ home_assistant:
     - name: KH100 Hub
       host: 10.20.30.55
       mac: 9c:53:22:14:a4:01
+  hue_scene_cycle:
+    remote_identifier: 00:17:88:01:0e:d2:f0:c5
+    trigger_subtype: turn_on
+    light_entity: light.living_room_hue_bulb
+    automation_entity: automation.living_room_hue_scene_cycle
+    scenes:
+    - name: Relax
+      brightness_pct: 45
+      color_temp_kelvin: 2200
+    - name: Read
+      brightness_pct: 80
+      color_temp_kelvin: 2900
+    - name: Concentrate
+      brightness_pct: 90
+      color_temp_kelvin: 4300
+    - name: Energize
+      brightness_pct: 100
+      color_temp_kelvin: 6500
+    - name: Nightlight
+      brightness_pct: 10
+      color_temp_kelvin: 2200
   heating_dashboard:
     title: Heating
     dashboard_url_path: heating-overview

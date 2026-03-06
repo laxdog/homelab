@@ -1173,6 +1173,109 @@ def cmd_sync_heating_control() -> None:
     reload_response.raise_for_status()
     print("Reloaded automations")
 
+
+def cmd_sync_hue_scenes() -> None:
+    cfg, base, token = ha_auth_from_config()
+    hue_cfg = cfg.get("home_assistant", {}).get("hue_scene_cycle", {})
+    if not hue_cfg:
+        print("No home_assistant.hue_scene_cycle configured; nothing to do.")
+        return
+
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+    remote_identifier = str(hue_cfg.get("remote_identifier", "")).upper()
+    light_entity = str(hue_cfg.get("light_entity", "")).strip()
+    automation_entity = str(hue_cfg.get("automation_entity", "automation.living_room_hue_scene_cycle")).strip()
+    trigger_subtype = str(hue_cfg.get("trigger_subtype", "turn_on")).strip()
+    scenes = hue_cfg.get("scenes", [])
+
+    if not remote_identifier or not light_entity or not scenes:
+        raise RuntimeError("hue_scene_cycle config missing required fields")
+
+    devices = ws_call(base, token, "config/device_registry/list")
+    remote_device = next(
+        (
+            d
+            for d in devices
+            if any(
+                pair
+                and len(pair) == 2
+                and pair[0] == "zha"
+                and str(pair[1]).upper() == remote_identifier
+                for pair in d.get("identifiers", [])
+            )
+        ),
+        None,
+    )
+    if not remote_device:
+        raise RuntimeError(f"Could not find ZHA remote with IEEE {remote_identifier}")
+
+    scene_names = [str(scene["name"]).strip() for scene in scenes if str(scene.get("name", "")).strip()]
+    if not scene_names:
+        raise RuntimeError("hue_scene_cycle.scenes must include at least one named scene")
+    press_types = [
+        "remote_button_short_press",
+        "remote_button_double_press",
+        "remote_button_triple_press",
+        "remote_button_quadruple_press",
+        "remote_button_quintuple_press",
+    ]
+    trigger_ids = []
+    actions = []
+    for idx, scene in enumerate(scenes[: len(press_types)]):
+        scene_name = str(scene["name"]).strip()
+        trigger_id = f"scene_{slugify_name(scene_name)}"
+        trigger_ids.append(
+            {
+                "trigger": "device",
+                "domain": "zha",
+                "device_id": remote_device["id"],
+                "type": press_types[idx],
+                "subtype": trigger_subtype,
+                "id": trigger_id,
+            }
+        )
+        actions.append(
+            {
+                "conditions": [{"condition": "trigger", "id": trigger_id}],
+                "sequence": [
+                    {
+                        "action": "light.turn_on",
+                        "target": {"entity_id": light_entity},
+                        "data": {
+                            "brightness_pct": int(scene.get("brightness_pct", 70)),
+                            "color_temp_kelvin": int(scene.get("color_temp_kelvin", 3000)),
+                            "transition": 0.7,
+                        },
+                    }
+                ],
+            }
+        )
+
+    automation_id = automation_entity.split(".", 1)[1]
+    automation_payload = {
+        "alias": "Living Room Hue Scene Cycle",
+        "description": (
+            "Hue-like popular scene shortcuts on remote. "
+            "Short/double/triple/quad/quintuple press map to configured scenes."
+        ),
+        "mode": "single",
+        "triggers": trigger_ids,
+        "conditions": [],
+        "actions": [{"choose": actions}],
+    }
+    resp = requests.post(
+        f"{base}/api/config/automation/config/{automation_id}",
+        headers=headers,
+        json=automation_payload,
+        timeout=20,
+    )
+    resp.raise_for_status()
+    print(f"Synced {automation_entity}")
+
+    requests.post(f"{base}/api/services/automation/reload", headers=headers, json={}, timeout=20).raise_for_status()
+    print("Reloaded automations")
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Home Assistant helper")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1181,6 +1284,7 @@ def main() -> None:
     sub.add_parser("add-tplink")
     sub.add_parser("sync-heating-dashboard")
     sub.add_parser("sync-heating-control")
+    sub.add_parser("sync-hue-scenes")
     sub.add_parser("summary")
     args = parser.parse_args()
 
@@ -1194,6 +1298,8 @@ def main() -> None:
         cmd_sync_heating_dashboard()
     elif args.command == "sync-heating-control":
         cmd_sync_heating_control()
+    elif args.command == "sync-hue-scenes":
+        cmd_sync_hue_scenes()
     elif args.command == "summary":
         cmd_summary()
 
