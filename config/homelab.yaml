@@ -916,8 +916,8 @@ home_assistant:
       mac: 9c:53:22:14:a4:01
   hue_scene_cycle:
     remote_identifier: 00:17:88:01:0e:d2:f0:c5
-    trigger_subtype: turn_on
-    light_entity: light.living_room_hue_bulb
+    trigger_subtype: turn_off
+    light_entity: light.philips_lct015
     automation_entity: automation.living_room_hue_scene_cycle
     scenes:
     - name: Relax
@@ -933,8 +933,11 @@ home_assistant:
       brightness_pct: 100
       color_temp_kelvin: 6500
     - name: Nightlight
-      brightness_pct: 10
-      color_temp_kelvin: 2200
+      brightness_pct: 15
+      rgb_color:
+      - 255
+      - 140
+      - 80
   heating_dashboard:
     title: Heating
     dashboard_url_path: heating-overview

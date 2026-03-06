@@ -1224,6 +1224,15 @@ def cmd_sync_hue_scenes() -> None:
     actions = []
     for idx, scene in enumerate(scenes[: len(press_types)]):
         scene_name = str(scene["name"]).strip()
+        light_data = {
+            "brightness_pct": int(scene.get("brightness_pct", 70)),
+            "transition": 0.7,
+        }
+        if "rgb_color" in scene and scene.get("rgb_color") is not None:
+            light_data["rgb_color"] = scene.get("rgb_color")
+        elif "color_temp_kelvin" in scene and scene.get("color_temp_kelvin") is not None:
+            light_data["color_temp_kelvin"] = int(scene.get("color_temp_kelvin", 3000))
+
         trigger_id = f"scene_{slugify_name(scene_name)}"
         trigger_ids.append(
             {
@@ -1242,11 +1251,7 @@ def cmd_sync_hue_scenes() -> None:
                     {
                         "action": "light.turn_on",
                         "target": {"entity_id": light_entity},
-                        "data": {
-                            "brightness_pct": int(scene.get("brightness_pct", 70)),
-                            "color_temp_kelvin": int(scene.get("color_temp_kelvin", 3000)),
-                            "transition": 0.7,
-                        },
+                        "data": light_data,
                     }
                 ],
             }
