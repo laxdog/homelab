@@ -852,6 +852,14 @@ home_assistant:
     identifier: E4B32329D38C
     name: Living Room Light
     area: Living Room
+  - integration: zha
+    identifier: 00:17:88:01:04:cf:41:c9
+    name: Living Room Hue Bulb
+    area: Living Room
+  - integration: zha
+    identifier: 00:17:88:01:0e:d2:f0:c5
+    name: Hue Dimmer Remote
+    area: Living Room
   - integration: shelly
     identifier: 78EE4CC4B590
     name: Gas Boiler
