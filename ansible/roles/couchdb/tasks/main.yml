@@ -40,3 +40,33 @@
   args:
     chdir: "{{ couchdb_compose_dir }}"
   changed_when: false
+
+- name: Configure CouchDB CORS settings for LiveSync
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.couchdb.port }}/_node/_local/_config/{{ item.section }}/{{ item.key }}"
+    method: PUT
+    user: "{{ config.couchdb.admin_user }}"
+    password: "{{ couchdb_admin_password }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: application/json
+    body_format: raw
+    body: "{{ item.value | to_json }}"
+    status_code: 200
+  loop:
+    - section: chttpd
+      key: enable_cors
+      value: "{{ (config.couchdb.cors.enabled | default(true)) | ternary('true', 'false') }}"
+    - section: cors
+      key: origins
+      value: "{{ config.couchdb.cors.origins | default('*') }}"
+    - section: cors
+      key: methods
+      value: "{{ config.couchdb.cors.methods | default('GET, PUT, POST, HEAD, DELETE, OPTIONS') }}"
+    - section: cors
+      key: headers
+      value: "{{ config.couchdb.cors.headers | default('Authorization, Content-Type, Origin, Accept, Referer') }}"
+    - section: cors
+      key: credentials
+      value: "{{ (config.couchdb.cors.credentials | default(true)) | ternary('true', 'false') }}"
+  no_log: true

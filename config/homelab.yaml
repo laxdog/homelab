@@ -615,6 +615,14 @@ npm:
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
+    advanced_config: |
+      if ($request_method = OPTIONS) {
+        return 204;
+      }
+      add_header Access-Control-Allow-Origin "$http_origin" always;
+      add_header Access-Control-Allow-Methods "GET, PUT, POST, HEAD, DELETE, OPTIONS" always;
+      add_header Access-Control-Allow-Headers "Authorization, Content-Type, Origin, Accept, Referer" always;
+      add_header Access-Control-Allow-Credentials "true" always;
   - name: Browser
     domain: browser.laxdog.uk
     forward_host: 10.20.30.162
@@ -765,6 +773,14 @@ npm:
     access_list: External Public
     ssl: true
     certificate: laxdog-external-le
+    advanced_config: |
+      if ($request_method = OPTIONS) {
+        return 204;
+      }
+      add_header Access-Control-Allow-Origin "$http_origin" always;
+      add_header Access-Control-Allow-Methods "GET, PUT, POST, HEAD, DELETE, OPTIONS" always;
+      add_header Access-Control-Allow-Headers "Authorization, Content-Type, Origin, Accept, Referer" always;
+      add_header Access-Control-Allow-Credentials "true" always;
   - name: Raffle Raptor Dev External
     domain: raffle-raptor-dev.lax.dog
     forward_host: 10.20.30.163
@@ -814,6 +830,12 @@ authentik:
 couchdb:
   admin_user: admin
   port: 5984
+  cors:
+    enabled: true
+    origins: app://obsidian.md,obsidian://*,capacitor://localhost,http://localhost,https://localhost
+    methods: GET, PUT, POST, HEAD, DELETE, OPTIONS
+    headers: Authorization, Content-Type, Origin, Accept, Referer
+    credentials: true
 freshrss:
   port: 80
 netalertx:
