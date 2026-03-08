@@ -496,7 +496,6 @@ npm:
   - organizr.lax.dog
   - heimdall.lax.dog
   - rss.lax.dog
-  - couchdb.lax.dog
   - browser.lax.dog
   access_lists:
   - name: Internal Access
@@ -549,6 +548,7 @@ npm:
     - jellyfin.lax.dog
     - netalertx.lax.dog
     - ha.lax.dog
+    - couchdb.lax.dog
     - raffle-raptor-dev.lax.dog
   proxy_hosts:
   - name: AdGuard Internal
@@ -758,6 +758,13 @@ npm:
     ssl: true
     certificate: laxdog-external-le
     authentik_protect: true
+  - name: CouchDB External
+    domain: couchdb.lax.dog
+    forward_host: 10.20.30.128
+    forward_port: 5984
+    access_list: External Public
+    ssl: true
+    certificate: laxdog-external-le
   - name: Raffle Raptor Dev External
     domain: raffle-raptor-dev.lax.dog
     forward_host: 10.20.30.163
@@ -1138,7 +1145,6 @@ cloudflare:
   - organizr.lax.dog
   - heimdall.lax.dog
   - rss.lax.dog
-  - couchdb.lax.dog
   - browser.lax.dog
   records:
   - type: A
@@ -1163,6 +1169,10 @@ cloudflare:
     proxied: true
   - type: A
     name: ha.lax.dog
+    content: public_ip
+    proxied: true
+  - type: A
+    name: couchdb.lax.dog
     content: public_ip
     proxied: true
   - type: A
@@ -1209,6 +1219,7 @@ validation:
   - proxmox.lax.dog
   - jellyfin.lax.dog
   - ha.lax.dog
+  - couchdb.lax.dog
   - raffle-raptor-dev.lax.dog
   http_expected_codes:
     apt.laxdog.uk:
@@ -1247,6 +1258,11 @@ validation:
     - 301
     - 302
     - 404
+    couchdb.lax.dog:
+    - 200
+    - 301
+    - 302
+    - 401
   service_ports:
   - name: adguard-http
     host: 10.20.30.53
