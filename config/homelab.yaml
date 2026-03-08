@@ -338,6 +338,7 @@ services:
       id: 163
       ip: 10.20.30.163
       disk_gb: 40
+      memory_mb: 4096
       tun_required: true
       roles:
       - docker
