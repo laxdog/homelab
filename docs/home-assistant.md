@@ -21,6 +21,9 @@ Source of truth:
 - HACS is not installed by automation on HAOS; treat it as a one-time manual
   bootstrap step. After HACS + Mushroom are installed, dashboard layout is
   managed from repo via `scripts/home_assistant.py sync-heating-dashboard`.
+  For current dashboard/graph setup also install:
+  - `ApexCharts Card` (HACS frontend)
+  - `mini-graph-card` (optional fallback)
 
 ## Access
 - Internal: `https://ha.laxdog.uk`
@@ -82,6 +85,11 @@ Source of truth:
     - `min_on_seconds` = minimum boiler runtime before off is allowed.
     - Effective off timing is the later of those two conditions.
   - This replaces the need for a separate Active Heating Manager add-on for this setup.
+- `python3 scripts/home_assistant.py sync-hue-scenes`
+  - Creates/updates a ZHA automation (`config.home_assistant.hue_scene_cycle.automation_entity`)
+    to cycle scenes from the Hue remote button.
+  - Reads remote IEEE + light target + scenes from `config.home_assistant.hue_scene_cycle`.
+  - Current trigger is short-release `off_short_release`.
 
 ## Scheduling
 - Schedule is code-defined in `config.home_assistant.heating_control.schedule_events`.
@@ -108,6 +116,14 @@ Source of truth:
   - `78EE4CC4B590` -> `Gas Boiler` in `Alleyway`
 - TP-Link hub target is defined in `config.home_assistant.tplink.hubs`:
   - `KH100 Hub` at `10.20.30.55` (`9c:53:22:14:a4:01`)
+- ZHA devices currently codified in `config.home_assistant.device_overrides` include:
+  - Living room Hue bulb
+  - Hue dimmer remote
+
+## Current operating notes
+- Keep TRV scheduling in repo via `config.home_assistant.heating_control.schedule_events`.
+- For ad-hoc overrides, prefer thermostat cards/group target sliders; avoid per-TRV vendor schedules.
+- Long-press dimming repeat behavior on the current Hue remote integration is limited; short-press dim steps are the stable path at present.
 
 ## Credential reference
 - Username: `config.home_assistant.admin_username` (currently `mrobinson`)

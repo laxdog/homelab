@@ -24,9 +24,15 @@ HAOS is appliance-style, so HACS installation is a one-time manual step.
 1. Complete HA onboarding (handled by repo on first run).
 2. Install HACS using the official guide: `https://www.hacs.xyz/docs/setup/download`
 3. In HACS, install `Mushroom` (Lovelace card).
-4. Restart Home Assistant.
-5. Re-apply dashboard config from repo:
+4. In HACS, install `ApexCharts Card` (primary TRV graph card).
+5. Optional: install `mini-graph-card` as fallback.
+6. Restart Home Assistant.
+7. Re-apply HA repo automation/config:
+   - `python3 scripts/home_assistant.py apply-core`
+   - `python3 scripts/home_assistant.py sync-devices`
+   - `python3 scripts/home_assistant.py sync-heating-control`
    - `python3 scripts/home_assistant.py sync-heating-dashboard`
+   - `python3 scripts/home_assistant.py sync-hue-scenes`
 
 ## HAOS note
 Home Assistant OS uses its own networking stack and does not consume cloud-init.

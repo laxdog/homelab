@@ -36,6 +36,7 @@ External (`lax.dog`):
 - `proxmox.lax.dog` -> Proxmox (native Proxmox login)
 - `netalertx.lax.dog` -> NetAlertX (Authentik forward-auth)
 - `ha.lax.dog` -> Home Assistant (Authentik forward-auth)
+- `couchdb.lax.dog` -> CouchDB
 - `raffle-raptor-dev.lax.dog` -> raffle-raptor-dev via NPM (`10.20.30.163:8081`)
 
 Internal (`laxdog.uk`):
@@ -66,6 +67,7 @@ Internal (`laxdog.uk`):
   Bootstrap is automated; see `docs/jellyfin.md`.
 - NFS server role is a placeholder pending storage attachment strategy.
 - Internal proxy hosts use HTTPS via Let's Encrypt (DNS-01) in NPM.
+- `couchdb.lax.dog` is externally reachable for Obsidian LiveSync clients (CORS enabled for the Obsidian origin set).
 - Authentik is active as IdP and forward-auth provider for selected admin endpoints.
 - Proxmox OIDC login has been disabled; use local Proxmox realms (`pam`/`pve`).
 - Home Assistant may return HTTP 400 behind NPM until `trusted_proxies` is configured in HAOS.
