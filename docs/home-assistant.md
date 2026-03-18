@@ -4,11 +4,32 @@ Source of truth:
 - `config/homelab.yaml` -> `services.vms.home-assistant`, `home_assistant`
 - `ansible/secrets.yml` -> `home_assistant_admin_password`
 
+## Repo vs Runtime Boundary
+- The repo is the source of truth for:
+  - HAOS VM provisioning/bootstrap
+  - HA core config applied by repo helpers
+  - device naming/areas from `device_overrides`
+  - generated heating automations/scripts/dashboard
+  - generated light routines, Hue scene cycling, and repo-managed remote bindings
+- The repo does not by itself guarantee the full live HA runtime state.
+- Runtime state may also include:
+  - manual HACS/frontend-card installs
+  - manually created helpers
+  - unmanaged or historical automations/scripts/scenes
+  - recorder/history/logbook data
+  - integration-local state and storage inside HAOS
+- After a rebuild or restore, re-running the repo helpers should be treated as reconciling repo-managed HA behavior back into the instance, not as proof that every live/runtime artifact is recreated.
+
 ## Bootstrap behavior
 - HAOS VM is provisioned by Terraform.
 - HAOS disk image is imported only when the target VM disk has no partition table
   (prevents destructive re-image on repeated applies).
 - During `scripts/run.py guests`, role `home-assistant-bootstrap` checks `/api/onboarding`.
+- The same role enforces reverse-proxy trust in HAOS `configuration.yaml` from
+  `config.home_assistant.http`:
+  - `use_x_forwarded_for`
+  - `trusted_proxies`
+  This prevents `400 Bad Request` behind NPM after rebuilds.
 - If onboarding is not complete, it creates the initial owner user via API.
 - The same role also completes onboarding steps from `config/homelab.yaml`:
   - `core_config` (location, coordinates, elevation, units, timezone, currency)
@@ -28,6 +49,39 @@ Source of truth:
 ## Access
 - Internal: `https://ha.laxdog.uk`
 - External: `https://ha.lax.dog` (behind NPM/Authentik policy)
+- Proxy trust source-of-truth: `config.home_assistant.http.trusted_proxies`
+  (defaults to the NPM LXC IP if omitted).
+
+## Backup And Recovery
+- What is evidenced in repo:
+  - HAOS bootstrap and onboarding are repo-driven.
+  - Reverse-proxy trust is repo-driven.
+  - Repo-managed HA behavior can be re-applied with the helper commands documented below.
+- What is not evidenced in repo:
+  - backup schedule creation
+  - backup retention policy
+  - off-box or off-site backup export/copy
+  - backup restore validation/drills
+- Runtime observation from the current audit:
+  - the HA `backup` integration is loaded
+  - backup-related entities exist in HA runtime, but the repo does not define their policy
+- Recovery model today:
+  - Best-case recovery is: restore an HA backup if one exists, then re-run the repo-managed HA sync/apply commands to reconcile repo-owned config.
+  - Repo-only recovery without an HA backup should be expected to restore:
+    - HAOS VM + onboarding/bootstrap
+    - HA core config applied by repo
+    - repo-managed devices naming/areas
+    - repo-managed automations/scripts/dashboards described in this document
+  - Repo-only recovery should not be assumed to restore:
+    - HACS itself or HACS-installed cards until manually reinstalled
+    - manually created helpers until recreated
+    - unmanaged runtime-only automations/scripts/scenes
+    - recorder/history/logbook data
+    - other HA runtime state not explicitly re-applied from repo
+- Restore procedure currently evidenced:
+  - If an HA backup exists, restore it through Home Assistant first.
+  - After HA is reachable again, re-run the repo-managed HA helper commands listed in `docs/rebuild.md`.
+  - If no HA backup exists, perform the HAOS/bootstrap flow from `docs/rebuild.md`, then re-apply the repo-managed HA helper commands and manually recreate any non-repo runtime state that is still required.
 
 ## Automation helpers
 - `python3 scripts/home_assistant.py apply-core`
@@ -68,33 +122,102 @@ Source of truth:
   - Creates/updates boiler control automations:
     - `automation.heating_boiler_on_demand`
     - `automation.heating_boiler_off_when_satisfied`
+    - `automation.heating_enforce_hard_off_window` (when `hard_off_windows` are configured)
   - Creates/updates schedule event automations from `config.home_assistant.heating_control.schedule_events`:
     - `automation.heating_event_*`
-  - Demand logic uses TRV `hvac_action == heating`, with fallback to
-    `(target - current) >= deadband_c`.
+  - Demand logic uses TRV `hvac_action == heating` only while a valve is still below target
+    (`hvac_action_max_above_target_c` tolerance), with fallback to `(target - current) >= deadband_c`.
   - Anti-cycling controls are configurable in `config.home_assistant.heating_control`:
-    `deadband_c`, `on_for`, `off_for`, `min_on_seconds`, `min_off_seconds`.
+    `deadband_c`, `hvac_action_max_above_target_c`, `on_for`, `off_for`, `min_on_seconds`,
+    `min_off_seconds`, `hard_off_windows`.
   - Current tuning:
     - `deadband_c: 0.5`
+    - `hvac_action_max_above_target_c: 0.0`
     - `on_for: 00:02:00`
     - `off_for: 00:03:00`
     - `min_on_seconds: 180`
     - `min_off_seconds: 300`
   - Semantics:
+    - Boiler on-demand uses both template edge detection and a `time_pattern` fallback reconciliation,
+      so missed demand edges after reloads recover automatically.
     - `off_for` = no-demand hold time before boiler off is allowed.
     - `min_on_seconds` = minimum boiler runtime before off is allowed.
     - Effective off timing is the later of those two conditions.
+    - `hard_off_windows` = forced-off windows that turn configured TRVs and the boiler back off
+      if device-side schedules or manual changes bring them on unexpectedly.
   - This replaces the need for a separate Active Heating Manager add-on for this setup.
+- `python3 scripts/home_assistant.py sync-light-routines`
+  - Creates/updates repo-managed light automations from `config.home_assistant.light_routines`.
+  - Supports both sunrise ramps and fixed on/off windows, including temporary date-bounded schedules.
+  - Current repo-managed light routine is a weekday `Bedroom Weekday Sunrise` that starts at `08:35:55`
+    and reaches full brightness at `08:45:55`.
+  - The bedroom sunrise currently uses an explicit RGB sunrise palette rather than a pure color-temperature ramp.
+  - Current temporary holiday lighting runs the living room and dining area lights from `18:30` until `00:00`
+    each night from Wednesday, March 11, 2026 through Monday, March 16, 2026.
 - `python3 scripts/home_assistant.py sync-hue-scenes`
   - Creates/updates a ZHA automation (`config.home_assistant.hue_scene_cycle.automation_entity`)
     to cycle scenes from the Hue remote button.
   - Reads remote IEEE + light target + scenes from `config.home_assistant.hue_scene_cycle`.
-  - Current trigger is short-release `off_short_release`.
+  - `trigger_subtype` is honored when generating the ZHA event trigger.
+  - Accepts direct ZHA event commands such as `off_short_release`, or shorthand values
+    `turn_off` / `turn_on` which map to `off_short_release` / `on_short_release`.
+- `python3 scripts/home_assistant.py sync-remote-light-controls`
+  - Creates/updates repo-managed ZHA remote automations from
+    `config.home_assistant.remote_light_controls`.
+  - Current bedroom remote behavior:
+    - middle/top short press both map to the same ZHA `on` event, so both toggle the bedroom Hue bulb
+      full warm / full off
+    - bottom short press sets the bedroom Hue bulb to 30% brightness
+    - long press up/down adjusts brightness in 10% steps
+    - left/right short press cycle scenes backward/forward
+- `python3 scripts/home_assistant.py sync-remote-heating-controls`
+  - Creates/updates repo-managed ZHA remote heating automations from
+    `config.home_assistant.remote_heating_controls`.
+  - Current living room `Heating` remote behavior:
+    - top short press runs `script.boost_downstairs`, which boosts `Front Window`,
+      `Dining Area`, and `Bathroom` to `23C` for 30 minutes, then restores their
+      previous modes/setpoints
+    - bottom short press runs `script.cancel_boost_downstairs`, which cancels the
+      boost and restores the saved pre-boost modes/setpoints immediately
+    - right short press runs `script.boost_bedroom`, which boosts `Bedroom` to `23C`
+      for 30 minutes, then restores its previous mode/setpoint
+    - left short press runs `script.cancel_boost_bedroom`, which cancels the bedroom
+      boost and restores the saved pre-boost mode/setpoint immediately
+    - re-pressing an already-running boost extends it by another 30 minutes and flashes the
+      living room Hue bulb red twice quickly
+    - if a boost runner is left in a stale `on` state while its targets are no longer actually
+      boosted, the next boost press restarts it cleanly instead of being treated as an extend
+    - when the boost ends or is cancelled, the living room Hue bulb flashes purple once and
+      then returns to its prior light/relay state
+    - this remote currently uses raw `zha_event` matching (`attribute_updated` on `on_off`)
+      instead of the higher-level ZHA device trigger, because that proved more reliable here
+- `python3 scripts/home_assistant.py sync-heating-alerts`
+  - Creates/updates repo-managed heating alert automations from
+    `config.home_assistant.heating_alerts`.
+  - Current heating alert behavior:
+    - when any managed TRV target reaches `23C`, the living room Shelly relay is turned on if needed,
+      the living room Hue bulb flashes red once, and the prior relay/light state is restored afterward
+    - when the boiler actually transitions from `on` to `off`, the living room Hue bulb flashes
+      blue once and the prior relay/light state is restored afterward
 
 ## Scheduling
 - Schedule is code-defined in `config.home_assistant.heating_control.schedule_events`.
 - Each event declares `time`, `weekdays`, `action` (`set_temp` or `"off"`), and `targets`.
 - Targets can be explicit climate entities or group names: `house`, `upstairs`, `downstairs`.
+- Current repo schedule is intentionally minimal: weekday morning warmup/off and weekend morning on/off.
+- Current weekday warmup begins at `06:50` for `Bedroom`, `Bathroom`, `Dining Area`, and `Front Window`.
+- Overnight protection is code-defined in `config.home_assistant.heating_control.hard_off_windows`.
+- Active repo-managed boosts (`script.boost_downstairs`, `script.boost_bedroom`) now override the
+  scheduled `off` events and hard-off windows for their own target TRVs until the boost ends or is cancelled.
+- Manual `script.heating_all_off` and `script.heating_lockout_enable` remain authoritative and still
+  cut heating immediately.
+- Bedroom sunrise lighting is code-defined in `config.home_assistant.light_routines`.
+- Bedroom remote-to-light controls are code-defined in `config.home_assistant.remote_light_controls`.
+- Remote-triggered heating boosts are code-defined in `config.home_assistant.remote_heating_controls`.
+- Reusable downstairs boost scripts are `script.boost_downstairs` and `script.cancel_boost_downstairs`.
+- Reusable bedroom boost scripts are `script.boost_bedroom` and `script.cancel_boost_bedroom`.
+- Heating visual alerts are code-defined in `config.home_assistant.heating_alerts`.
+- Temporary holiday lighting windows are also code-defined in `config.home_assistant.light_routines`.
 - For ad-hoc changes outside schedule, use:
   - per-room thermostat cards
   - group target sliders + apply buttons on the Heating page
@@ -118,11 +241,15 @@ Source of truth:
   - `KH100 Hub` at `10.20.30.55` (`9c:53:22:14:a4:01`)
 - ZHA devices currently codified in `config.home_assistant.device_overrides` include:
   - Living room Hue bulb
+  - Bedroom Hue bulb
   - Hue dimmer remote
 
 ## Current operating notes
 - Keep TRV scheduling in repo via `config.home_assistant.heating_control.schedule_events`.
+- Keep overnight/off-window protection in repo via `config.home_assistant.heating_control.hard_off_windows`.
 - For ad-hoc overrides, prefer thermostat cards/group target sliders; avoid per-TRV vendor schedules.
+- For HA changes with a reachable live path, test them directly in HA before closing the work.
+  Do not rely on the user to discover regressions.
 - Long-press dimming repeat behavior on the current Hue remote integration is limited; short-press dim steps are the stable path at present.
 
 ## Credential reference
