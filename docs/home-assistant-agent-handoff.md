@@ -75,18 +75,18 @@
 
 ## Runtime Drift Baseline (2026-03-18)
 - Runtime-only entities were observed in live HA during the current audit.
+- Removed in the conservative cleanup slice:
+  - `automation.zigbee_living_room_remote_toggle_living_room_light_test`
+  - `automation.living_room_styrbar_*`
+  - `automation.ad_hoc_laundry_power_cutoff_until_2026_03_12_11_00_2`
+  - `automation.bedroom_weekday_sunrise_2`
 - Current classification:
   - leave alone for now, but document as unmanaged history:
     - `automation.ad_hoc_*`
     - `automation.office_heat_boost_until_2026_03_09_16_05_utc`
   - likely intentional but unmanaged, and still active enough to need confirmation:
     - `automation.dining_room_remote_*`
-  - likely stale; remove later:
-    - `automation.bedroom_weekday_sunrise_2`
-    - `automation.living_room_styrbar_*`
-    - `automation.ad_hoc_laundry_power_cutoff_until_2026_03_12_11_00_2`
-  - definitely unmanaged test/manual helpers; remove later:
-    - `automation.zigbee_living_room_remote_toggle_living_room_light_test`
+  - definitely unmanaged scripts left alone because they are still coupled to the active unmanaged dining-room remote family:
     - `script.dining_room_remote_boundary_flash`
     - `script.dining_room_remote_hold_brightness_down`
     - `script.dining_room_remote_hold_brightness_up`
@@ -99,6 +99,7 @@
     - `scene.living_room_heating_boost_indicator_snapshot`
 - Working rule:
   - do not delete runtime-only entities until they are either absorbed into repo-managed behavior or confirmed to be stale and unused.
+  - `docs/rebuild.md` still needs separate alignment later once unrelated worktree edits are out of the way.
 
 ## Current Implemented Features
 - Boiler/TRV orchestration via generated HA scripts + automations.
