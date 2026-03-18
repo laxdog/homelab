@@ -53,37 +53,106 @@ Source of truth:
   (defaults to the NPM LXC IP if omitted).
 
 ## Backup And Recovery
-- What is evidenced in repo:
-  - HAOS bootstrap and onboarding are repo-driven.
-  - Reverse-proxy trust is repo-driven.
-  - Repo-managed boost timers and restore-state helpers are written into HAOS `configuration.yaml`
-    from `config.home_assistant.remote_heating_controls` during `scripts/run.py guests`.
-  - Repo-managed HA behavior can be re-applied with the helper commands documented below.
-- What is not evidenced in repo:
-  - backup schedule creation
+### What The Repo Gives You
+- Repo-evidenced:
+  - HAOS VM provisioning/bootstrap
+  - onboarding user + core onboarding config
+  - reverse-proxy trust in HAOS `configuration.yaml`
+  - Shelly config-entry bootstrap
+  - repo-managed timers / helpers for heating boosts
+  - repo-managed device naming/areas
+  - repo-managed automations/scripts/dashboards/light routines/remote bindings from `scripts/home_assistant.py`
+- Practical meaning:
+  - the repo can rebuild and reconcile the Home Assistant platform and the repo-owned HA behavior
+  - the repo is not, by itself, a full-fidelity backup of all HA runtime state
+
+### What The Repo Does Not Give You By Itself
+- Not evidenced in repo:
+  - native HA backup schedule configuration
   - backup retention policy
   - off-box or off-site backup export/copy
-  - backup restore validation/drills
-- Runtime observation from the current audit:
-  - the HA `backup` integration is loaded
-  - backup-related entities exist in HA runtime, but the repo does not define their policy
-- Recovery model today:
-  - Best-case recovery is: restore an HA backup if one exists, then re-run the repo-managed HA sync/apply commands to reconcile repo-owned config.
-  - Repo-only recovery without an HA backup should be expected to restore:
-    - HAOS VM + onboarding/bootstrap
-    - HA core config applied by repo
-    - repo-managed devices naming/areas
-    - repo-managed automations/scripts/dashboards described in this document
-  - Repo-only recovery should not be assumed to restore:
-    - HACS itself or HACS-installed cards until manually reinstalled
-    - manually created helpers until recreated
-    - unmanaged runtime-only automations/scripts/scenes
-    - recorder/history/logbook data
-    - other HA runtime state not explicitly re-applied from repo
-- Restore procedure currently evidenced:
-  - If an HA backup exists, restore it through Home Assistant first.
-  - After HA is reachable again, re-run the repo-managed HA helper commands listed in `docs/rebuild.md`.
-  - If no HA backup exists, perform the HAOS/bootstrap flow from `docs/rebuild.md`, then re-apply the repo-managed HA helper commands and manually recreate any non-repo runtime state that is still required.
+  - restore drill / restore validation history
+- Repo-only rebuild should not be assumed to restore:
+  - HACS itself or HACS-installed frontend cards until reinstalled
+  - manually created helpers beyond what the repo explicitly writes
+  - unmanaged runtime-only automations/scripts/scenes
+  - integration-local runtime state stored only inside HA
+  - recorder/history/logbook data
+
+### Current Backup Evidence
+- Backup creation capability:
+  - runtime-evidenced
+  - evidence:
+    - HA `backup` integration is loaded
+    - HA service domain `backup` exists with `create_automatic`
+- Backup schedule:
+  - not established from runtime checks
+  - evidence:
+    - `sensor.backup_next_scheduled_automatic_backup` exists but is currently `unknown`
+- Backup retention:
+  - not evidenced in repo
+  - not established from runtime checks
+- Off-box / off-site copies:
+  - not evidenced in repo
+  - not established from runtime checks
+- Backup success / last run metadata:
+  - runtime-evidenced only in a limited sense
+  - evidence:
+    - `sensor.backup_last_successful_automatic_backup` exists but is currently `unknown`
+    - `sensor.backup_last_attempted_automatic_backup` exists but is currently `unknown`
+    - `event.backup_automatic_backup` exists but is currently `unknown`
+- Restore procedure:
+  - partially repo-evidenced
+  - evidence:
+    - `docs/rebuild.md` documents HAOS bootstrap and repo re-apply steps
+  - not evidenced:
+    - a documented native HA backup restore walkthrough
+    - restore validation / drill records
+
+### Repo-Managed vs Runtime-Managed Recovery Boundary
+- Repo-managed recovery:
+  - `scripts/run.py guests` and the HA bootstrap role recover the HAOS-side platform wiring that the repo owns
+  - `scripts/home_assistant.py` commands recover the repo-managed HA behavior layer
+- Runtime-managed recovery:
+  - anything only present in HA runtime storage, UI state, or native backups still depends on HA itself or manual recreation
+- Practical boundary:
+  - restoring an HA backup, if one exists, should be treated as restoring HA runtime state first
+  - rerunning repo helpers after that should be treated as reconciling repo-owned intent back onto the instance
+
+### Practical Recovery Sequence
+- If a usable native HA backup exists:
+  1. Restore the HA backup through Home Assistant / HAOS.
+  2. Confirm HA is reachable again.
+  3. Re-run the repo-managed HA reconciliation path:
+     - `python3 scripts/run.py guests`
+     - `python3 scripts/home_assistant.py apply-core`
+     - `python3 scripts/home_assistant.py sync-devices`
+     - `python3 scripts/home_assistant.py sync-heating-control`
+     - `python3 scripts/home_assistant.py sync-light-routines`
+     - `python3 scripts/home_assistant.py sync-remote-light-controls`
+     - `python3 scripts/home_assistant.py sync-remote-heating-controls`
+     - `python3 scripts/home_assistant.py sync-heating-alerts`
+     - `python3 scripts/home_assistant.py sync-heating-dashboard`
+     - `python3 scripts/home_assistant.py sync-hue-scenes`
+  4. Manually confirm HACS/frontend-card availability if dashboards depend on them.
+- If no usable native HA backup exists:
+  1. Follow the HAOS/bootstrap path in `docs/rebuild.md`.
+  2. Reinstall HACS + required frontend cards manually.
+  3. Run the same repo-managed HA reconciliation commands listed above.
+  4. Manually recreate anything still needed that is not repo-managed.
+
+### Current Gaps / Risks
+- Unknowns:
+  - whether automatic backups are actually scheduled and working
+  - how many backups are retained
+  - whether backups are copied anywhere off-box/off-site
+  - whether restore has been tested end-to-end
+- Operational risk:
+  - current recovery confidence is good for repo-managed HA behavior, but not strong for full HA runtime recovery
+- Follow-up verification candidates:
+  - confirm whether HA automatic backups are intentionally enabled
+  - record retention/copy/export policy if one exists
+  - perform or document a restore drill
 
 ## Runtime Drift Snapshot (2026-03-18)
 - Runtime-only entities observed during the current audit should be treated as one of:
