@@ -46,17 +46,32 @@
   - `python3 scripts/home_assistant.py summary`
 
 ## Backup / Recovery Status
-- Evidenced in repo:
+- Repo-evidenced:
   - HAOS bootstrap/onboarding path
+  - reverse-proxy trust enforcement
   - repo-managed HA reconciliation commands
-- Not evidenced in repo:
-  - backup schedule policy
+  - repo-managed boost timers/helpers written into HAOS `configuration.yaml`
+- Runtime-evidenced:
+  - HA `backup` integration is loaded
+  - HA exposes backup service `backup.create_automatic`
+  - backup entities exist:
+    - `event.backup_automatic_backup`
+    - `sensor.backup_next_scheduled_automatic_backup`
+    - `sensor.backup_last_successful_automatic_backup`
+    - `sensor.backup_last_attempted_automatic_backup`
+- Not established from runtime checks:
+  - whether automatic backup scheduling is actually configured and working
   - backup retention
-  - off-box/off-site copy/export
-  - restore drill/validation
-- Current operating assumption:
+  - off-box/off-site export/copy
+  - successful restore history
+- Current entity state observed during the audit:
+  - all of the backup status sensors/events above were `unknown`
+- Practical recovery rule:
   - if a native HA backup exists, restore it first, then rerun repo-managed HA helper commands
   - if no native HA backup exists, rebuild HAOS/bootstrap from repo and expect only repo-managed HA behavior to be recoverable without additional manual work
+- Confidence boundary:
+  - repo-managed HA recovery confidence is decent
+  - full HA runtime recovery confidence is still limited by missing backup-policy and restore-drill evidence
 
 ## Runtime Drift Baseline (2026-03-18)
 - Runtime-only entities were observed in live HA during the current audit.
