@@ -159,30 +159,39 @@ Source of truth:
   - definitely unmanaged: no corresponding repo config or generator path exists
   - likely stale residue: looks like an old/generated duplicate or snapshot left behind by previous behavior
   - likely intentional but unmanaged: appears to be a real one-off/manual runtime automation, but not repo-driven
-  - uncertain: close enough to repo-managed behavior that it should not be deleted without confirming how HA currently references it
-- Current runtime-only entity families:
-  - likely intentional but unmanaged:
+  - current repo-managed alias: runtime entity ID differs from the repo `automation_entity`, but the underlying HA config ID matches repo intent
+- Current runtime-only entity families and recommendation:
+  - leave alone for now, but document as unmanaged history:
     - `automation.ad_hoc_heating_2026_03_11_18_00`
     - `automation.ad_hoc_heating_2026_03_11_21_30_dining_front_restore`
     - `automation.ad_hoc_laundry_power_cutoff_until_2026_03_12_11_00`
     - `automation.ad_hoc_shield_turn_off_2026_03_17_01_42`
     - `automation.office_heat_boost_until_2026_03_09_16_05_utc`
-  - likely stale residue:
+    - recommendation: document only; remove later if these one-off runtime automations are no longer needed for audit/history
+  - likely stale; remove later once you want cleanup:
     - `automation.ad_hoc_laundry_power_cutoff_until_2026_03_12_11_00_2`
     - `automation.bedroom_weekday_sunrise_2`
     - `automation.living_room_styrbar_*`
-    - `scene.heating_high_target_alert_snapshot`
-    - `scene.living_room_heating_boost_indicator_snapshot`
-  - definitely unmanaged:
+    - recommendation: remove later
+  - definitely unmanaged test/manual helpers; remove later:
     - `automation.zigbee_living_room_remote_toggle_living_room_light_test`
     - `script.dining_room_remote_boundary_flash`
     - `script.dining_room_remote_hold_brightness_down`
     - `script.dining_room_remote_hold_brightness_up`
-  - likely intentional but unmanaged, but still in active use until confirmed otherwise:
+    - recommendation: remove later unless you decide to absorb the dining-room remote behavior instead
+  - likely intentional but unmanaged, and still active enough to need confirmation:
     - `automation.dining_room_remote_*`
-  - uncertain:
-    - `automation.holiday_dining_area_evening`
+    - recommendation: needs confirmation, then either absorb into repo or deliberately leave unmanaged
+  - current repo-managed aliases, not drift:
     - `automation.holiday_living_room_evening`
+    - `automation.holiday_dining_area_evening`
+    - `automation.cancel_living_room_heating_boost`
+    - `automation.cancel_bedroom_heating_boost`
+    - recommendation: leave alone
+  - runtime-only families no longer present in the current snapshot:
+    - `scene.heating_high_target_alert_snapshot`
+    - `scene.living_room_heating_boost_indicator_snapshot`
+    - recommendation: no action needed unless they reappear
 - Operational stance:
   - do not delete runtime-only entities casually
   - confirm whether a runtime-only entity is still referenced by real behavior before removing it
