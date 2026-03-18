@@ -28,6 +28,15 @@
   roles:
     - docker-host
 
+- name: Configure Tailscale gateway
+  hosts: tailscale_router_hosts
+  become: true
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - tailscale-router
+
 - name: Configure Nginx Proxy Manager
   hosts: nginx_proxy_manager_hosts
   become: true

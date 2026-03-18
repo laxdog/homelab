@@ -155,6 +155,79 @@
         port: 22
         timeout: 5
 
+- name: Validate Tailscale gateway basics (pre-join safe)
+  hosts: tailscale_router_hosts
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  tasks:
+    - name: Check tailscaled service is active
+      ansible.builtin.command: systemctl is-active --quiet tailscaled
+      changed_when: false
+
+    - name: Check IPv4 forwarding sysctl
+      ansible.builtin.command: sysctl -n net.ipv4.ip_forward
+      register: tailscale_ipv4_forward
+      changed_when: false
+
+    - name: Assert IPv4 forwarding enabled
+      ansible.builtin.assert:
+        that:
+          - tailscale_ipv4_forward.stdout | trim == '1'
+        fail_msg: "net.ipv4.ip_forward must be 1 on tailscale gateway"
+
+    - name: Check IPv6 forwarding sysctl
+      ansible.builtin.command: sysctl -n net.ipv6.conf.all.forwarding
+      register: tailscale_ipv6_forward
+      changed_when: false
+
+    - name: Assert IPv6 forwarding enabled
+      ansible.builtin.assert:
+        that:
+          - tailscale_ipv6_forward.stdout | trim == '1'
+        fail_msg: "net.ipv6.conf.all.forwarding must be 1 on tailscale gateway"
+
+    - name: Read tailscale backend state
+      ansible.builtin.command: tailscale status --json
+      register: tailscale_status
+      changed_when: false
+      failed_when: false
+
+    - name: Assert tailscale is joined when explicitly required
+      ansible.builtin.assert:
+        that:
+          - tailscale_status.rc == 0
+          - (tailscale_status.stdout | from_json).BackendState == 'Running'
+        fail_msg: >-
+          tailscale gateway is not joined (rc={{ tailscale_status.rc }}, BackendState={{ (tailscale_status.stdout | default('{}') | from_json).BackendState | default('unknown') }}).
+          Complete manual tailscale login/approvals or disable validation.tailscale_require_joined.
+      when:
+        - config.validation.tailscale_require_joined | default(config.tailscale.require_joined | default(false)) | bool
+
+    - name: Parse tailscale status JSON
+      ansible.builtin.set_fact:
+        tailscale_status_obj: "{{ tailscale_status.stdout | from_json }}"
+      when: tailscale_status.rc == 0
+
+    - name: Assert advertised subnet route present when joined validation is required
+      ansible.builtin.assert:
+        that:
+          - item in (tailscale_status_obj.Self.PrimaryRoutes | default([]))
+        fail_msg: >-
+          tailscale gateway is running but expected advertised route {{ item }} is not present in PrimaryRoutes.
+      loop: "{{ config.tailscale.advertise_routes | default([]) }}"
+      when:
+        - config.validation.tailscale_require_joined | default(config.tailscale.require_joined | default(false)) | bool
+
+    - name: Assert exit-node capability present when configured
+      ansible.builtin.assert:
+        that:
+          - tailscale_status_obj.Self.ExitNodeOption | default(false) | bool
+        fail_msg: "tailscale gateway is running but exit-node capability is not advertised."
+      when:
+        - config.validation.tailscale_require_joined | default(config.tailscale.require_joined | default(false)) | bool
+        - config.tailscale.advertise_exit_node | default(false) | bool
+
 - name: Validate apt-cacher proxy configuration
   hosts: guests
   gather_facts: true

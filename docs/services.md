@@ -7,6 +7,7 @@ Source of truth: `config/homelab.yaml`.
 - nfs-server
 - home-assistant (HAOS)
 - nagios
+- tailscale-gateway (Tailscale subnet router + exit node)
 
 ## LXCs
 - adguard
@@ -70,8 +71,13 @@ Internal (`laxdog.uk`):
 - `couchdb.lax.dog` is externally reachable for Obsidian LiveSync clients (CORS enabled for the Obsidian origin set).
 - Authentik is active as IdP and forward-auth provider for selected admin endpoints.
 - Proxmox OIDC login has been disabled; use local Proxmox realms (`pam`/`pve`).
-- Home Assistant may return HTTP 400 behind NPM until `trusted_proxies` is configured in HAOS.
+- Home Assistant reverse-proxy trust (`use_x_forwarded_for` + `trusted_proxies`) is repo-managed from `config.home_assistant.http`.
 - Home Assistant owner bootstrap is automated during onboarding with `config.home_assistant.*` and `home_assistant_admin_password`.
 - AdGuard config export/import workflow is documented in `docs/adguard.md`.
 - Proxmox tags/notes are managed by `scripts/proxmox_metadata.py` (see `docs/proxmox-metadata.md`).
 - `raffle-raptor-dev` is marked `tun_required` and receives `/dev/net/tun` passthrough from Proxmox for Gluetun-based networking.
+- `tailscale-gateway` is a dedicated VM used for remote LAN access via Tailscale:
+  - advertises subnet route `10.20.30.0/24`
+  - advertises exit-node capability for optional/on-demand client use
+  - does not force DNS override on clients in phase 1
+  - see `docs/tailscale.md` for manual join/approval/split-DNS steps

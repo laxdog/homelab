@@ -1,0 +1,77 @@
+---
+- name: Install prerequisites for Tailscale apt repository
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: Install Tailscale apt keyring
+  ansible.builtin.command: >-
+    curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/{{ ansible_distribution_release }}.noarmor.gpg
+    -o /usr/share/keyrings/tailscale-archive-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/tailscale-archive-keyring.gpg
+
+- name: Configure Tailscale apt repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/tailscale.list
+    mode: '0644'
+    content: |
+      deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu {{ ansible_distribution_release }} main
+
+- name: Install tailscale package
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+    update_cache: true
+
+- name: Ensure tailscaled service is enabled and running
+  ansible.builtin.service:
+    name: tailscaled
+    state: started
+    enabled: true
+
+- name: Enable IPv4 forwarding for Tailscale subnet routing
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    state: present
+    sysctl_set: true
+    reload: true
+
+- name: Enable IPv6 forwarding for Tailscale exit-node support
+  ansible.posix.sysctl:
+    name: net.ipv6.conf.all.forwarding
+    value: '1'
+    state: present
+    sysctl_set: true
+    reload: true
+
+- name: Install helper command for manual phase-1 tailscale up
+  ansible.builtin.copy:
+    dest: /usr/local/sbin/tailscale-phase1-up
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      tailscale up \
+        --advertise-routes={{ (config.tailscale.advertise_routes | default(['10.20.30.0/24'])) | join(',') }} \
+        {% if config.tailscale.advertise_exit_node | default(true) %}--advertise-exit-node \
+        {% endif %}--accept-dns={{ 'true' if (config.tailscale.accept_dns | default(false) | bool) else 'false' }}
+
+- name: Check Tailscale backend state (informational only in phase 1)
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_status_json
+  changed_when: false
+  failed_when: false
+
+- name: Show manual-login hint when node is not yet joined
+  ansible.builtin.debug:
+    msg: >-
+      tailscale-gateway is installed but not joined yet (state={{ (tailscale_status_json.stdout | default('{}') | from_json).BackendState | default('unknown') }}).
+      Run /usr/local/sbin/tailscale-phase1-up and complete the login + admin approvals.
+  when:
+    - tailscale_status_json.rc == 0
+    - ((tailscale_status_json.stdout | default('{}') | from_json).BackendState | default('')) != 'Running'

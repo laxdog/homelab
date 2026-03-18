@@ -27,6 +27,7 @@ Source of truth: `config/homelab.yaml`.
 - Guest SSH reachability and apt-cacher proxy config.
 - Proxmox VM/CT metadata drift check (`scripts/proxmox_metadata.py --check`).
 - Docker/compose presence on Docker guests.
+- Tailscale gateway service/sysctl readiness checks (pre-join safe).
 - AdGuard DNS behavior (known good + known bad + internal rewrites).
 - NPM proxy host/access list/cert/redirect behavior.
 - Cloudflare DNS records (present + removed records).
@@ -43,3 +44,4 @@ Source of truth: `config/homelab.yaml`.
 - `ansible/`: host + guest configuration
 - `scripts/`: orchestrator
 - `docs/`: runbooks
+  - includes `docs/tailscale.md` for phase-1 remote-access setup steps

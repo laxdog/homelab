@@ -31,6 +31,15 @@ Source of truth: `config/homelab.yaml`.
 - External: `lax.dog` (Cloudflare)
 - Internal: `laxdog.uk` (AdGuard rewrites -> NPM)
 
+## Remote Access (Phase 1)
+- Tailscale subnet router/exit node VM: `tailscale-gateway` (`10.20.30.171`).
+- Advertised subnet route: `10.20.30.0/24`.
+- Exit node is available for optional/on-demand client use.
+- DNS design for phase 1 is split DNS only:
+  - configure in Tailscale admin: `laxdog.uk` -> `10.20.30.53` (AdGuard).
+  - do not force all DNS through AdGuard in phase 1.
+- See `docs/tailscale.md` for operational steps.
+
 ## Legacy/temporary
 - Old servarr: 10.20.30.74
 - Old NAS: 10.20.30.151

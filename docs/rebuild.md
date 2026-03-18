@@ -18,6 +18,23 @@
 
 Any remaining manual steps should be documented here.
 
+## Tailscale phase-1 manual steps
+After `scripts/run.py apply`, complete these in order:
+
+1. SSH to the gateway VM:
+   - `ssh ubuntu@10.20.30.171`
+2. Join/login and advertise route+exit-node:
+   - `sudo /usr/local/sbin/tailscale-phase1-up`
+3. In Tailscale admin console, approve:
+   - subnet route `10.20.30.0/24`
+   - exit node advertisement
+4. In Tailscale admin DNS settings, configure split DNS:
+   - domain: `laxdog.uk`
+   - nameserver: `10.20.30.53`
+5. On each remote client (as needed):
+   - enable subnet route acceptance
+   - select the home exit node only when needed
+
 ## Home Assistant manual bootstrap (HAOS)
 HAOS is appliance-style, so HACS installation is a one-time manual step.
 
