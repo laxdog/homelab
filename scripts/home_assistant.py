@@ -2507,6 +2507,27 @@ def cmd_sync_remote_heating_controls() -> None:
                 ]
             )
 
+        all_targets_restored_template = (
+            "{{ "
+            + " and ".join(
+                [
+                    (
+                        "("
+                        f"(restore_state.get('{target}', {{}}).get('mode') == 'off' and states('{target}') == 'off')"
+                        " or "
+                        f"(restore_state.get('{target}', {{}}).get('mode') != 'off' and states('{target}') == restore_state.get('{target}', {{}}).get('mode'))"
+                        ") and ("
+                        f"(restore_state.get('{target}', {{}}).get('temperature') is none)"
+                        " or "
+                        f"(((state_attr('{target}', 'temperature') | float(0)) - (restore_state.get('{target}', {{}}).get('temperature') | float(0))) | abs < 0.01)"
+                        ")"
+                    )
+                    for target in targets
+                ]
+            )
+            + " }}"
+        )
+
         automation_id = automation_entity.split(".", 1)[1]
         if not script_entity or not cancel_script_entity:
             raise RuntimeError(f"Missing script entities for remote_heating_controls entry '{name}'")
@@ -2637,11 +2658,6 @@ def cmd_sync_remote_heating_controls() -> None:
                         }
                     ]
                 },
-                {
-                    "action": "input_text.set_value",
-                    "target": {"entity_id": restore_state_entity},
-                    "data": {"value": ""},
-                },
             ],
             "mode": "single",
         }
@@ -2674,6 +2690,7 @@ def cmd_sync_remote_heating_controls() -> None:
                 {"trigger": "event", "event_type": "timer.finished", "event_data": {"entity_id": timer_entity}},
                 {"trigger": "time_pattern", "minutes": "/1"},
                 {"trigger": "state", "entity_id": targets},
+                {"trigger": "state", "entity_id": restore_state_entity},
             ],
             "conditions": [],
             "actions": [
@@ -2682,6 +2699,7 @@ def cmd_sync_remote_heating_controls() -> None:
                         "boost_is_active": "{{ is_state('" + timer_entity + "', 'active') }}",
                         "has_restore_state": "{{ states('" + restore_state_entity + "') not in ['', 'unknown', 'unavailable'] }}",
                         "restore_state": "{{ (states('" + restore_state_entity + "') if states('" + restore_state_entity + "') not in ['', 'unknown', 'unavailable'] else '{}') | from_json }}",
+                        "all_targets_restored": all_targets_restored_template,
                     }
                 },
                 {
@@ -2691,7 +2709,12 @@ def cmd_sync_remote_heating_controls() -> None:
                             "sequence": ensure_boost_actions,
                         },
                         {
-                            "conditions": [{"condition": "template", "value_template": "{{ has_restore_state }}"}],
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ has_restore_state and not all_targets_restored }}",
+                                }
+                            ],
                             "sequence": [
                                 {
                                     "choose": [
@@ -2707,11 +2730,21 @@ def cmd_sync_remote_heating_controls() -> None:
                                     ]
                                 },
                                 *restore_sequence,
+                            ],
+                        },
+                        {
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ has_restore_state and all_targets_restored }}",
+                                }
+                            ],
+                            "sequence": [
                                 {
                                     "action": "input_text.set_value",
                                     "target": {"entity_id": restore_state_entity},
                                     "data": {"value": ""},
-                                },
+                                }
                             ],
                         },
                     ]
@@ -2779,6 +2812,17 @@ def cmd_sync_remote_heating_controls() -> None:
         )
         reconcile_automation_resp.raise_for_status()
         print(f"Synced automation.{reconcile_automation_id}")
+
+        legacy_runner_id = script_id + "_runner"
+        legacy_runner_resp = requests.delete(
+            f"{base}/api/config/script/config/{legacy_runner_id}",
+            headers=headers,
+            timeout=20,
+        )
+        if legacy_runner_resp.status_code not in (200, 400, 404):
+            legacy_runner_resp.raise_for_status()
+        if legacy_runner_resp.status_code == 200:
+            print(f"Removed legacy script.{legacy_runner_id}")
 
     requests.post(f"{base}/api/services/automation/reload", headers=headers, json={}, timeout=20).raise_for_status()
     requests.post(f"{base}/api/services/script/reload", headers=headers, json={}, timeout=20).raise_for_status()
