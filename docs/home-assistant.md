@@ -56,6 +56,8 @@ Source of truth:
 - What is evidenced in repo:
   - HAOS bootstrap and onboarding are repo-driven.
   - Reverse-proxy trust is repo-driven.
+  - Repo-managed boost timers and restore-state helpers are written into HAOS `configuration.yaml`
+    from `config.home_assistant.remote_heating_controls` during `scripts/run.py guests`.
   - Repo-managed HA behavior can be re-applied with the helper commands documented below.
 - What is not evidenced in repo:
   - backup schedule creation
@@ -210,6 +212,10 @@ Source of truth:
 - `python3 scripts/home_assistant.py sync-remote-heating-controls`
   - Creates/updates repo-managed ZHA remote heating automations from
     `config.home_assistant.remote_heating_controls`.
+  - Each remote heating control also relies on a repo-managed HA timer and restore-state helper:
+    - `timer.<script_entity object id>`
+    - `input_text.<script_entity object id>_restore_state`
+  - Those helpers are created from repo during `scripts/run.py guests`, not by the sync command itself.
   - Current living room `Heating` remote behavior:
     - top short press runs `script.boost_downstairs`, which boosts `Front Window`,
       `Dining Area`, and `Bathroom` to `23C` for 30 minutes, then restores their
@@ -220,10 +226,16 @@ Source of truth:
       for 30 minutes, then restores its previous mode/setpoint
     - left short press runs `script.cancel_boost_bedroom`, which cancels the bedroom
       boost and restores the saved pre-boost mode/setpoint immediately
+    - active boosts are now modeled as desired state plus a restore-enabled HA timer,
+      not as long-running runner scripts waiting in-flight
+    - while a boost timer is active, a reconciliation automation keeps the target TRVs
+      at their boost setpoint even after automation reloads or HA restart
+    - when HA starts and a boost timer is still active, the reconcile automation
+      re-applies the boost state from the timer/helper model
+    - when a boost timer has ended but the restore-state helper is still populated,
+      the reconcile automation restores the pre-boost TRV modes/setpoints and clears the helper
     - re-pressing an already-running boost extends it by another 30 minutes and flashes the
       living room Hue bulb red twice quickly
-    - if a boost runner is left in a stale `on` state while its targets are no longer actually
-      boosted, the next boost press restarts it cleanly instead of being treated as an extend
     - when the boost ends or is cancelled, the living room Hue bulb flashes purple once and
       then returns to its prior light/relay state
     - this remote currently uses raw `zha_event` matching (`attribute_updated` on `on_off`)
@@ -287,6 +299,9 @@ Source of truth:
 - For ad-hoc overrides, prefer thermostat cards/group target sliders; avoid per-TRV vendor schedules.
 - For HA changes with a reachable live path, test them directly in HA before closing the work.
   Do not rely on the user to discover regressions.
+- Repo-managed heating boosts now depend on HAOS `configuration.yaml` sections for `timer` and
+  `input_text`; if those helpers drift or disappear, re-run `scripts/run.py guests` before re-syncing
+  the HA automations/scripts.
 - Long-press dimming repeat behavior on the current Hue remote integration is limited; short-press dim steps are the stable path at present.
 
 ## Credential reference

@@ -98,8 +98,10 @@
   and the heating dashboard includes buttons for both.
 - Bedroom boost is also exposed as `script.boost_bedroom` and `script.cancel_boost_bedroom`,
   with right/left on the living room heating remote mapped to start/cancel.
-- The public boost scripts now recover stale runner state by restarting the runner if it is still
-  marked `on` but its targets are no longer actually at the boost setpoint.
+- Boosts are now backed by repo-managed HA timers and restore-state helpers created through
+  the HAOS bootstrap path, then reconciled by generated HA automations/scripts.
+- Restart/reload recovery for boosts now comes from the timer/helper desired-state model rather
+  than from long-running runner scripts surviving in-flight.
 - Active repo-managed boosts now override repo-managed scheduled `off` events and hard-off windows
   for the boosted TRVs. Manual `script.heating_all_off` and `script.heating_lockout_enable` still win.
 - Heating high-target visual alert from `home_assistant.heating_alerts`.
@@ -120,6 +122,9 @@
 
 ## Guardrails for Future Changes
 - Make changes in `config/homelab.yaml` first, then regenerate via script commands above.
+- If remote heating boost behavior changes, remember that `sync-remote-heating-controls` is only
+  half of the rollout; the HAOS-side timer/input_text helpers are created from repo during
+  `scripts/run.py guests`.
 - If the changed behavior can be exercised from this environment, test it directly in live HA before
   declaring success. Do not leave first discovery of regressions to the user.
 - Re-run `scripts/run.py validate` after HA changes.

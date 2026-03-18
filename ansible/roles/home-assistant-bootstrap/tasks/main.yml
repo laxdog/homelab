@@ -4,46 +4,280 @@
     port: 8123
     timeout: 120
 
+- name: Set Home Assistant proxy trust facts
+  ansible.builtin.set_fact:
+    haos_vmid: "{{ config.services.vms['home-assistant'].id }}"
+    ha_internal_domain: >-
+      {{
+        (
+          config.npm.proxy_hosts
+          | selectattr('name', 'equalto', 'Home Assistant')
+          | map(attribute='domain')
+          | first
+        ) | default('ha.laxdog.uk')
+      }}
+    ha_use_x_forwarded_for: "{{ config.home_assistant.http.use_x_forwarded_for | default(true) | bool }}"
+    ha_trusted_proxies: >-
+      {{
+        config.home_assistant.http.trusted_proxies
+        | default([config.services.lxcs['nginx-proxy-manager'].ip])
+      }}
+
+- name: Probe Home Assistant via reverse proxy
+  ansible.builtin.uri:
+    url: "https://{{ config.services.lxcs['nginx-proxy-manager'].ip }}/"
+    method: GET
+    headers:
+      Host: "{{ ha_internal_domain }}"
+    validate_certs: false
+    return_content: false
+    status_code:
+      - 200
+      - 302
+      - 401
+      - 403
+      - 400
+  register: ha_proxy_probe
+  changed_when: false
+  failed_when: false
+
+- name: Determine if Home Assistant trusted proxies need remediation
+  ansible.builtin.set_fact:
+    ha_proxy_trust_update_required: "{{ ha_proxy_probe.status | default(0) == 400 }}"
+
+- name: Ensure Home Assistant repo-managed configuration.yaml sections
+  ansible.builtin.shell: |
+    set -euo pipefail
+    vmid="{{ haos_vmid }}"
+    disk="/dev/pve/vm-${vmid}-disk-1"
+    loop_dev=""
+    mount_dir="/mnt/haos-data-ansible"
+
+    vm_state="$(qm status "$vmid" | awk '{print $2}')"
+    vm_was_running=0
+    if [[ "$vm_state" == "running" ]]; then
+      vm_was_running=1
+    fi
+
+    cleanup() {
+      if mountpoint -q "$mount_dir"; then
+        umount "$mount_dir" || true
+      fi
+      if [[ -n "$loop_dev" ]]; then
+        losetup -d "$loop_dev" >/dev/null 2>&1 || true
+      fi
+      if [[ "$vm_was_running" -eq 1 ]]; then
+        qm start "$vmid" >/dev/null 2>&1 || true
+      fi
+    }
+    trap cleanup EXIT
+
+    if [[ "$vm_was_running" -eq 1 ]]; then
+      qm shutdown "$vmid" --timeout 120
+      for _ in $(seq 1 60); do
+        if qm status "$vmid" | grep -q "stopped"; then
+          break
+        fi
+        sleep 2
+      done
+      if qm status "$vmid" | grep -q "running"; then
+        qm stop "$vmid"
+      fi
+    fi
+
+    loop_dev="$(losetup -Pf --show "$disk")"
+    udevadm settle
+    for _ in $(seq 1 20); do
+      if [[ -b "${loop_dev}p8" ]]; then
+        break
+      fi
+      sleep 1
+      udevadm settle
+    done
+
+    mkdir -p "$mount_dir"
+    mount "${loop_dev}p8" "$mount_dir"
+
+    HA_CFG="$mount_dir/supervisor/homeassistant/configuration.yaml" python3 - <<'PY'
+    import json
+    import os
+    from pathlib import Path
+
+    import yaml
+
+    class TaggedValue:
+      def __init__(self, tag, value):
+        self.tag = tag
+        self.value = value
+
+    class PreserveTagsLoader(yaml.SafeLoader):
+      pass
+
+    class PreserveTagsDumper(yaml.SafeDumper):
+      pass
+
+    def construct_preserving_tags(loader, node):
+      if isinstance(node, yaml.ScalarNode):
+        value = loader.construct_scalar(node)
+      elif isinstance(node, yaml.SequenceNode):
+        value = loader.construct_sequence(node)
+      else:
+        value = loader.construct_mapping(node)
+      return TaggedValue(node.tag, value)
+
+    def represent_tagged_value(dumper, data):
+      if isinstance(data.value, dict):
+        return dumper.represent_mapping(data.tag, data.value)
+      if isinstance(data.value, list):
+        return dumper.represent_sequence(data.tag, data.value)
+      return dumper.represent_scalar(data.tag, str(data.value))
+
+    PreserveTagsLoader.add_constructor(None, construct_preserving_tags)
+    PreserveTagsDumper.add_representer(TaggedValue, represent_tagged_value)
+
+    cfg_path = Path(os.environ["HA_CFG"])
+    use_xff = os.environ["HA_USE_XFF"].lower() == "true"
+    trusted_proxies = json.loads(os.environ["HA_TRUSTED_PROXIES_JSON"])
+    remote_heating_controls = json.loads(os.environ.get("HA_REMOTE_HEATING_CONTROLS_JSON", "[]"))
+
+    data = {}
+    if cfg_path.exists():
+      existing = yaml.load(cfg_path.read_text(encoding="utf-8"), Loader=PreserveTagsLoader)
+      if isinstance(existing, dict):
+        data = existing
+
+    http_cfg = data.get("http")
+    if not isinstance(http_cfg, dict):
+      http_cfg = {}
+
+    changed = False
+    if http_cfg.get("use_x_forwarded_for") != use_xff:
+      http_cfg["use_x_forwarded_for"] = use_xff
+      changed = True
+    if http_cfg.get("trusted_proxies") != trusted_proxies:
+      http_cfg["trusted_proxies"] = trusted_proxies
+      changed = True
+
+    data["http"] = http_cfg
+
+    timer_cfg = data.get("timer")
+    if not isinstance(timer_cfg, dict):
+      timer_cfg = {}
+
+    input_text_cfg = data.get("input_text")
+    if not isinstance(input_text_cfg, dict):
+      input_text_cfg = {}
+
+    for control in remote_heating_controls:
+      script_entity = str(control.get("script_entity", "")).strip()
+      if not script_entity.startswith("script."):
+        continue
+      script_id = script_entity.split(".", 1)[1]
+      timer_entity = str(control.get("timer_entity", "")).strip() or f"timer.{script_id}"
+      restore_entity = str(control.get("restore_state_entity", "")).strip() or f"input_text.{script_id}_restore_state"
+      if not timer_entity.startswith("timer.") or not restore_entity.startswith("input_text."):
+        continue
+
+      timer_id = timer_entity.split(".", 1)[1]
+      restore_id = restore_entity.split(".", 1)[1]
+      duration_minutes = int(control.get("duration_minutes", 30))
+
+      desired_timer = {
+        "name": f"{control.get('name', 'Heating Boost')} Timer",
+        "duration": f"00:{duration_minutes:02d}:00",
+        "restore": True,
+      }
+      desired_restore_input = {
+        "name": f"{control.get('name', 'Heating Boost')} Restore State",
+        "max": 255,
+      }
+
+      if timer_cfg.get(timer_id) != desired_timer:
+        timer_cfg[timer_id] = desired_timer
+        changed = True
+
+      if input_text_cfg.get(restore_id) != desired_restore_input:
+        input_text_cfg[restore_id] = desired_restore_input
+        changed = True
+
+    if timer_cfg:
+      data["timer"] = timer_cfg
+    if input_text_cfg:
+      data["input_text"] = input_text_cfg
+
+    if changed:
+      cfg_path.write_text(yaml.dump(data, Dumper=PreserveTagsDumper, sort_keys=False), encoding="utf-8")
+      print("CHANGED=1")
+    else:
+      print("CHANGED=0")
+    PY
+  args:
+    executable: /bin/bash
+  environment:
+    HA_USE_XFF: "{{ 'true' if ha_use_x_forwarded_for else 'false' }}"
+    HA_TRUSTED_PROXIES_JSON: "{{ ha_trusted_proxies | to_json }}"
+    HA_REMOTE_HEATING_CONTROLS_JSON: "{{ config.home_assistant.remote_heating_controls | default([]) | to_json }}"
+  register: ha_proxy_trust_update
+  changed_when: "'CHANGED=1' in ha_proxy_trust_update.stdout"
+  when: ha_proxy_trust_update_required or (config.home_assistant.remote_heating_controls | default([]) | length > 0)
+
+- name: Wait for Home Assistant API after configuration.yaml update
+  ansible.builtin.wait_for:
+    host: "{{ config.services.vms['home-assistant'].ip }}"
+    port: 8123
+    timeout: 180
+  when: ha_proxy_trust_update_required or (config.home_assistant.remote_heating_controls | default([]) | length > 0)
+
 - name: Read Home Assistant onboarding state
   ansible.builtin.uri:
     url: "http://{{ config.services.vms['home-assistant'].ip }}:8123/api/onboarding"
     method: GET
-    status_code: 200
+    status_code:
+      - 200
+      - 404
   register: ha_onboarding
 
 - name: Derive onboarding user status
   ansible.builtin.set_fact:
     ha_user_onboarding_done: >-
       {{
-        ha_onboarding.json
-        | selectattr('step', 'equalto', 'user')
-        | map(attribute='done')
-        | first
-        | default(true)
+        true if (ha_onboarding.status | int) == 404 else (
+          ha_onboarding.json
+          | selectattr('step', 'equalto', 'user')
+          | map(attribute='done')
+          | first
+          | default(true)
+        )
       }}
     ha_core_onboarding_done: >-
       {{
-        ha_onboarding.json
-        | selectattr('step', 'equalto', 'core_config')
-        | map(attribute='done')
-        | first
-        | default(true)
+        true if (ha_onboarding.status | int) == 404 else (
+          ha_onboarding.json
+          | selectattr('step', 'equalto', 'core_config')
+          | map(attribute='done')
+          | first
+          | default(true)
+        )
       }}
     ha_analytics_onboarding_done: >-
       {{
-        ha_onboarding.json
-        | selectattr('step', 'equalto', 'analytics')
-        | map(attribute='done')
-        | first
-        | default(true)
+        true if (ha_onboarding.status | int) == 404 else (
+          ha_onboarding.json
+          | selectattr('step', 'equalto', 'analytics')
+          | map(attribute='done')
+          | first
+          | default(true)
+        )
       }}
     ha_integration_onboarding_done: >-
       {{
-        ha_onboarding.json
-        | selectattr('step', 'equalto', 'integration')
-        | map(attribute='done')
-        | first
-        | default(true)
+        true if (ha_onboarding.status | int) == 404 else (
+          ha_onboarding.json
+          | selectattr('step', 'equalto', 'integration')
+          | map(attribute='done')
+          | first
+          | default(true)
+        )
       }}
 
 - name: Create Home Assistant owner user during onboarding

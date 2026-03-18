@@ -5,6 +5,7 @@ import re
 import subprocess
 import sys
 from collections import Counter
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -148,6 +149,26 @@ def shelly_entity_name(base_name: str, entity_id: str) -> str:
 def pretty_climate_name(entity_id: str) -> str:
     object_id = entity_id.split(".", 1)[1]
     return object_id.replace("_", " ").title()
+
+
+def boost_timer_entity(control: dict) -> str:
+    explicit = str(control.get("timer_entity", "")).strip()
+    if explicit:
+        return explicit
+    script_entity = str(control.get("script_entity", "")).strip()
+    if not script_entity.startswith("script."):
+        raise RuntimeError("remote_heating_controls entry is missing a usable script_entity for timer derivation")
+    return f"timer.{script_entity.split('.', 1)[1]}"
+
+
+def boost_restore_state_entity(control: dict) -> str:
+    explicit = str(control.get("restore_state_entity", "")).strip()
+    if explicit:
+        return explicit
+    script_entity = str(control.get("script_entity", "")).strip()
+    if not script_entity.startswith("script."):
+        raise RuntimeError("remote_heating_controls entry is missing a usable script_entity for restore-state derivation")
+    return f"input_text.{script_entity.split('.', 1)[1]}_restore_state"
 
 
 def cmd_apply_core() -> None:
@@ -416,6 +437,10 @@ def cmd_sync_heating_dashboard() -> None:
     house_set_script = "script.heating_set_house_temp"
     upstairs_set_script = "script.heating_set_upstairs_temp"
     downstairs_set_script = "script.heating_set_downstairs_temp"
+    downstairs_boost_script = "script.boost_downstairs"
+    downstairs_boost_cancel_script = "script.cancel_boost_downstairs"
+    bedroom_boost_script = "script.boost_bedroom"
+    bedroom_boost_cancel_script = "script.cancel_boost_bedroom"
     on_automation_entity = "automation.heating_boiler_on_demand"
 
     cards = []
@@ -523,6 +548,54 @@ def cmd_sync_heating_dashboard() -> None:
                         "display_mode": "slider",
                         "icon_color": "green",
                         "fill_container": False,
+                    },
+                    {
+                        "type": "custom:mushroom-template-card",
+                        "primary": "Boost Downstairs",
+                        "secondary": "Front Window, Dining Area, Bathroom to 23C",
+                        "icon": "mdi:fire",
+                        "icon_color": "red",
+                        "tap_action": {
+                            "action": "call-service",
+                            "service": "script.turn_on",
+                            "target": {"entity_id": downstairs_boost_script},
+                        },
+                    },
+                    {
+                        "type": "custom:mushroom-template-card",
+                        "primary": "Cancel Boost",
+                        "secondary": "Restore pre-boost setpoints",
+                        "icon": "mdi:fire-off",
+                        "icon_color": "deep-purple",
+                        "tap_action": {
+                            "action": "call-service",
+                            "service": "script.turn_on",
+                            "target": {"entity_id": downstairs_boost_cancel_script},
+                        },
+                    },
+                    {
+                        "type": "custom:mushroom-template-card",
+                        "primary": "Boost Bedroom",
+                        "secondary": "Bedroom to 23C",
+                        "icon": "mdi:bed",
+                        "icon_color": "red",
+                        "tap_action": {
+                            "action": "call-service",
+                            "service": "script.turn_on",
+                            "target": {"entity_id": bedroom_boost_script},
+                        },
+                    },
+                    {
+                        "type": "custom:mushroom-template-card",
+                        "primary": "Cancel Bedroom Boost",
+                        "secondary": "Restore bedroom pre-boost setpoint",
+                        "icon": "mdi:bed-empty",
+                        "icon_color": "deep-purple",
+                        "tap_action": {
+                            "action": "call-service",
+                            "service": "script.turn_on",
+                            "target": {"entity_id": bedroom_boost_cancel_script},
+                        },
                     },
                 ],
             }
@@ -727,7 +800,12 @@ def cmd_sync_heating_dashboard() -> None:
     print(f"{action} Heating dashboard at /{dashboard_url_path}/{view_path}")
 
 
-def build_heating_demand_template(climate_entities: list, deadband_c: float, invert: bool = False) -> str:
+def build_heating_demand_template(
+    climate_entities: list,
+    deadband_c: float,
+    hvac_action_max_above_target_c: float,
+    invert: bool = False,
+) -> str:
     lines = ["{% set climate_entities = ["]
     for entity_id in climate_entities:
         lines.append(f"  '{entity_id}',")
@@ -741,7 +819,12 @@ def build_heating_demand_template(climate_entities: list, deadband_c: float, inv
             "{% set current = state_attr(entity_id, 'current_temperature') %}",
             "{% set target = state_attr(entity_id, 'temperature') %}",
             "{% if mode in ['heat', 'auto'] and (",
-            f"      hvac_action == 'heating' or (current is number and target is number and (target - current) >= {deadband_c})",
+            (
+                "      (hvac_action == 'heating' and "
+                "(current is not number or target is not number or current < "
+                f"(target + {hvac_action_max_above_target_c})))"
+            ),
+            f"      or (current is number and target is number and (target - current) >= {deadband_c})",
             "   ) %}",
             "{% set ns.demand = true %}",
             "{% endif %}",
@@ -815,6 +898,31 @@ def slugify_name(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
 
 
+def normalize_hue_trigger_command(trigger_subtype: str) -> str:
+    normalized = trigger_subtype.strip().lower()
+    alias_map = {
+        "turn_off": "off_short_release",
+        "off": "off_short_release",
+        "turn_on": "on_short_release",
+        "on": "on_short_release",
+    }
+    return alias_map.get(normalized, normalized)
+
+
+def subtract_minutes(time_str: str, minutes: int) -> str:
+    return (datetime.strptime(time_str, "%H:%M:%S") - timedelta(minutes=minutes)).strftime("%H:%M:%S")
+
+
+def normalize_weekdays(weekdays: List[str], field_name: str) -> List[str]:
+    normalized: List[str] = []
+    for token in weekdays:
+        key = str(token).strip().lower()[:3]
+        if key not in {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}:
+            raise RuntimeError(f"Invalid weekday '{token}' in {field_name}")
+        normalized.append(key)
+    return normalized
+
+
 def cmd_sync_heating_control() -> None:
     cfg, base, token = ha_auth_from_config()
     dashboard_cfg = cfg.get("home_assistant", {}).get("heating_dashboard", {})
@@ -839,11 +947,14 @@ def cmd_sync_heating_control() -> None:
 
     control_cfg = cfg.get("home_assistant", {}).get("heating_control", {})
     deadband_c = float(control_cfg.get("deadband_c", 0.3))
+    hvac_action_max_above_target_c = float(control_cfg.get("hvac_action_max_above_target_c", 0.0))
     on_for = control_cfg.get("on_for", "00:02:00")
     off_for = control_cfg.get("off_for", "00:07:00")
     min_on_seconds = int(control_cfg.get("min_on_seconds", 480))
     min_off_seconds = int(control_cfg.get("min_off_seconds", 300))
+    hard_off_windows = control_cfg.get("hard_off_windows", [])
     schedule_events = control_cfg.get("schedule_events", [])
+    remote_heating_controls = cfg.get("home_assistant", {}).get("remote_heating_controls", [])
 
     def unique_entities(items: list) -> list:
         seen = set()
@@ -890,6 +1001,53 @@ def cmd_sync_heating_control() -> None:
                 "data": {"hvac_mode": "off"},
             }
         ]
+
+    boost_timers_by_target: dict[str, list[str]] = {}
+    for control in remote_heating_controls:
+        try:
+            timer_entity = boost_timer_entity(control)
+        except RuntimeError:
+            continue
+        for target in [str(entity).strip() for entity in control.get("targets", []) if str(entity).strip()]:
+            boost_timers_by_target.setdefault(target, []).append(timer_entity)
+
+    def boost_inactive_template(entity_id: str) -> str:
+        timers = boost_timers_by_target.get(entity_id, [])
+        if not timers:
+            return "{{ true }}"
+        checks = " and ".join(f"is_state('{timer}', 'idle')" for timer in timers)
+        return "{{ " + checks + " }}"
+
+    def any_boost_active_template(entities: list) -> str:
+        timers = unique_entities(
+            timer
+            for entity_id in entities
+            for timer in boost_timers_by_target.get(entity_id, [])
+        )
+        if not timers:
+            return "{{ false }}"
+        checks = " or ".join(f"is_state('{timer}', 'active')" for timer in timers)
+        return "{{ " + checks + " }}"
+
+    def climate_off_actions_respecting_boosts(entities: list) -> list:
+        actions: list[dict] = []
+        for entity_id in entities:
+            actions.append(
+                {
+                    "choose": [
+                        {
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": boost_inactive_template(entity_id),
+                                }
+                            ],
+                            "sequence": climate_off_actions([entity_id]),
+                        }
+                    ]
+                }
+            )
+        return actions
 
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
@@ -972,16 +1130,38 @@ def cmd_sync_heating_control() -> None:
         response.raise_for_status()
         print(f"Synced script.{script_id}")
 
-    demand_template = build_heating_demand_template(climate_entities, deadband_c)
-    no_demand_template = build_heating_demand_template(climate_entities, deadband_c, invert=True)
+    demand_template = build_heating_demand_template(
+        climate_entities,
+        deadband_c,
+        hvac_action_max_above_target_c,
+    )
+    no_demand_template = build_heating_demand_template(
+        climate_entities,
+        deadband_c,
+        hvac_action_max_above_target_c,
+        invert=True,
+    )
+    hard_off_entities = unique_entities(
+        [
+            entity_id
+            for window in hard_off_windows
+            for entity_id in resolve_targets(window.get("targets", ["house"]))
+        ]
+    )
+    hard_off_window_template = build_schedule_template(hard_off_windows) if hard_off_windows else "{{ false }}"
 
     on_automation = {
         "alias": "Heating Boiler On Demand",
-        "description": "Turn boiler on when any configured TRV demands heat.",
+        "description": "Turn boiler on when any configured TRV demands heat; includes periodic fallback evaluation.",
         "mode": "single",
-        "triggers": [{"trigger": "template", "value_template": demand_template, "for": on_for}],
+        "triggers": [
+            {"trigger": "template", "value_template": demand_template, "for": on_for},
+            {"trigger": "homeassistant", "event": "start"},
+            {"trigger": "time_pattern", "minutes": "/1"},
+        ],
         "conditions": [
             {"condition": "state", "entity_id": boiler_entity, "state": "off"},
+            {"condition": "template", "value_template": demand_template},
             {
                 "condition": "template",
                 "value_template": (
@@ -1054,14 +1234,50 @@ def cmd_sync_heating_control() -> None:
             }
         ],
     }
+    hard_off_automation = {
+        "alias": "Heating Enforce Hard Off Window",
+        "description": "Force configured TRVs and boiler off during hard-off windows to override stray vendor schedules, except while a repo-managed boost is actively running for a target.",
+        "mode": "restart",
+        "triggers": [
+            {"trigger": "homeassistant", "event": "start"},
+            {"trigger": "template", "value_template": hard_off_window_template, "for": "00:00:01"},
+            {"trigger": "time_pattern", "minutes": "/1"},
+            {"trigger": "state", "entity_id": hard_off_entities},
+            {"trigger": "state", "entity_id": boiler_entity, "to": "on"},
+        ],
+        "conditions": [{"condition": "template", "value_template": hard_off_window_template}],
+        "actions": [
+            *climate_off_actions_respecting_boosts(hard_off_entities),
+            {
+                "choose": [
+                    {
+                        "conditions": [
+                            {
+                                "condition": "template",
+                                "value_template": "{{ not (%s) }}" % any_boost_active_template(hard_off_entities)[3:-3],
+                            }
+                        ],
+                        "sequence": [
+                            {"action": "switch.turn_off", "target": {"entity_id": boiler_entity}},
+                        ],
+                    }
+                ]
+            },
+        ],
+    }
 
-    for entity_id, payload in [
+    automations_to_sync = [
         ("automation.heating_boiler_on_demand", on_automation),
         ("automation.heating_boiler_off_when_satisfied", off_automation),
         ("automation.heating_apply_house_target_on_change", house_slider_automation),
         ("automation.heating_apply_upstairs_target_on_change", upstairs_slider_automation),
         ("automation.heating_apply_downstairs_target_on_change", downstairs_slider_automation),
-    ]:
+    ]
+    if hard_off_windows:
+        automations_to_sync.append(("automation.heating_enforce_hard_off_window", hard_off_automation))
+
+    desired_managed_automation_ids = {entity_id for entity_id, _ in automations_to_sync}
+    for entity_id, payload in automations_to_sync:
         response = requests.post(
             f"{base}/api/config/automation/config/{entity_id}",
             headers=headers,
@@ -1077,6 +1293,7 @@ def cmd_sync_heating_control() -> None:
         event_slug = slugify_name(event_name)
         entity_id = f"automation.heating_event_{event_slug}"
         desired_event_entities.add(entity_id)
+        desired_managed_automation_ids.add(entity_id)
 
         event_time = str(event.get("time", "")).strip()
         weekdays = [str(day).strip().lower()[:3] for day in event.get("weekdays", [])]
@@ -1091,13 +1308,17 @@ def cmd_sync_heating_control() -> None:
                 raise RuntimeError(f"schedule event '{event_name}' missing temperature_c")
             event_actions = climate_set_actions(target_entities, float(event["temperature_c"]))
         elif action == "off":
-            event_actions = climate_off_actions(target_entities)
+            event_actions = climate_off_actions_respecting_boosts(target_entities)
         else:
             raise RuntimeError(f"schedule event '{event_name}' has unsupported action '{action}'")
 
         payload = {
             "alias": f"Heating Event - {event_name}",
-            "description": "Repo-managed heating schedule event.",
+            "description": (
+                "Repo-managed heating schedule event."
+                if action != "off"
+                else "Repo-managed heating schedule event that skips targets with an active repo-managed boost."
+            ),
             "mode": "single",
             "triggers": [{"trigger": "time", "at": event_time}],
             "conditions": [{"condition": "time", "weekday": weekdays}],
@@ -1126,7 +1347,7 @@ def cmd_sync_heating_control() -> None:
             "automation.heating_schedule_end_"
         ):
             legacy_automation_ids.add(entity_id)
-        if entity_id.startswith("automation.heating_event_") and entity_id not in desired_event_entities:
+        if entity_id.startswith("automation.heating_") and entity_id not in desired_managed_automation_ids:
             legacy_automation_ids.add(entity_id)
 
     for entity_id in sorted(legacy_automation_ids):
@@ -1174,6 +1395,224 @@ def cmd_sync_heating_control() -> None:
     print("Reloaded automations")
 
 
+def cmd_sync_light_routines() -> None:
+    cfg, base, token = ha_auth_from_config()
+    routines = cfg.get("home_assistant", {}).get("light_routines", [])
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    desired_entities = set()
+
+    for idx, routine in enumerate(routines):
+        name = str(routine.get("name", f"Light Routine {idx + 1}")).strip()
+        target_entity = str(routine.get("target_entity") or routine.get("light_entity") or "").strip()
+        automation_entity = str(
+            routine.get("automation_entity", f"automation.light_routine_{slugify_name(name)}")
+        ).strip()
+        weekdays = normalize_weekdays(routine.get("weekdays", []), f"light routine '{name}' weekdays")
+        start_date = str(routine.get("start_date", "")).strip()
+        end_date = str(routine.get("end_date", "")).strip()
+        routine_type = str(routine.get("type", "sunrise")).strip().lower()
+
+        if not target_entity or not automation_entity or not weekdays:
+            raise RuntimeError(f"Incomplete light routine '{name}'")
+
+        desired_entities.add(automation_entity)
+        conditions: List[dict] = [{"condition": "time", "weekday": weekdays}]
+        if start_date:
+            conditions.append(
+                {
+                    "condition": "template",
+                    "value_template": f"{{{{ now().date() >= as_datetime('{start_date}').date() }}}}",
+                }
+            )
+        if end_date:
+            conditions.append(
+                {
+                    "condition": "template",
+                    "value_template": f"{{{{ now().date() <= as_datetime('{end_date}').date() }}}}",
+                }
+            )
+
+        if routine_type == "sunrise":
+            end_time = str(routine.get("end_time", "")).strip()
+            duration_minutes = int(routine.get("duration_minutes", 0))
+            start_brightness_pct = int(routine.get("start_brightness_pct", 1))
+            end_brightness_pct = int(routine.get("end_brightness_pct", 100))
+            rgb_stops = routine.get("rgb_stops", [])
+            start_kelvin = int(routine.get("start_color_temp_kelvin", 2000))
+            end_kelvin = int(routine.get("end_color_temp_kelvin", 6500))
+
+            if not end_time or duration_minutes <= 0:
+                raise RuntimeError(f"Incomplete sunrise light routine '{name}'")
+            if rgb_stops and len(rgb_stops) != duration_minutes + 1:
+                raise RuntimeError(
+                    f"light routine '{name}' rgb_stops must contain exactly {duration_minutes + 1} entries"
+                )
+
+            start_time = subtract_minutes(end_time, duration_minutes)
+            actions: List[dict] = []
+            for step in range(duration_minutes + 1):
+                ratio = step / duration_minutes
+                brightness_pct = int(
+                    round(start_brightness_pct + (end_brightness_pct - start_brightness_pct) * ratio)
+                )
+                data: Dict[str, Any] = {
+                    "brightness_pct": brightness_pct,
+                    "transition": 55,
+                }
+                if rgb_stops:
+                    data["rgb_color"] = [int(component) for component in rgb_stops[step]]
+                else:
+                    color_temp_kelvin = int(round(start_kelvin + (end_kelvin - start_kelvin) * ratio))
+                    data["color_temp_kelvin"] = color_temp_kelvin
+                actions.append(
+                    {
+                        "action": "light.turn_on",
+                        "target": {"entity_id": target_entity},
+                        "data": data,
+                    }
+                )
+                if step < duration_minutes:
+                    actions.append({"delay": "00:01:00"})
+
+            payload = {
+                "alias": name,
+                "description": "Repo-managed light routine.",
+                "mode": "restart",
+                "triggers": [{"trigger": "time", "at": start_time}],
+                "conditions": conditions,
+                "actions": actions,
+            }
+        elif routine_type == "fixed_window":
+            start_time = str(routine.get("start_time", "")).strip()
+            end_time = str(routine.get("end_time", "")).strip()
+            start_weekdays = normalize_weekdays(
+                routine.get("start_weekdays", weekdays), f"light routine '{name}' start_weekdays"
+            )
+            end_weekdays = normalize_weekdays(
+                routine.get("end_weekdays", weekdays), f"light routine '{name}' end_weekdays"
+            )
+            on_service = str(routine.get("on_service", "")).strip() or (
+                "switch.turn_on" if target_entity.startswith("switch.") else "light.turn_on"
+            )
+            off_service = str(routine.get("off_service", "")).strip() or (
+                "switch.turn_off" if target_entity.startswith("switch.") else "light.turn_off"
+            )
+            on_data = routine.get("on_data", {})
+            off_data = routine.get("off_data", {})
+            last_on_date = str(routine.get("last_on_date") or end_date).strip()
+            last_off_date = str(routine.get("last_off_date") or end_date).strip()
+
+            if not start_time or not end_time:
+                raise RuntimeError(f"Incomplete fixed_window light routine '{name}'")
+
+            start_conditions: List[dict] = [
+                {"condition": "trigger", "id": "start"},
+                {"condition": "time", "weekday": start_weekdays},
+            ]
+            end_conditions: List[dict] = [
+                {"condition": "trigger", "id": "end"},
+                {"condition": "time", "weekday": end_weekdays},
+            ]
+            if start_date:
+                start_conditions.append(
+                    {
+                        "condition": "template",
+                        "value_template": f"{{{{ now().date() >= as_datetime('{start_date}').date() }}}}",
+                    }
+                )
+                end_conditions.append(
+                    {
+                        "condition": "template",
+                        "value_template": f"{{{{ now().date() >= as_datetime('{start_date}').date() }}}}",
+                    }
+                )
+            if last_on_date:
+                start_conditions.append(
+                    {
+                        "condition": "template",
+                        "value_template": f"{{{{ now().date() <= as_datetime('{last_on_date}').date() }}}}",
+                    }
+                )
+            if last_off_date:
+                end_conditions.append(
+                    {
+                        "condition": "template",
+                        "value_template": f"{{{{ now().date() <= as_datetime('{last_off_date}').date() }}}}",
+                    }
+                )
+
+            payload = {
+                "alias": name,
+                "description": "Repo-managed light routine.",
+                "mode": "restart",
+                "triggers": [
+                    {"trigger": "time", "id": "start", "at": start_time},
+                    {"trigger": "time", "id": "end", "at": end_time},
+                ],
+                "conditions": [],
+                "actions": [
+                    {
+                        "choose": [
+                            {
+                                "conditions": start_conditions,
+                                "sequence": [
+                                    {
+                                        "action": on_service,
+                                        "target": {"entity_id": target_entity},
+                                        "data": on_data,
+                                    }
+                                ],
+                            },
+                            {
+                                "conditions": end_conditions,
+                                "sequence": [
+                                    {
+                                        "action": off_service,
+                                        "target": {"entity_id": target_entity},
+                                        "data": off_data,
+                                    }
+                                ],
+                            },
+                        ]
+                    }
+                ],
+            }
+        else:
+            raise RuntimeError(f"Unsupported light routine type '{routine_type}' for '{name}'")
+
+        response = requests.post(
+            f"{base}/api/config/automation/config/{automation_entity}",
+            headers=headers,
+            json=payload,
+            timeout=20,
+        )
+        response.raise_for_status()
+        print(f"Synced {automation_entity}")
+
+    states_response = requests.get(f"{base}/api/states", headers=headers, timeout=20)
+    states_response.raise_for_status()
+    all_entities = [state.get("entity_id", "") for state in states_response.json()]
+    for entity_id in sorted(
+        entity_id
+        for entity_id in all_entities
+        if entity_id.startswith("automation.light_routine_") and entity_id not in desired_entities
+    ):
+        delete_response = requests.delete(
+            f"{base}/api/config/automation/config/{entity_id}",
+            headers=headers,
+            timeout=20,
+        )
+        if delete_response.status_code in {200, 204}:
+            print(f"Deleted {entity_id}")
+        elif delete_response.status_code == 400:
+            print(f"Skipped deleting {entity_id} (not storage-managed)")
+        elif delete_response.status_code != 404:
+            delete_response.raise_for_status()
+
+    requests.post(f"{base}/api/services/automation/reload", headers=headers, json={}, timeout=20).raise_for_status()
+    print("Reloaded automations")
+
+
 def cmd_sync_hue_scenes() -> None:
     cfg, base, token = ha_auth_from_config()
     hue_cfg = cfg.get("home_assistant", {}).get("hue_scene_cycle", {})
@@ -1186,11 +1625,14 @@ def cmd_sync_hue_scenes() -> None:
     remote_identifier = str(hue_cfg.get("remote_identifier", "")).upper()
     light_entity = str(hue_cfg.get("light_entity", "")).strip()
     automation_entity = str(hue_cfg.get("automation_entity", "automation.living_room_hue_scene_cycle")).strip()
-    trigger_subtype = str(hue_cfg.get("trigger_subtype", "turn_on")).strip()
+    trigger_subtype = str(hue_cfg.get("trigger_subtype", "turn_off")).strip()
+    trigger_command = normalize_hue_trigger_command(trigger_subtype)
     scenes = hue_cfg.get("scenes", [])
 
     if not remote_identifier or not light_entity or not scenes:
         raise RuntimeError("hue_scene_cycle config missing required fields")
+    if not trigger_command:
+        raise RuntimeError("hue_scene_cycle.trigger_subtype must not be empty")
 
     devices = ws_call(base, token, "config/device_registry/list")
     remote_device = next(
@@ -1237,9 +1679,7 @@ def cmd_sync_hue_scenes() -> None:
     automation_id = automation_entity.split(".", 1)[1]
     automation_payload = {
         "alias": "Living Room Hue Scene Cycle",
-        "description": (
-            "Cycle popular Hue-like scenes on Hue button short release."
-        ),
+        "description": f"Cycle popular Hue-like scenes when ZHA command '{trigger_command}' fires.",
         "mode": "single",
         "triggers": [
             {
@@ -1247,7 +1687,7 @@ def cmd_sync_hue_scenes() -> None:
                 "event_type": "zha_event",
                 "event_data": {
                     "device_ieee": remote_identifier.lower(),
-                    "command": "off_short_release",
+                    "command": trigger_command,
                 },
             }
         ],
@@ -1333,6 +1773,1256 @@ def cmd_sync_hue_scenes() -> None:
     requests.post(f"{base}/api/services/automation/reload", headers=headers, json={}, timeout=20).raise_for_status()
     print("Reloaded automations")
 
+
+def cmd_sync_remote_light_controls() -> None:
+    cfg, base, token = ha_auth_from_config()
+    controls = cfg.get("home_assistant", {}).get("remote_light_controls", [])
+    if not controls:
+        print("No home_assistant.remote_light_controls configured; nothing to do.")
+        return
+
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    devices = ws_call(base, token, "config/device_registry/list")
+
+    for control in controls:
+        name = str(control.get("name", "Remote Light Control")).strip()
+        automation_entity = str(control.get("automation_entity", "")).strip()
+        remote_identifier = str(control.get("remote_identifier", "")).upper()
+        light_entity = str(control.get("light_entity", "")).strip()
+        full_on = dict(control.get("full_on", {}))
+        brightness_step_pct = int(control.get("brightness_step_pct", 20))
+        scenes = control.get("scenes", [])
+
+        if not automation_entity or not remote_identifier or not light_entity or not scenes:
+            raise RuntimeError(f"Incomplete remote_light_controls entry '{name}'")
+
+        remote_device = next(
+            (
+                d
+                for d in devices
+                if any(
+                    pair
+                    and len(pair) == 2
+                    and pair[0] == "zha"
+                    and str(pair[1]).upper() == remote_identifier
+                    for pair in d.get("identifiers", [])
+                )
+            ),
+            None,
+        )
+        if not remote_device:
+            raise RuntimeError(f"Could not find ZHA remote with IEEE {remote_identifier}")
+
+        scene_map: Dict[str, Dict[str, Any]] = {}
+        for scene in scenes:
+            scene_name = str(scene.get("name", "")).strip()
+            if not scene_name:
+                continue
+            light_data: Dict[str, Any] = {
+                "brightness_pct": int(scene.get("brightness_pct", 70)),
+                "transition": 0.4,
+            }
+            if "rgb_color" in scene and scene.get("rgb_color") is not None:
+                light_data["rgb_color"] = scene.get("rgb_color")
+            elif "color_temp_kelvin" in scene and scene.get("color_temp_kelvin") is not None:
+                light_data["color_temp_kelvin"] = int(scene.get("color_temp_kelvin", 3000))
+            scene_map[scene_name.lower()] = light_data
+
+        relax = scene_map.get("relax", {"brightness_pct": 45, "color_temp_kelvin": 2200, "transition": 0.4})
+        read = scene_map.get("read", {"brightness_pct": 80, "color_temp_kelvin": 2900, "transition": 0.4})
+        concentrate = scene_map.get(
+            "concentrate", {"brightness_pct": 90, "color_temp_kelvin": 4300, "transition": 0.4}
+        )
+        energize = scene_map.get("energize", {"brightness_pct": 100, "color_temp_kelvin": 6500, "transition": 0.4})
+        nightlight = scene_map.get("nightlight", {"brightness_pct": 15, "rgb_color": [255, 140, 80], "transition": 0.4})
+
+        full_on_payload: Dict[str, Any] = {"brightness_pct": 100, "color_temp_kelvin": 4000, "transition": 0.4}
+        full_on_payload.update(full_on)
+
+        next_scene_action = {
+            "choose": [
+                {
+                    "conditions": [{"condition": "state", "entity_id": light_entity, "state": "off"}],
+                    "sequence": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": relax}],
+                },
+                {
+                    "conditions": [
+                        {
+                            "condition": "template",
+                            "value_template": (
+                                "{{ is_state('"
+                                + light_entity
+                                + "', 'on') and (state_attr('"
+                                + light_entity
+                                + "', 'color_temp_kelvin') | int(0)) <= 2400 }}"
+                            ),
+                        }
+                    ],
+                    "sequence": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": read}],
+                },
+                {
+                    "conditions": [
+                        {
+                            "condition": "template",
+                            "value_template": (
+                                "{{ is_state('"
+                                + light_entity
+                                + "', 'on') and (state_attr('"
+                                + light_entity
+                                + "', 'color_temp_kelvin') | int(0)) > 2400 and (state_attr('"
+                                + light_entity
+                                + "', 'color_temp_kelvin') | int(0)) <= 3400 }}"
+                            ),
+                        }
+                    ],
+                    "sequence": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": concentrate}],
+                },
+                {
+                    "conditions": [
+                        {
+                            "condition": "template",
+                            "value_template": (
+                                "{{ is_state('"
+                                + light_entity
+                                + "', 'on') and (state_attr('"
+                                + light_entity
+                                + "', 'color_temp_kelvin') | int(0)) > 3400 and (state_attr('"
+                                + light_entity
+                                + "', 'color_temp_kelvin') | int(0)) <= 5200 }}"
+                            ),
+                        }
+                    ],
+                    "sequence": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": energize}],
+                },
+                {
+                    "conditions": [{"condition": "template", "value_template": "{{ is_state('" + light_entity + "', 'on') }}"}],
+                    "sequence": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": nightlight}],
+                },
+            ],
+            "default": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": relax}],
+        }
+
+        previous_scene_action = {
+            "choose": [
+                {
+                    "conditions": [
+                        {
+                            "condition": "template",
+                            "value_template": (
+                                "{{ is_state('"
+                                + light_entity
+                                + "', 'on') and (state_attr('"
+                                + light_entity
+                                + "', 'rgb_color') | default([], true)) == [255, 140, 80] }}"
+                            ),
+                        }
+                    ],
+                    "sequence": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": energize}],
+                },
+                {
+                    "conditions": [
+                        {
+                            "condition": "template",
+                            "value_template": (
+                                "{{ is_state('"
+                                + light_entity
+                                + "', 'on') and (state_attr('"
+                                + light_entity
+                                + "', 'color_temp_kelvin') | int(0)) > 5200 }}"
+                            ),
+                        }
+                    ],
+                    "sequence": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": concentrate}],
+                },
+                {
+                    "conditions": [
+                        {
+                            "condition": "template",
+                            "value_template": (
+                                "{{ is_state('"
+                                + light_entity
+                                + "', 'on') and (state_attr('"
+                                + light_entity
+                                + "', 'color_temp_kelvin') | int(0)) > 3400 and (state_attr('"
+                                + light_entity
+                                + "', 'color_temp_kelvin') | int(0)) <= 5200 }}"
+                            ),
+                        }
+                    ],
+                    "sequence": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": read}],
+                },
+                {
+                    "conditions": [
+                        {
+                            "condition": "template",
+                            "value_template": (
+                                "{{ is_state('"
+                                + light_entity
+                                + "', 'on') and (state_attr('"
+                                + light_entity
+                                + "', 'color_temp_kelvin') | int(0)) > 2400 and (state_attr('"
+                                + light_entity
+                                + "', 'color_temp_kelvin') | int(0)) <= 3400 }}"
+                            ),
+                        }
+                    ],
+                    "sequence": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": relax}],
+                },
+                {
+                    "conditions": [
+                        {
+                            "condition": "template",
+                            "value_template": (
+                                "{{ is_state('"
+                                + light_entity
+                                + "', 'on') and (state_attr('"
+                                + light_entity
+                                + "', 'color_temp_kelvin') | int(0)) <= 2400 }}"
+                            ),
+                        }
+                    ],
+                    "sequence": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": nightlight}],
+                },
+            ],
+            "default": [{"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": nightlight}],
+        }
+
+        automation_id = automation_entity.split(".", 1)[1]
+        automation_payload = {
+            "alias": name,
+            "description": "Repo-managed ZHA remote light control.",
+            "mode": "single",
+            "triggers": [
+                {
+                    "trigger": "device",
+                    "domain": "zha",
+                    "device_id": remote_device["id"],
+                    "type": "remote_button_short_press",
+                    "subtype": "turn_on",
+                    "id": "toggle_on",
+                },
+                {
+                    "trigger": "device",
+                    "domain": "zha",
+                    "device_id": remote_device["id"],
+                    "type": "remote_button_short_press",
+                    "subtype": "turn_off",
+                    "id": "toggle_off",
+                },
+                {
+                    "trigger": "device",
+                    "domain": "zha",
+                    "device_id": remote_device["id"],
+                    "type": "remote_button_long_press",
+                    "subtype": "dim_up",
+                    "id": "brighten",
+                },
+                {
+                    "trigger": "device",
+                    "domain": "zha",
+                    "device_id": remote_device["id"],
+                    "type": "remote_button_long_press",
+                    "subtype": "dim_down",
+                    "id": "dim",
+                },
+                {
+                    "trigger": "device",
+                    "domain": "zha",
+                    "device_id": remote_device["id"],
+                    "type": "remote_button_short_press",
+                    "subtype": "left",
+                    "id": "scene_prev",
+                },
+                {
+                    "trigger": "device",
+                    "domain": "zha",
+                    "device_id": remote_device["id"],
+                    "type": "remote_button_short_press",
+                    "subtype": "right",
+                    "id": "scene_next",
+                },
+            ],
+            "conditions": [],
+            "actions": [
+                {
+                    "choose": [
+                        {
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ trigger.id in ['toggle_on', 'toggle_off'] and is_state('"
+                                    + light_entity
+                                    + "', 'off') }}",
+                                }
+                            ],
+                            "sequence": [
+                                {"action": "light.turn_on", "target": {"entity_id": light_entity}, "data": full_on_payload}
+                            ],
+                        },
+                        {
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ trigger.id in ['toggle_on', 'toggle_off'] and is_state('"
+                                    + light_entity
+                                    + "', 'on') }}",
+                                }
+                            ],
+                            "sequence": [{"action": "light.turn_off", "target": {"entity_id": light_entity}}],
+                        },
+                        {
+                            "conditions": [{"condition": "trigger", "id": "brighten"}],
+                            "sequence": [
+                                {
+                                    "action": "light.turn_on",
+                                    "target": {"entity_id": light_entity},
+                                    "data": {"brightness_step_pct": brightness_step_pct, "transition": 0.2},
+                                }
+                            ],
+                        },
+                        {
+                            "conditions": [{"condition": "trigger", "id": "dim"}],
+                            "sequence": [
+                                {
+                                    "action": "light.turn_on",
+                                    "target": {"entity_id": light_entity},
+                                    "data": {"brightness_pct": 30, "transition": 0.2},
+                                }
+                            ],
+                        },
+                        {
+                            "conditions": [{"condition": "trigger", "id": "scene_prev"}],
+                            "sequence": [previous_scene_action],
+                        },
+                        {
+                            "conditions": [{"condition": "trigger", "id": "scene_next"}],
+                            "sequence": [next_scene_action],
+                        },
+                    ]
+                }
+            ],
+        }
+        resp = requests.post(
+            f"{base}/api/config/automation/config/{automation_id}",
+            headers=headers,
+            json=automation_payload,
+            timeout=20,
+        )
+        resp.raise_for_status()
+        print(f"Synced {automation_entity}")
+
+    requests.post(f"{base}/api/services/automation/reload", headers=headers, json={}, timeout=20).raise_for_status()
+    print("Reloaded automations")
+
+
+def cmd_sync_remote_heating_controls() -> None:
+    cfg, base, token = ha_auth_from_config()
+    controls = cfg.get("home_assistant", {}).get("remote_heating_controls", [])
+    if not controls:
+        print("No home_assistant.remote_heating_controls configured; nothing to do.")
+        return
+
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    devices = ws_call(base, token, "config/device_registry/list")
+
+    def flash_delay(seconds: float) -> str:
+        if float(seconds).is_integer():
+            return f"00:00:{int(seconds):02d}"
+        return f"00:00:{seconds:04.1f}"
+
+    def indicator_flash_sequence(
+        relay_entity: str,
+        light_entity: str,
+        prefix: str,
+        rgb_color: List[int],
+        flash_count: int,
+        flash_seconds: float,
+    ) -> List[dict]:
+        if not relay_entity or not light_entity:
+            return []
+
+        return [
+            {
+                "variables": {
+                    f"{prefix}_relay_was_on": "{{ is_state('" + relay_entity + "', 'on') }}",
+                    f"{prefix}_light_was_on": "{{ is_state('" + light_entity + "', 'on') }}",
+                    f"{prefix}_light_brightness": "{{ state_attr('" + light_entity + "', 'brightness') }}",
+                    f"{prefix}_light_color_mode": "{{ state_attr('" + light_entity + "', 'color_mode') }}",
+                    f"{prefix}_light_xy_x": "{{ (state_attr('" + light_entity + "', 'xy_color') or [none, none])[0] }}",
+                    f"{prefix}_light_xy_y": "{{ (state_attr('" + light_entity + "', 'xy_color') or [none, none])[1] }}",
+                    f"{prefix}_light_color_temp_kelvin": "{{ state_attr('" + light_entity + "', 'color_temp_kelvin') }}",
+                }
+            },
+            {
+                "choose": [
+                    {
+                        "conditions": [
+                            {
+                                "condition": "state",
+                                "entity_id": relay_entity,
+                                "state": "off",
+                            }
+                        ],
+                        "sequence": [
+                            {
+                                "action": "switch.turn_on",
+                                "target": {"entity_id": relay_entity},
+                            },
+                            {"delay": "00:00:02"},
+                        ],
+                    }
+                ]
+            },
+            {
+                "repeat": {
+                    "count": flash_count,
+                    "sequence": [
+                        {
+                            "action": "light.turn_on",
+                            "target": {"entity_id": light_entity},
+                            "data": {
+                                "rgb_color": rgb_color,
+                                "brightness_pct": 100,
+                                "transition": 0,
+                            },
+                        },
+                        {"delay": flash_delay(flash_seconds)},
+                        {"action": "light.turn_off", "target": {"entity_id": light_entity}},
+                        {"delay": flash_delay(flash_seconds)},
+                    ],
+                }
+            },
+            {
+                "choose": [
+                    {
+                        "conditions": [
+                            {
+                                "condition": "template",
+                                "value_template": "{{ "
+                                + prefix
+                                + "_light_was_on and "
+                                + prefix
+                                + "_light_color_mode == 'color_temp' and "
+                                + prefix
+                                + "_light_color_temp_kelvin is not none }}",
+                            }
+                        ],
+                        "sequence": [
+                            {
+                                "action": "light.turn_on",
+                                "target": {"entity_id": light_entity},
+                                "data": {
+                                    "brightness": "{{ " + prefix + "_light_brightness | int(255) }}",
+                                    "color_temp_kelvin": "{{ " + prefix + "_light_color_temp_kelvin | int }}",
+                                    "transition": 0,
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "conditions": [
+                            {
+                                "condition": "template",
+                                "value_template": "{{ "
+                                + prefix
+                                + "_light_was_on and "
+                                + prefix
+                                + "_light_color_mode != 'color_temp' and "
+                                + prefix
+                                + "_light_xy_x is not none and "
+                                + prefix
+                                + "_light_xy_y is not none }}",
+                            }
+                        ],
+                        "sequence": [
+                            {
+                                "action": "light.turn_on",
+                                "target": {"entity_id": light_entity},
+                                "data": {
+                                    "brightness": "{{ " + prefix + "_light_brightness | int(255) }}",
+                                    "xy_color": [
+                                        "{{ " + prefix + "_light_xy_x | float }}",
+                                        "{{ " + prefix + "_light_xy_y | float }}",
+                                    ],
+                                    "transition": 0,
+                                },
+                            }
+                        ],
+                    },
+                ],
+                "default": [
+                    {
+                        "choose": [
+                            {
+                                "conditions": [
+                                    {
+                                        "condition": "template",
+                                        "value_template": "{{ " + prefix + "_light_was_on }}",
+                                    }
+                                ],
+                                "sequence": [
+                                    {
+                                        "action": "light.turn_on",
+                                        "target": {"entity_id": light_entity},
+                                        "data": {
+                                            "brightness": "{{ " + prefix + "_light_brightness | int(255) }}",
+                                            "transition": 0,
+                                        },
+                                    }
+                                ],
+                            }
+                        ],
+                        "default": [
+                            {
+                                "action": "light.turn_off",
+                                "target": {"entity_id": light_entity},
+                            }
+                        ],
+                    }
+                ],
+            },
+            {
+                "choose": [
+                    {
+                        "conditions": [
+                            {
+                                "condition": "template",
+                                "value_template": "{{ not " + prefix + "_relay_was_on }}",
+                            }
+                        ],
+                        "sequence": [
+                            {
+                                "action": "switch.turn_off",
+                                "target": {"entity_id": relay_entity},
+                            }
+                        ],
+                    }
+                ]
+            },
+        ]
+
+    for control in controls:
+        name = str(control.get("name", "Remote Heating Control")).strip()
+        automation_entity = str(control.get("automation_entity", "")).strip()
+        remote_identifier = str(control.get("remote_identifier", "")).upper()
+        trigger_type = str(control.get("trigger_type", "remote_button_short_press")).strip()
+        trigger_subtype = str(control.get("trigger_subtype", "turn_on")).strip()
+        cancel_trigger_type = str(control.get("cancel_trigger_type", "remote_button_short_press")).strip()
+        cancel_trigger_subtype = str(control.get("cancel_trigger_subtype", "turn_off")).strip()
+        trigger_command = str(control.get("trigger_command", "")).strip()
+        cancel_command = str(control.get("cancel_command", "")).strip()
+        trigger_args = control.get("trigger_args", {}) or {}
+        cancel_args = control.get("cancel_args", {}) or {}
+        script_entity = str(control.get("script_entity", "")).strip()
+        cancel_script_entity = str(control.get("cancel_script_entity", "")).strip()
+        timer_entity = boost_timer_entity(control)
+        restore_state_entity = boost_restore_state_entity(control)
+        targets = [str(entity).strip() for entity in control.get("targets", []) if str(entity).strip()]
+        duration_minutes = int(control.get("duration_minutes", 30))
+        temperature_c = float(control.get("temperature_c", 23))
+        indicator_relay_entity = str(control.get("indicator_relay_entity", "")).strip()
+        indicator_light_entity = str(control.get("indicator_light_entity", "")).strip()
+        completion_flash_rgb_color = control.get("completion_flash_rgb_color", [170, 0, 255])
+        completion_flash_seconds = float(control.get("completion_flash_seconds", 1))
+
+        if (
+            not automation_entity
+            or not remote_identifier
+            or not targets
+        ):
+            raise RuntimeError(f"Incomplete remote_heating_controls entry '{name}'")
+
+        use_event_start = bool(trigger_command)
+        use_event_cancel = bool(cancel_command)
+        if not use_event_start and (not trigger_type or not trigger_subtype):
+            raise RuntimeError(f"Incomplete start trigger for remote_heating_controls entry '{name}'")
+        if not use_event_cancel and (not cancel_trigger_type or not cancel_trigger_subtype):
+            raise RuntimeError(f"Incomplete cancel trigger for remote_heating_controls entry '{name}'")
+
+        remote_device = next(
+            (
+                d
+                for d in devices
+                if any(
+                    pair
+                    and len(pair) == 2
+                    and pair[0] == "zha"
+                    and str(pair[1]).upper() == remote_identifier
+                    for pair in d.get("identifiers", [])
+                )
+            ),
+            None,
+        )
+        if not remote_device:
+            raise RuntimeError(f"Could not find ZHA remote with IEEE {remote_identifier}")
+
+        if use_event_start:
+            start_trigger = {
+                "trigger": "event",
+                "event_type": "zha_event",
+                "event_data": {
+                    "device_ieee": remote_identifier.lower(),
+                    "command": trigger_command,
+                    "args": trigger_args,
+                },
+                "id": "boost",
+            }
+        else:
+            start_trigger = {
+                "trigger": "device",
+                "domain": "zha",
+                "device_id": remote_device["id"],
+                "type": trigger_type,
+                "subtype": trigger_subtype,
+                "id": "boost",
+            }
+
+        if use_event_cancel:
+            cancel_wait_trigger = {
+                "trigger": "event",
+                "event_type": "zha_event",
+                "event_data": {
+                    "device_ieee": remote_identifier.lower(),
+                    "command": cancel_command,
+                    "args": cancel_args,
+                },
+            }
+        else:
+            cancel_wait_trigger = {
+                "trigger": "device",
+                "domain": "zha",
+                "device_id": remote_device["id"],
+                "type": cancel_trigger_type,
+                "subtype": cancel_trigger_subtype,
+            }
+        completion_flash_sequence = indicator_flash_sequence(
+            indicator_relay_entity,
+            indicator_light_entity,
+            "completion_indicator",
+            completion_flash_rgb_color,
+            1,
+            completion_flash_seconds,
+        )
+        extend_flash_sequence = indicator_flash_sequence(
+            indicator_relay_entity,
+            indicator_light_entity,
+            "extend_indicator",
+            [255, 0, 0],
+            2,
+            1,
+        )
+
+        restore_state_value_template = (
+            "{{ "
+            + "({"
+            + ", ".join(
+                [
+                    (
+                        "'"
+                        + target
+                        + "': {'mode': states('"
+                        + target
+                        + "'), 'temperature': state_attr('"
+                        + target
+                        + "', 'temperature')}"
+                    )
+                    for target in targets
+                ]
+            )
+            + "} | to_json) }}"
+        )
+
+        restore_sequence: List[dict] = []
+        for target in targets:
+            restore_mode_template = "{{ restore_state.get('" + target + "', {}).get('mode') }}"
+            restore_mode_off_template = "{{ restore_state.get('" + target + "', {}).get('mode') == 'off' }}"
+            restore_temp_exists_template = "{{ restore_state.get('" + target + "', {}).get('temperature') is not none }}"
+            restore_temp_template = "{{ restore_state.get('" + target + "', {}).get('temperature') | float }}"
+            restore_sequence.extend(
+                [
+                    {
+                        "choose": [
+                            {
+                                "conditions": [
+                                    {
+                                        "condition": "template",
+                                        "value_template": restore_mode_off_template,
+                                    }
+                                ],
+                                "sequence": [
+                                    {
+                                        "choose": [
+                                            {
+                                                "conditions": [
+                                                    {
+                                                        "condition": "template",
+                                                        "value_template": restore_temp_exists_template,
+                                                    }
+                                                ],
+                                                "sequence": [
+                                                    {
+                                                        "action": "climate.set_temperature",
+                                                        "target": {"entity_id": target},
+                                                        "data": {"temperature": restore_temp_template},
+                                                    }
+                                                ],
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "action": "climate.set_hvac_mode",
+                                        "target": {"entity_id": target},
+                                        "data": {"hvac_mode": "off"},
+                                    }
+                                ],
+                            }
+                        ],
+                        "default": [
+                            {
+                                "action": "climate.set_hvac_mode",
+                                "target": {"entity_id": target},
+                                "data": {"hvac_mode": restore_mode_template},
+                            },
+                            {
+                                "choose": [
+                                    {
+                                        "conditions": [
+                                        {
+                                            "condition": "template",
+                                            "value_template": restore_temp_exists_template,
+                                            }
+                                        ],
+                                        "sequence": [
+                                            {
+                                                "action": "climate.set_temperature",
+                                                "target": {"entity_id": target},
+                                                "data": {"temperature": restore_temp_template},
+                                            }
+                                        ],
+                                    }
+                                ]
+                            },
+                        ],
+                    }
+                ]
+            )
+
+        automation_id = automation_entity.split(".", 1)[1]
+        if not script_entity or not cancel_script_entity:
+            raise RuntimeError(f"Missing script entities for remote_heating_controls entry '{name}'")
+
+        script_id = script_entity.split(".", 1)[1]
+        cancel_script_id = cancel_script_entity.split(".", 1)[1]
+        targets_currently_boosted_template = (
+            "{{ "
+            + " and ".join(
+                [
+                    (
+                        f"(states('{target}') == 'heat' and "
+                        f"((state_attr('{target}', 'temperature') | float(0)) >= {temperature_c - 0.01}))"
+                    )
+                    for target in targets
+                ]
+            )
+            + " }}"
+        )
+
+        ensure_boost_actions: List[dict] = []
+        for target in targets:
+            ensure_boost_actions.append(
+                {
+                    "choose": [
+                        {
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ not (states('"
+                                    + target
+                                    + "') == 'heat' and ((state_attr('"
+                                    + target
+                                    + "', 'temperature') | float(0)) >= "
+                                    + str(temperature_c - 0.01)
+                                    + ")) }}",
+                                }
+                            ],
+                            "sequence": [
+                                {
+                                    "action": "climate.set_hvac_mode",
+                                    "target": {"entity_id": target},
+                                    "data": {"hvac_mode": "heat"},
+                                },
+                                {
+                                    "action": "climate.set_temperature",
+                                    "target": {"entity_id": target},
+                                    "data": {"temperature": temperature_c},
+                                },
+                            ],
+                        }
+                    ]
+                }
+            )
+
+        script_payload = {
+            "alias": name,
+            "sequence": [
+                {
+                    "variables": {
+                        "boost_is_active": "{{ is_state('" + timer_entity + "', 'active') }}",
+                        "targets_currently_boosted": targets_currently_boosted_template,
+                    }
+                },
+                {
+                    "choose": [
+                        {
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ boost_is_active and targets_currently_boosted }}",
+                                }
+                            ],
+                            "sequence": [
+                                {
+                                    "action": "timer.start",
+                                    "target": {"entity_id": timer_entity},
+                                    "data": {"duration": f"00:{duration_minutes:02d}:00"},
+                                },
+                                *extend_flash_sequence,
+                            ],
+                        }
+                    ],
+                    "default": [
+                        {
+                            "action": "input_text.set_value",
+                            "target": {"entity_id": restore_state_entity},
+                            "data": {"value": restore_state_value_template},
+                        },
+                        {
+                            "action": "timer.start",
+                            "target": {"entity_id": timer_entity},
+                            "data": {"duration": f"00:{duration_minutes:02d}:00"},
+                        },
+                        {
+                            "action": "climate.set_hvac_mode",
+                            "target": {"entity_id": targets},
+                            "data": {"hvac_mode": "heat"},
+                        },
+                        {
+                            "action": "climate.set_temperature",
+                            "target": {"entity_id": targets},
+                            "data": {"temperature": temperature_c},
+                        },
+                    ],
+                },
+            ],
+            "mode": "restart",
+        }
+        cancel_script_payload = {
+            "alias": f"Cancel {name}",
+            "sequence": [
+                {
+                    "variables": {
+                        "has_restore_state": "{{ states('" + restore_state_entity + "') not in ['', 'unknown', 'unavailable'] }}",
+                        "restore_state": "{{ (states('" + restore_state_entity + "') if states('" + restore_state_entity + "') not in ['', 'unknown', 'unavailable'] else '{}') | from_json }}",
+                    }
+                },
+                {
+                    "action": "timer.cancel",
+                    "target": {"entity_id": timer_entity},
+                },
+                {
+                    "choose": [
+                        {
+                            "conditions": [{"condition": "template", "value_template": "{{ has_restore_state }}"}],
+                            "sequence": completion_flash_sequence + restore_sequence,
+                        }
+                    ]
+                },
+                {
+                    "action": "input_text.set_value",
+                    "target": {"entity_id": restore_state_entity},
+                    "data": {"value": ""},
+                },
+            ],
+            "mode": "single",
+        }
+
+        script_resp = requests.post(
+            f"{base}/api/config/script/config/{script_id}",
+            headers=headers,
+            json=script_payload,
+            timeout=20,
+        )
+        script_resp.raise_for_status()
+        print(f"Synced {script_entity}")
+
+        cancel_script_resp = requests.post(
+            f"{base}/api/config/script/config/{cancel_script_id}",
+            headers=headers,
+            json=cancel_script_payload,
+            timeout=20,
+        )
+        cancel_script_resp.raise_for_status()
+        print(f"Synced {cancel_script_entity}")
+
+        reconcile_automation_id = automation_id + "_reconcile"
+        reconcile_automation_payload = {
+            "alias": f"Reconcile {name}",
+            "description": "Repo-managed reconciliation for heating boost desired state.",
+            "mode": "restart",
+            "triggers": [
+                {"trigger": "homeassistant", "event": "start"},
+                {"trigger": "event", "event_type": "timer.finished", "event_data": {"entity_id": timer_entity}},
+                {"trigger": "time_pattern", "minutes": "/1"},
+                {"trigger": "state", "entity_id": targets},
+            ],
+            "conditions": [],
+            "actions": [
+                {
+                    "variables": {
+                        "boost_is_active": "{{ is_state('" + timer_entity + "', 'active') }}",
+                        "has_restore_state": "{{ states('" + restore_state_entity + "') not in ['', 'unknown', 'unavailable'] }}",
+                        "restore_state": "{{ (states('" + restore_state_entity + "') if states('" + restore_state_entity + "') not in ['', 'unknown', 'unavailable'] else '{}') | from_json }}",
+                    }
+                },
+                {
+                    "choose": [
+                        {
+                            "conditions": [{"condition": "template", "value_template": "{{ boost_is_active }}"}],
+                            "sequence": ensure_boost_actions,
+                        },
+                        {
+                            "conditions": [{"condition": "template", "value_template": "{{ has_restore_state }}"}],
+                            "sequence": [
+                                {
+                                    "choose": [
+                                        {
+                                            "conditions": [
+                                                {
+                                                    "condition": "template",
+                                                    "value_template": "{{ trigger.platform == 'event' and trigger.event.event_type == 'timer.finished' }}",
+                                                }
+                                            ],
+                                            "sequence": completion_flash_sequence,
+                                        }
+                                    ]
+                                },
+                                *restore_sequence,
+                                {
+                                    "action": "input_text.set_value",
+                                    "target": {"entity_id": restore_state_entity},
+                                    "data": {"value": ""},
+                                },
+                            ],
+                        },
+                    ]
+                },
+            ],
+        }
+
+        automation_payload = {
+            "alias": name,
+            "description": "Repo-managed ZHA remote heating control.",
+            "mode": "single",
+            "triggers": [start_trigger],
+            "conditions": [],
+            "actions": [
+                {
+                    "action": "script.turn_on",
+                    "target": {"entity_id": script_entity},
+                }
+            ],
+        }
+
+        cancel_automation_payload = {
+            "alias": f"Cancel {name}",
+            "description": "Repo-managed ZHA remote heating cancel control.",
+            "mode": "single",
+            "triggers": [
+                {
+                    **cancel_wait_trigger,
+                    "id": "cancel",
+                }
+            ],
+            "conditions": [],
+            "actions": [
+                {
+                    "action": "script.turn_on",
+                    "target": {"entity_id": cancel_script_entity},
+                }
+            ],
+        }
+
+        resp = requests.post(
+            f"{base}/api/config/automation/config/{automation_id}",
+            headers=headers,
+            json=automation_payload,
+            timeout=20,
+        )
+        resp.raise_for_status()
+        print(f"Synced {automation_entity}")
+
+        cancel_automation_id = automation_id + "_cancel"
+        cancel_automation_resp = requests.post(
+            f"{base}/api/config/automation/config/{cancel_automation_id}",
+            headers=headers,
+            json=cancel_automation_payload,
+            timeout=20,
+        )
+        cancel_automation_resp.raise_for_status()
+        print(f"Synced automation.{cancel_automation_id}")
+
+        reconcile_automation_resp = requests.post(
+            f"{base}/api/config/automation/config/{reconcile_automation_id}",
+            headers=headers,
+            json=reconcile_automation_payload,
+            timeout=20,
+        )
+        reconcile_automation_resp.raise_for_status()
+        print(f"Synced automation.{reconcile_automation_id}")
+
+    requests.post(f"{base}/api/services/automation/reload", headers=headers, json={}, timeout=20).raise_for_status()
+    requests.post(f"{base}/api/services/script/reload", headers=headers, json={}, timeout=20).raise_for_status()
+    print("Reloaded automations")
+
+
+def cmd_sync_heating_alerts() -> None:
+    cfg, base, token = ha_auth_from_config()
+    alerts = cfg.get("home_assistant", {}).get("heating_alerts", [])
+    if not alerts:
+        print("No home_assistant.heating_alerts configured; nothing to do.")
+        return
+
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+    for alert in alerts:
+        name = str(alert.get("name", "Heating Alert")).strip()
+        automation_entity = str(alert.get("automation_entity", "")).strip()
+        alert_type = str(alert.get("alert_type", "climate_target")).strip()
+        climate_entities = [str(entity).strip() for entity in alert.get("climate_entities", []) if str(entity).strip()]
+        threshold_temperature_c = float(alert.get("threshold_temperature_c", 23))
+        boiler_entity = str(alert.get("boiler_entity", "")).strip()
+        relay_entity = str(alert.get("relay_entity", "")).strip()
+        light_entity = str(alert.get("light_entity", "")).strip()
+        flash_rgb_color = alert.get("flash_rgb_color", [255, 0, 0])
+        flash_count = int(alert.get("flash_count", 2))
+        flash_seconds = float(alert.get("flash_seconds", 1))
+
+        if (
+            not automation_entity
+            or not relay_entity
+            or not light_entity
+            or flash_count < 1
+            or flash_seconds <= 0
+        ):
+            raise RuntimeError(f"Incomplete heating_alerts entry '{name}'")
+
+        if alert_type == "climate_target":
+            if not climate_entities:
+                raise RuntimeError(f"Missing climate_entities for heating_alerts entry '{name}'")
+            triggers = []
+            for entity in climate_entities:
+                triggers.append(
+                    {
+                        "trigger": "state",
+                        "entity_id": entity,
+                        "attribute": "temperature",
+                    }
+                )
+            conditions = [
+                {
+                    "condition": "template",
+                    "value_template": "{{ trigger.to_state is not none and (trigger.to_state.attributes.temperature | float(0)) >= "
+                    + str(threshold_temperature_c)
+                    + " }}",
+                }
+            ]
+        elif alert_type == "boiler_off":
+            if not boiler_entity:
+                raise RuntimeError(f"Missing boiler_entity for heating_alerts entry '{name}'")
+            triggers = [{"trigger": "state", "entity_id": boiler_entity, "to": "off"}]
+            conditions = [
+                {
+                    "condition": "template",
+                    "value_template": "{{ trigger.from_state is not none and trigger.from_state.state == 'on' }}",
+                }
+            ]
+        else:
+            raise RuntimeError(f"Unsupported heating_alerts alert_type '{alert_type}'")
+
+        flash_payload = {"rgb_color": flash_rgb_color, "brightness_pct": 100, "transition": 0.2}
+        automation_id = automation_entity.split(".", 1)[1]
+        automation_payload = {
+            "alias": name,
+            "description": "Repo-managed alert when a TRV target reaches the configured high temperature.",
+            "mode": "restart",
+            "triggers": triggers,
+            "conditions": conditions,
+            "actions": [
+                {
+                    "variables": {
+                        "relay_was_on": "{{ is_state('" + relay_entity + "', 'on') }}",
+                        "light_was_on": "{{ is_state('" + light_entity + "', 'on') }}",
+                        "light_brightness": "{{ state_attr('" + light_entity + "', 'brightness') }}",
+                        "light_color_mode": "{{ state_attr('" + light_entity + "', 'color_mode') }}",
+                        "light_xy_color": "{{ state_attr('" + light_entity + "', 'xy_color') }}",
+                        "light_xy_x": "{{ (state_attr('" + light_entity + "', 'xy_color') or [none, none])[0] }}",
+                        "light_xy_y": "{{ (state_attr('" + light_entity + "', 'xy_color') or [none, none])[1] }}",
+                        "light_color_temp_kelvin": "{{ state_attr('" + light_entity + "', 'color_temp_kelvin') }}",
+                    }
+                },
+                {
+                    "choose": [
+                        {
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ not relay_was_on }}",
+                                }
+                            ],
+                            "sequence": [
+                                {
+                                    "action": "switch.turn_on",
+                                    "target": {"entity_id": relay_entity},
+                                },
+                                {"delay": "00:00:02"},
+                            ],
+                        }
+                    ]
+                },
+                {
+                    "repeat": {
+                        "count": flash_count,
+                        "sequence": [
+                            {
+                                "action": "light.turn_on",
+                                "target": {"entity_id": light_entity},
+                                "data": flash_payload,
+                            },
+                            {"delay": f"00:00:{int(flash_seconds):02d}"},
+                            {
+                                "action": "light.turn_off",
+                                "target": {"entity_id": light_entity},
+                            },
+                            {"delay": f"00:00:{int(flash_seconds):02d}"},
+                        ],
+                    }
+                },
+                {
+                    "choose": [
+                        {
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ light_was_on }}",
+                                },
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ light_color_mode == 'color_temp' and light_color_temp_kelvin is not none }}",
+                                },
+                            ],
+                            "sequence": [
+                                {
+                                    "action": "light.turn_on",
+                                    "target": {"entity_id": light_entity},
+                                    "data": {
+                                        "brightness": "{{ light_brightness | int(255) }}",
+                                        "color_temp_kelvin": "{{ light_color_temp_kelvin | int }}",
+                                        "transition": 0,
+                                    },
+                                }
+                            ],
+                        },
+                        {
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ light_was_on }}",
+                                },
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ light_color_mode != 'color_temp' and light_xy_x is not none and light_xy_y is not none }}",
+                                },
+                            ],
+                            "sequence": [
+                                {
+                                    "action": "light.turn_on",
+                                    "target": {"entity_id": light_entity},
+                                    "data": {
+                                        "brightness": "{{ light_brightness | int(255) }}",
+                                        "xy_color": [
+                                            "{{ light_xy_x | float }}",
+                                            "{{ light_xy_y | float }}",
+                                        ],
+                                        "transition": 0,
+                                    },
+                                }
+                            ],
+                        },
+                    ],
+                    "default": [
+                        {
+                            "choose": [
+                                {
+                                    "conditions": [
+                                        {
+                                            "condition": "template",
+                                            "value_template": "{{ light_was_on }}",
+                                        }
+                                    ],
+                                    "sequence": [
+                                        {
+                                            "action": "light.turn_on",
+                                            "target": {"entity_id": light_entity},
+                                            "data": {
+                                                "brightness": "{{ light_brightness | int(255) }}",
+                                                "transition": 0,
+                                            },
+                                        }
+                                    ],
+                                }
+                            ],
+                            "default": [
+                                {
+                                    "action": "light.turn_off",
+                                    "target": {"entity_id": light_entity},
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "choose": [
+                        {
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ not relay_was_on }}",
+                                }
+                            ],
+                            "sequence": [
+                                {
+                                    "action": "switch.turn_off",
+                                    "target": {"entity_id": relay_entity},
+                                }
+                            ],
+                        }
+                    ],
+                },
+            ],
+        }
+
+        resp = requests.post(
+            f"{base}/api/config/automation/config/{automation_id}",
+            headers=headers,
+            json=automation_payload,
+            timeout=20,
+        )
+        resp.raise_for_status()
+        print(f"Synced {automation_entity}")
+
+    requests.post(f"{base}/api/services/automation/reload", headers=headers, json={}, timeout=20).raise_for_status()
+    print("Reloaded automations")
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Home Assistant helper")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1341,7 +3031,11 @@ def main() -> None:
     sub.add_parser("add-tplink")
     sub.add_parser("sync-heating-dashboard")
     sub.add_parser("sync-heating-control")
+    sub.add_parser("sync-light-routines")
     sub.add_parser("sync-hue-scenes")
+    sub.add_parser("sync-remote-light-controls")
+    sub.add_parser("sync-remote-heating-controls")
+    sub.add_parser("sync-heating-alerts")
     sub.add_parser("summary")
     args = parser.parse_args()
 
@@ -1355,8 +3049,16 @@ def main() -> None:
         cmd_sync_heating_dashboard()
     elif args.command == "sync-heating-control":
         cmd_sync_heating_control()
+    elif args.command == "sync-light-routines":
+        cmd_sync_light_routines()
     elif args.command == "sync-hue-scenes":
         cmd_sync_hue_scenes()
+    elif args.command == "sync-remote-light-controls":
+        cmd_sync_remote_light_controls()
+    elif args.command == "sync-remote-heating-controls":
+        cmd_sync_remote_heating_controls()
+    elif args.command == "sync-heating-alerts":
+        cmd_sync_heating_alerts()
     elif args.command == "summary":
         cmd_summary()
 

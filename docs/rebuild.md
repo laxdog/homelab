@@ -30,6 +30,7 @@ HAOS is appliance-style, so HACS installation is a one-time manual step.
 6. Optional: install `mini-graph-card` as fallback.
 7. Restart Home Assistant.
 8. Re-apply HA repo automation/config:
+   - `python3 scripts/run.py guests`
    - `python3 scripts/home_assistant.py apply-core`
    - `python3 scripts/home_assistant.py sync-devices`
    - `python3 scripts/home_assistant.py sync-heating-control`
@@ -44,8 +45,8 @@ HAOS is appliance-style, so HACS installation is a one-time manual step.
   - `sync-remote-light-controls` reapplies repo-managed ZHA remote-to-light bindings such as the bedroom STYRBAR.
   - `sync-remote-heating-controls` reapplies repo-managed ZHA remote-to-heating bindings such as the living room heating boost remote.
     It also reapplies reusable boost scripts such as `script.boost_downstairs` and `script.cancel_boost_downstairs`.
-    The generated public boost scripts also restart stale runner scripts automatically if HA still
-    thinks a boost is running but the targets are no longer actually at the boost setpoint.
+    Repo-managed boost timers and restore-state helpers come from the HAOS/bootstrap side, so
+    `scripts/run.py guests` must be part of the rollout when those definitions change.
   - `sync-heating-alerts` reapplies repo-managed visual heating alerts such as the living room red flash on `23C` targets.
   - Active repo-managed boosts override repo-managed scheduled `off` events and overnight hard-off windows
     for their own target TRVs; manual all-off/lockout controls still override everything.
