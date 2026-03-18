@@ -83,6 +83,43 @@ Source of truth:
   - After HA is reachable again, re-run the repo-managed HA helper commands listed in `docs/rebuild.md`.
   - If no HA backup exists, perform the HAOS/bootstrap flow from `docs/rebuild.md`, then re-apply the repo-managed HA helper commands and manually recreate any non-repo runtime state that is still required.
 
+## Runtime Drift Snapshot (2026-03-18)
+- Runtime-only entities observed during the current audit should be treated as one of:
+  - definitely unmanaged: no corresponding repo config or generator path exists
+  - likely stale residue: looks like an old/generated duplicate or snapshot left behind by previous behavior
+  - likely intentional but unmanaged: appears to be a real one-off/manual runtime automation, but not repo-driven
+  - uncertain: close enough to repo-managed behavior that it should not be deleted without confirming how HA currently references it
+- Current runtime-only entity families:
+  - likely intentional but unmanaged:
+    - `automation.ad_hoc_heating_2026_03_11_18_00`
+    - `automation.ad_hoc_heating_2026_03_11_21_30_dining_front_restore`
+    - `automation.ad_hoc_laundry_power_cutoff_until_2026_03_12_11_00`
+    - `automation.ad_hoc_shield_turn_off_2026_03_17_01_42`
+    - `automation.office_heat_boost_until_2026_03_09_16_05_utc`
+  - likely stale residue:
+    - `automation.ad_hoc_laundry_power_cutoff_until_2026_03_12_11_00_2`
+    - `automation.bedroom_weekday_sunrise_2`
+    - `automation.living_room_styrbar_*`
+    - `scene.heating_high_target_alert_snapshot`
+    - `scene.living_room_heating_boost_indicator_snapshot`
+  - definitely unmanaged:
+    - `automation.zigbee_living_room_remote_toggle_living_room_light_test`
+    - `script.dining_room_remote_boundary_flash`
+    - `script.dining_room_remote_hold_brightness_down`
+    - `script.dining_room_remote_hold_brightness_up`
+  - likely intentional but unmanaged, but still in active use until confirmed otherwise:
+    - `automation.dining_room_remote_*`
+  - uncertain:
+    - `automation.cancel_bedroom_heating_boost`
+    - `automation.cancel_living_room_heating_boost`
+    - `automation.holiday_dining_area_evening`
+    - `automation.holiday_living_room_evening`
+- Operational stance:
+  - do not delete runtime-only entities casually
+  - confirm whether a runtime-only entity is still referenced by real behavior before removing it
+  - prefer absorbing still-needed behavior into repo-managed config/scripts before cleanup
+  - treat duplicate-looking generated entities as cleanup candidates only after confirming the current repo-managed replacement is live and behaving correctly
+
 ## Automation helpers
 - `python3 scripts/home_assistant.py apply-core`
   - Applies core runtime config (location name, coordinates, unit system, timezone, currency) to an already-onboarded HA instance.

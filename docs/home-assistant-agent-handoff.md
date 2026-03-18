@@ -58,6 +58,31 @@
   - if a native HA backup exists, restore it first, then rerun repo-managed HA helper commands
   - if no native HA backup exists, rebuild HAOS/bootstrap from repo and expect only repo-managed HA behavior to be recoverable without additional manual work
 
+## Runtime Drift Baseline (2026-03-18)
+- Runtime-only entities were observed in live HA during the current audit.
+- Current classification:
+  - likely intentional but unmanaged:
+    - `automation.ad_hoc_*`
+    - `automation.office_heat_boost_until_2026_03_09_16_05_utc`
+    - `automation.dining_room_remote_*`
+  - likely stale residue:
+    - `automation.bedroom_weekday_sunrise_2`
+    - `automation.living_room_styrbar_*`
+    - `scene.heating_high_target_alert_snapshot`
+    - `scene.living_room_heating_boost_indicator_snapshot`
+    - `automation.ad_hoc_laundry_power_cutoff_until_2026_03_12_11_00_2`
+  - definitely unmanaged:
+    - `automation.zigbee_living_room_remote_toggle_living_room_light_test`
+    - `script.dining_room_remote_boundary_flash`
+    - `script.dining_room_remote_hold_brightness_down`
+    - `script.dining_room_remote_hold_brightness_up`
+  - uncertain and should be confirmed before cleanup:
+    - `automation.cancel_bedroom_heating_boost`
+    - `automation.cancel_living_room_heating_boost`
+    - `automation.holiday_*`
+- Working rule:
+  - do not delete runtime-only entities until they are either absorbed into repo-managed behavior or confirmed to be stale and unused.
+
 ## Current Implemented Features
 - Boiler/TRV orchestration via generated HA scripts + automations.
   - Boiler on-demand includes a periodic reconciliation path so missed template edges after automation reloads self-heal.
