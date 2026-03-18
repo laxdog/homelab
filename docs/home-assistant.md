@@ -112,8 +112,6 @@ Source of truth:
   - likely intentional but unmanaged, but still in active use until confirmed otherwise:
     - `automation.dining_room_remote_*`
   - uncertain:
-    - `automation.cancel_bedroom_heating_boost`
-    - `automation.cancel_living_room_heating_boost`
     - `automation.holiday_dining_area_evening`
     - `automation.holiday_living_room_evening`
 - Operational stance:
@@ -216,6 +214,19 @@ Source of truth:
     - `timer.<script_entity object id>`
     - `input_text.<script_entity object id>_restore_state`
   - Those helpers are created from repo during `scripts/run.py guests`, not by the sync command itself.
+  - Desired-state model:
+    - the timer is the source of truth for whether a boost should still be active
+    - the restore-state helper is the source of truth for the pre-boost TRV modes/setpoints that still need to be restored
+    - “desired state” means:
+      - while the timer is active, the target TRVs should be at the configured boost temperature in `heat` mode
+      - while the timer is inactive but the helper is still populated, the target TRVs should be driven back to the saved pre-boost state
+  - Reconciliation model:
+    - `automation.reconcile_living_room_heating_boost`
+    - `automation.reconcile_bedroom_heating_boost`
+    - these run on HA startup, timer-finished events, helper changes, target state changes, and a 1-minute periodic fallback
+    - on startup/reload:
+      - if the timer is still active, reconcile re-applies the boost state
+      - if the timer is inactive but the helper is populated, reconcile keeps trying to restore the saved pre-boost state until the targets actually match it, then clears the helper
   - Current living room `Heating` remote behavior:
     - top short press runs `script.boost_downstairs`, which boosts `Front Window`,
       `Dining Area`, and `Bathroom` to `23C` for 30 minutes, then restores their
@@ -233,11 +244,38 @@ Source of truth:
     - when HA starts and a boost timer is still active, the reconcile automation
       re-applies the boost state from the timer/helper model
     - when a boost timer has ended but the restore-state helper is still populated,
-      the reconcile automation restores the pre-boost TRV modes/setpoints and clears the helper
+      the reconcile automation restores the pre-boost TRV modes/setpoints and only clears the helper
+      after the targets actually match the saved state
     - re-pressing an already-running boost extends it by another 30 minutes and flashes the
       living room Hue bulb red twice quickly
     - when the boost ends or is cancelled, the living room Hue bulb flashes purple once and
       then returns to its prior light/relay state
+  - Migration / cleanup status for the old model:
+    - old runner scripts:
+      - `script.boost_downstairs_runner`: removed by the sync command if present
+      - `script.boost_bedroom_runner`: removed by the sync command if present
+    - old cancel automations:
+      - `automation.cancel_living_room_heating_boost`
+      - `automation.cancel_bedroom_heating_boost`
+      - these are current repo-managed cancel automations, not legacy residue; their runtime entity IDs come from HA alias naming while the underlying config IDs remain `*_cancel`
+    - snapshot scenes:
+      - `scene.heating_high_target_alert_snapshot`: not present in current runtime snapshot
+      - `scene.living_room_heating_boost_indicator_snapshot`: not present in current runtime snapshot
+    - remaining runtime-only boost residue:
+      - `automation.office_heat_boost_until_2026_03_09_16_05_utc` is still unmanaged runtime history and still needs separate cleanup if it is no longer wanted
+  - Validation notes from the current migration pass:
+    - Bedroom hardest restart case was verified directly:
+      - start boost
+      - shorten the timer to `15s`
+      - stop the HA VM for `25s`
+      - start HA again
+      - observed result: `timer.boost_bedroom` returned `idle`, `input_text.boost_bedroom_restore_state` cleared, and `climate.bedroom_2` reconciled back to `off / 20C`
+    - Downstairs hardest restart case exposed the original migration bug:
+      - before the follow-up fix, `timer.boost_downstairs` could return idle after HA downtime while the helper cleared too early and the TRVs stayed at `23C`
+      - the follow-up fix keeps the helper authoritative until the saved pre-boost state has actually been restored
+    - Idempotence checks completed:
+      - repeated `scripts/run.py guests` HA bootstrap applies completed with `changed=0`
+      - repeated `sync-remote-heating-controls` now succeeds after accepting HA’s `400` response when a legacy runner script has already been deleted
     - this remote currently uses raw `zha_event` matching (`attribute_updated` on `on_off`)
       instead of the higher-level ZHA device trigger, because that proved more reliable here
 - `python3 scripts/home_assistant.py sync-heating-alerts`

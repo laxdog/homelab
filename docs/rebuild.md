@@ -47,6 +47,9 @@ HAOS is appliance-style, so HACS installation is a one-time manual step.
     It also reapplies reusable boost scripts such as `script.boost_downstairs` and `script.cancel_boost_downstairs`.
     Repo-managed boost timers and restore-state helpers come from the HAOS/bootstrap side, so
     `scripts/run.py guests` must be part of the rollout when those definitions change.
+    Boost recovery now depends on the timer/helper desired-state model, so repeated
+    `scripts/run.py guests` runs should remain idempotent and must not create duplicate
+    `timer:` or `input_text:` sections in HAOS `configuration.yaml`.
   - `sync-heating-alerts` reapplies repo-managed visual heating alerts such as the living room red flash on `23C` targets.
   - Active repo-managed boosts override repo-managed scheduled `off` events and overnight hard-off windows
     for their own target TRVs; manual all-off/lockout controls still override everything.

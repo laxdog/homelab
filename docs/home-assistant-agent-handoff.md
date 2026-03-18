@@ -100,8 +100,30 @@
   with right/left on the living room heating remote mapped to start/cancel.
 - Boosts are now backed by repo-managed HA timers and restore-state helpers created through
   the HAOS bootstrap path, then reconciled by generated HA automations/scripts.
+- Desired-state model for boosts:
+  - timer = source of truth for whether a boost should still be active
+  - restore-state helper = source of truth for the pre-boost TRV state that still needs restoring
+  - reconcile automations (`automation.reconcile_living_room_heating_boost`,
+    `automation.reconcile_bedroom_heating_boost`) drive the actual TRVs toward that desired state
 - Restart/reload recovery for boosts now comes from the timer/helper desired-state model rather
   than from long-running runner scripts surviving in-flight.
+- On startup/reload:
+  - active timers cause reconcile to re-assert the boost temperature
+  - inactive timers with a populated restore helper cause reconcile to keep restoring the saved
+    pre-boost state until the targets actually match, then clear the helper
+- Migration status:
+  - legacy `script.boost_*_runner` scripts are now removed by `sync-remote-heating-controls`
+  - `automation.cancel_living_room_heating_boost` and `automation.cancel_bedroom_heating_boost`
+    are current repo-managed cancel automations, not legacy residue
+  - boost-related snapshot scenes are no longer present in the current runtime snapshot
+  - unmanaged boost residue still observed: `automation.office_heat_boost_until_2026_03_09_16_05_utc`
+- Validation status from the latest pass:
+  - bedroom expiry-while-HA-down recovery was verified directly and reconciled back to `off / 20C`
+  - downstairs expiry-while-HA-down exposed the original early-helper-clear bug and drove the
+    follow-up fix that keeps helper state authoritative until restore is actually complete
+  - repeated HA bootstrap apply is idempotent (`changed=0` on repeat runs)
+  - repeated `sync-remote-heating-controls` is now idempotent after handling HA's `400` response
+    when a legacy runner script is already gone
 - Active repo-managed boosts now override repo-managed scheduled `off` events and hard-off windows
   for the boosted TRVs. Manual `script.heating_all_off` and `script.heating_lockout_enable` still win.
 - Heating high-target visual alert from `home_assistant.heating_alerts`.
