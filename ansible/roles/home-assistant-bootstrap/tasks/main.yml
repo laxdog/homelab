@@ -196,6 +196,11 @@
         timer_cfg[timer_id] = desired_timer
         changed = True
 
+      guard_id = f"{script_id}_restore_guard"
+      if guard_id in timer_cfg:
+        del timer_cfg[guard_id]
+        changed = True
+
       if input_text_cfg.get(restore_id) != desired_restore_input:
         input_text_cfg[restore_id] = desired_restore_input
         changed = True

@@ -2320,6 +2320,7 @@ def cmd_sync_remote_heating_controls() -> None:
         targets = [str(entity).strip() for entity in control.get("targets", []) if str(entity).strip()]
         duration_minutes = int(control.get("duration_minutes", 30))
         temperature_c = float(control.get("temperature_c", 23))
+        fail_safe_off_on_uncertain_restore = bool(control.get("fail_safe_off_on_uncertain_restore", False))
         indicator_relay_entity = str(control.get("indicator_relay_entity", "")).strip()
         indicator_light_entity = str(control.get("indicator_light_entity", "")).strip()
         completion_flash_rgb_color = control.get("completion_flash_rgb_color", [170, 0, 255])
@@ -2549,6 +2550,7 @@ def cmd_sync_remote_heating_controls() -> None:
         )
 
         ensure_boost_actions: List[dict] = []
+        ensure_off_actions: List[dict] = []
         for target in targets:
             ensure_boost_actions.append(
                 {
@@ -2577,6 +2579,27 @@ def cmd_sync_remote_heating_controls() -> None:
                                     "target": {"entity_id": target},
                                     "data": {"temperature": temperature_c},
                                 },
+                            ],
+                        }
+                    ]
+                }
+            )
+            ensure_off_actions.append(
+                {
+                    "choose": [
+                        {
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ states('" + target + "') != 'off' }}",
+                                }
+                            ],
+                            "sequence": [
+                                {
+                                    "action": "climate.set_hvac_mode",
+                                    "target": {"entity_id": target},
+                                    "data": {"hvac_mode": "off"},
+                                }
                             ],
                         }
                     ]
@@ -2644,6 +2667,7 @@ def cmd_sync_remote_heating_controls() -> None:
                     "variables": {
                         "has_restore_state": "{{ states('" + restore_state_entity + "') not in ['', 'unknown', 'unavailable'] }}",
                         "restore_state": "{{ (states('" + restore_state_entity + "') if states('" + restore_state_entity + "') not in ['', 'unknown', 'unavailable'] else '{}') | from_json }}",
+                        "targets_currently_boosted": targets_currently_boosted_template,
                     }
                 },
                 {
@@ -2655,7 +2679,18 @@ def cmd_sync_remote_heating_controls() -> None:
                         {
                             "conditions": [{"condition": "template", "value_template": "{{ has_restore_state }}"}],
                             "sequence": completion_flash_sequence + restore_sequence,
-                        }
+                        },
+                        {
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ targets_currently_boosted and "
+                                    + ("true" if fail_safe_off_on_uncertain_restore else "false")
+                                    + " }}",
+                                }
+                            ],
+                            "sequence": ensure_off_actions,
+                        },
                     ]
                 },
             ],
@@ -2700,6 +2735,7 @@ def cmd_sync_remote_heating_controls() -> None:
                         "has_restore_state": "{{ states('" + restore_state_entity + "') not in ['', 'unknown', 'unavailable'] }}",
                         "restore_state": "{{ (states('" + restore_state_entity + "') if states('" + restore_state_entity + "') not in ['', 'unknown', 'unavailable'] else '{}') | from_json }}",
                         "all_targets_restored": all_targets_restored_template,
+                        "targets_currently_boosted": targets_currently_boosted_template,
                     }
                 },
                 {
@@ -2746,6 +2782,17 @@ def cmd_sync_remote_heating_controls() -> None:
                                     "data": {"value": ""},
                                 }
                             ],
+                        },
+                        {
+                            "conditions": [
+                                {
+                                    "condition": "template",
+                                    "value_template": "{{ trigger.platform == 'homeassistant' and not boost_is_active and not has_restore_state and targets_currently_boosted and "
+                                    + ("true" if fail_safe_off_on_uncertain_restore else "false")
+                                    + " }}",
+                                }
+                            ],
+                            "sequence": ensure_off_actions,
                         },
                     ]
                 },

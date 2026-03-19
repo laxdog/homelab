@@ -308,9 +308,15 @@ Source of truth:
   - Desired-state model:
     - the timer is the source of truth for whether a boost should still be active
     - the restore-state helper is the source of truth for the pre-boost TRV modes/setpoints that still need to be restored
+    - downstairs also has a repo-managed fail-safe flag (`fail_safe_off_on_uncertain_restore: true`)
+      that only applies on HA startup when:
+      - the downstairs boost timer is inactive
+      - the downstairs restore helper is empty
+      - all three downstairs targets are still sitting at the boost setpoint
     - “desired state” means:
       - while the timer is active, the target TRVs should be at the configured boost temperature in `heat` mode
       - while the timer is inactive but the helper is still populated, the target TRVs should be driven back to the saved pre-boost state
+      - for downstairs only, if HA starts in the exact “timer idle + helper empty + all three targets still boosted” state, reconcile fails safe to `off` instead of leaving the boost setpoint in place indefinitely
   - Reconciliation model:
     - `automation.reconcile_living_room_heating_boost`
     - `automation.reconcile_bedroom_heating_boost`
@@ -337,6 +343,8 @@ Source of truth:
     - when a boost timer has ended but the restore-state helper is still populated,
       the reconcile automation restores the pre-boost TRV modes/setpoints and only clears the helper
       after the targets actually match the saved state
+    - downstairs fail-safe does not run during normal idle operation:
+      it is a startup-only safety branch for the specific unresolved post-restart state above
     - re-pressing an already-running boost extends it by another 30 minutes and flashes the
       living room Hue bulb red twice quickly
     - when the boost ends or is cancelled, the living room Hue bulb flashes purple once and
@@ -354,6 +362,8 @@ Source of truth:
       - `scene.living_room_heating_boost_indicator_snapshot`: not present in current runtime snapshot
     - remaining runtime-only boost residue:
       - `automation.office_heat_boost_until_2026_03_09_16_05_utc` is still unmanaged runtime history and still needs separate cleanup if it is no longer wanted
+      - if `timer.boost_downstairs_restore_guard` appears as `unavailable`, that is stale runtime residue
+        from the abandoned guard-timer experiment, not a current repo-managed part of the boost model
   - Validation notes from the current migration pass:
     - Bedroom hardest restart case was verified directly:
       - start boost
@@ -361,7 +371,7 @@ Source of truth:
       - stop the HA VM for `25s`
       - start HA again
       - observed result: `timer.boost_bedroom` returned `idle`, `input_text.boost_bedroom_restore_state` cleared, and `climate.bedroom_2` reconciled back to `off / 20C`
-    - Downstairs hardest restart case was rerun cleanly on `2026-03-19` and the remaining validation gap is still open:
+    - Downstairs hardest restart case was rerun cleanly on `2026-03-19` and is now covered by the narrower fail-safe branch:
       - start downstairs boost
       - shorten the timer to `15s`
       - stop the HA VM for `25s`
@@ -369,13 +379,20 @@ Source of truth:
       - observed result:
         - `timer.boost_downstairs` came back `idle`
         - `input_text.boost_downstairs_restore_state` came back empty
-        - `climate.front_window`, `climate.dining_area`, and `climate.bathroom` all remained at `heat / 23C`
-        - `automation.reconcile_living_room_heating_boost` was enabled and triggering, but had no restore payload left to apply
+        - `climate.front_window`, `climate.dining_area`, and `climate.bathroom` all reconciled to `off`
+        - their target temperatures still showed `23C`, but HVAC mode was safely `off`
       - direct probe result:
         - setting `input_text.boost_downstairs_restore_state` to a sentinel value and power-cycling the HA VM caused it to come back empty
-      - current conclusion:
-        - the YAML-defined downstairs restore helper is not durable enough across a full HA VM restart for this proof case
-        - the downstairs expiry-while-down validation gap is therefore not yet closed
+      - fail-safe design/validation:
+        - the broad earlier patch was rejected because “helper empty” alone was too broad and would collide with normal downstairs operation
+        - the accepted narrower branch only fires on HA startup when all three downstairs targets are still at the boost setpoint and the normal restore payload is gone
+        - after the fail-safe fired, ordinary manual downstairs `heat / 20C` still worked
+      - normal downstairs restore path was also revalidated:
+        - starting from normal downstairs `heat / 20C`, boost still reached `23C`
+        - expiry while HA stayed up still restored all three downstairs TRVs back to `heat / 20C`
+      - bedroom non-regression:
+        - bedroom boost still reached `23C`
+        - bedroom cancel still restored `Bedroom` back to `off / 20C`
     - Idempotence checks completed:
       - repeated `scripts/run.py guests` HA bootstrap applies completed with `changed=0`
       - repeated `sync-remote-heating-controls` now succeeds after accepting HA’s `400` response when a legacy runner script has already been deleted

@@ -1024,6 +1024,7 @@ home_assistant:
     automation_entity: automation.living_room_heating_boost
     script_entity: script.boost_downstairs
     cancel_script_entity: script.cancel_boost_downstairs
+    fail_safe_off_on_uncertain_restore: true
     remote_identifier: 78:1c:9d:ff:fe:59:15:57
     trigger_command: attribute_updated
     trigger_args:
