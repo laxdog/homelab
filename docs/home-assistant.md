@@ -361,9 +361,21 @@ Source of truth:
       - stop the HA VM for `25s`
       - start HA again
       - observed result: `timer.boost_bedroom` returned `idle`, `input_text.boost_bedroom_restore_state` cleared, and `climate.bedroom_2` reconciled back to `off / 20C`
-    - Downstairs hardest restart case exposed the original migration bug:
-      - before the follow-up fix, `timer.boost_downstairs` could return idle after HA downtime while the helper cleared too early and the TRVs stayed at `23C`
-      - the follow-up fix keeps the helper authoritative until the saved pre-boost state has actually been restored
+    - Downstairs hardest restart case was rerun cleanly on `2026-03-19` and the remaining validation gap is still open:
+      - start downstairs boost
+      - shorten the timer to `15s`
+      - stop the HA VM for `25s`
+      - start HA again
+      - observed result:
+        - `timer.boost_downstairs` came back `idle`
+        - `input_text.boost_downstairs_restore_state` came back empty
+        - `climate.front_window`, `climate.dining_area`, and `climate.bathroom` all remained at `heat / 23C`
+        - `automation.reconcile_living_room_heating_boost` was enabled and triggering, but had no restore payload left to apply
+      - direct probe result:
+        - setting `input_text.boost_downstairs_restore_state` to a sentinel value and power-cycling the HA VM caused it to come back empty
+      - current conclusion:
+        - the YAML-defined downstairs restore helper is not durable enough across a full HA VM restart for this proof case
+        - the downstairs expiry-while-down validation gap is therefore not yet closed
     - Idempotence checks completed:
       - repeated `scripts/run.py guests` HA bootstrap applies completed with `changed=0`
       - repeated `sync-remote-heating-controls` now succeeds after accepting HA’s `400` response when a legacy runner script has already been deleted

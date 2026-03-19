@@ -137,8 +137,15 @@
   - unmanaged boost residue still observed: `automation.office_heat_boost_until_2026_03_09_16_05_utc`
 - Validation status from the latest pass:
   - bedroom expiry-while-HA-down recovery was verified directly and reconciled back to `off / 20C`
-  - downstairs expiry-while-HA-down exposed the original early-helper-clear bug and drove the
-    follow-up fix that keeps helper state authoritative until restore is actually complete
+  - downstairs expiry-while-HA-down was rerun cleanly on `2026-03-19` and still fails:
+    - timer comes back `idle`
+    - downstairs restore helper comes back empty
+    - `front_window`, `dining_area`, and `bathroom` remain at `heat / 23C`
+  - direct probe showed the root cause:
+    - the YAML-defined downstairs restore helper does not retain its value across a full HA VM restart
+  - practical status:
+    - bedroom proof is strong
+    - downstairs expiry-while-down proof is still open and needs a durable restore-state store before it can close cleanly
   - repeated HA bootstrap apply is idempotent (`changed=0` on repeat runs)
   - repeated `sync-remote-heating-controls` is now idempotent after handling HA's `400` response
     when a legacy runner script is already gone
