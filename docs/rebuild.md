@@ -45,8 +45,11 @@ HAOS is appliance-style, so HACS installation is a one-time manual step.
 4. In HACS, install `Mushroom` (Lovelace card).
 5. In HACS, install `ApexCharts Card` (primary TRV graph card).
 6. Optional: install `mini-graph-card` as fallback.
-7. Restart Home Assistant.
-8. Re-apply HA repo automation/config:
+7. Repo-managed heating dashboard card assets are copied in by the HA bootstrap role:
+   - `simple-thermostat.js`
+   - `mini-climate-card-bundle.js`
+8. Restart Home Assistant.
+9. Re-apply HA repo automation/config:
    - `python3 scripts/run.py guests`
    - `python3 scripts/home_assistant.py apply-core`
    - `python3 scripts/home_assistant.py sync-devices`
@@ -83,6 +86,7 @@ HAOS is appliance-style, so HACS installation is a one-time manual step.
   - native HA backups themselves
   - backup schedule/retention/off-site handling
   - manually installed HACS/frontend resources until reinstalled
+    - exception: repo-managed local heating dashboard card assets copied by bootstrap
   - manually created helpers until recreated
   - unmanaged runtime-only automations/scripts/scenes
   - recorder/history/logbook data

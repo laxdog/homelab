@@ -45,6 +45,24 @@
   ansible.builtin.set_fact:
     ha_proxy_trust_update_required: "{{ ha_proxy_probe.status | default(0) == 400 }}"
 
+- name: Ensure Home Assistant bootstrap asset staging directory
+  ansible.builtin.file:
+    path: /tmp/ha-bootstrap-assets
+    state: directory
+    mode: "0755"
+
+- name: Stage simple-thermostat asset for Home Assistant bootstrap
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../../assets/home-assistant/cards/simple-thermostat/simple-thermostat.js"
+    dest: /tmp/ha-bootstrap-assets/simple-thermostat.js
+    mode: "0644"
+
+- name: Stage mini-climate-card asset for Home Assistant bootstrap
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../../assets/home-assistant/cards/mini-climate-card/mini-climate-card-bundle.js"
+    dest: /tmp/ha-bootstrap-assets/mini-climate-card-bundle.js
+    mode: "0644"
+
 - name: Ensure Home Assistant repo-managed configuration.yaml sections
   ansible.builtin.shell: |
     set -euo pipefail
@@ -216,6 +234,30 @@
     else:
       print("CHANGED=0")
     PY
+
+    HA_WWW="$mount_dir/supervisor/homeassistant/www/repo-managed-cards" python3 - <<'PY'
+    import os
+    import shutil
+    from pathlib import Path
+
+    target_dir = Path(os.environ["HA_WWW"])
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    assets = {
+      "simple-thermostat.js": Path("/tmp/ha-bootstrap-assets/simple-thermostat.js"),
+      "mini-climate-card-bundle.js": Path("/tmp/ha-bootstrap-assets/mini-climate-card-bundle.js"),
+    }
+
+    changed = False
+    for name, source in assets.items():
+      data = source.read_bytes()
+      target = target_dir / name
+      if not target.exists() or target.read_bytes() != data:
+        shutil.copyfile(source, target)
+        changed = True
+
+    print("CARD_CHANGED=1" if changed else "CARD_CHANGED=0")
+    PY
   args:
     executable: /bin/bash
   environment:
@@ -223,7 +265,7 @@
     HA_TRUSTED_PROXIES_JSON: "{{ ha_trusted_proxies | to_json }}"
     HA_REMOTE_HEATING_CONTROLS_JSON: "{{ config.home_assistant.remote_heating_controls | default([]) | to_json }}"
   register: ha_proxy_trust_update
-  changed_when: "'CHANGED=1' in ha_proxy_trust_update.stdout"
+  changed_when: "'CHANGED=1' in ha_proxy_trust_update.stdout or 'CARD_CHANGED=1' in ha_proxy_trust_update.stdout"
   when: ha_proxy_trust_update_required or (config.home_assistant.remote_heating_controls | default([]) | length > 0)
 
 - name: Wait for Home Assistant API after configuration.yaml update
