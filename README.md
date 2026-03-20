@@ -45,3 +45,4 @@ Source of truth: `config/homelab.yaml`.
 - `scripts/`: orchestrator
 - `docs/`: runbooks
   - includes `docs/tailscale.md` for phase-1 remote-access setup steps
+  - includes `docs/media-stack-handoff.md` for VM 120 infra foundation + app-agent handoff

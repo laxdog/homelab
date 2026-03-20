@@ -65,7 +65,13 @@ Internal (`laxdog.uk`):
 - Media stack currently includes Jellyfin only; more services will be added.
 - Jellyfin is exposed internally and externally without forward-auth to keep native apps working.
   Bootstrap is automated; see `docs/jellyfin.md`.
-- NFS role currently runs on `media-stack` and remains a placeholder pending storage attachment strategy.
+- `media-stack` now provides a real internal NFS baseline:
+  - export path: `/srv/data`
+  - allowed CIDR: `10.20.30.0/24`
+  - bulk data mounted from a ZFS-backed Proxmox data disk (not root disk)
+- Intel Quick Sync preparation for `media-stack` is infra-managed:
+  - Proxmox host exposes Intel iGPU to VM `120` (`hostpci0`)
+  - guest checks verify `/dev/dri/renderD128` for later Docker media containers
 - Internal proxy hosts use HTTPS via Let's Encrypt (DNS-01) in NPM.
 - `couchdb.lax.dog` is externally reachable for Obsidian LiveSync clients (CORS enabled for the Obsidian origin set).
 - Authentik is active as IdP and forward-auth provider for selected admin endpoints.
