@@ -269,6 +269,9 @@
 - name: Validate media stack
   hosts: media_hosts
   gather_facts: false
+  become: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
   tasks:
     - name: Verify compose file installed
       ansible.builtin.stat:
@@ -280,6 +283,60 @@
         that:
           - media_compose.stat.exists
         fail_msg: "Media stack compose file missing at /opt/media-stack/docker-compose.yaml"
+
+    - name: Check media data mount is active
+      ansible.builtin.command: "mountpoint -q {{ config.media_stack.data_mount_path }}"
+      changed_when: false
+
+    - name: Check media data directory tree exists
+      ansible.builtin.stat:
+        path: "{{ config.media_stack.data_mount_path }}/{{ item }}"
+      loop: "{{ config.media_stack.data_layout }}"
+      register: media_data_paths
+
+    - name: Assert media data directory tree exists
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.isdir
+        fail_msg: "Missing expected media data path {{ item.item }}"
+      loop: "{{ media_data_paths.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Check Intel render node exists
+      ansible.builtin.stat:
+        path: /dev/dri/renderD128
+      register: media_render_node
+
+    - name: Assert Intel render node available
+      ansible.builtin.assert:
+        that:
+          - media_render_node.stat.exists
+          - media_render_node.stat.ischr | default(false)
+        fail_msg: "media-stack is missing /dev/dri/renderD128"
+
+    - name: Check NFS service is active
+      ansible.builtin.shell: |
+        if systemctl list-unit-files --no-legend --no-pager | grep -q '^nfs-server.service'; then
+          systemctl is-active --quiet nfs-server
+        else
+          systemctl is-active --quiet nfs-kernel-server
+        fi
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Check NFS export is present
+      ansible.builtin.command: exportfs -v
+      register: media_exportfs
+      changed_when: false
+
+    - name: Assert configured NFS export path is exported
+      ansible.builtin.assert:
+        that:
+          - config.media_stack.nfs.export_path in media_exportfs.stdout
+        fail_msg: "Expected NFS export {{ config.media_stack.nfs.export_path }} not found on media-stack."
 
 - name: Validate AdGuard Home
   hosts: adguard_hosts
