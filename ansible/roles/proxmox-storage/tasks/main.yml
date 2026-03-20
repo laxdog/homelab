@@ -43,3 +43,9 @@
 - name: Ensure tank-templates storage exists
   ansible.builtin.shell: "pvesm add dir {{ config.proxmox.storages.templates_dir }} --path /tank/templates --content iso,vztmpl,import,snippets"
   when: pvesm_status.stdout is not search('^' ~ config.proxmox.storages.templates_dir ~ '\\s', multiline=True)
+
+- name: Ensure tank vm-data zfspool storage exists
+  ansible.builtin.shell: >-
+    pvesm add zfspool {{ config.proxmox.storages.media_data_disk }}
+    --pool {{ config.storage.zfs.pool }} --content images
+  when: pvesm_status.stdout is not search('^' ~ config.proxmox.storages.media_data_disk ~ '\\s', multiline=True)

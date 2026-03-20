@@ -34,6 +34,7 @@ proxmox:
   ssh_private_key_path: /home/mrobinson/.ssh/id_rsa
   storages:
     vm_disk: local-lvm
+    media_data_disk: tank-vmdata
     local_dir: local
     backups_dir: tank-backups
     templates_dir: tank-templates
@@ -254,7 +255,13 @@ services:
       os: ubuntu
       cores: 4
       memory_mb: 8192
-      disk_gb: 20
+      disk_gb: 40
+      extra_disks:
+      - interface: scsi1
+        datastore_id: tank-vmdata
+        size_gb: 8000
+        backup: true
+        discard: "on"
       mounts:
       - /tank/media:/mnt/media
       - /tank/downloads:/mnt/downloads
@@ -388,6 +395,9 @@ proxmox_metadata:
     - label: ui
       username: admin
       password_var: jellyfin_admin_password
+    - label: ssh
+      username: root
+      password_var: root_password
     home-assistant:
     - label: ui
       username: mrobinson
@@ -1348,6 +1358,29 @@ nagios:
   - name: raffle-raptor-prod
     host: nagios
     base_url: https://raffle-raptor.lax.dog
+media_stack:
+  appdata_path: /opt/media-stack/appdata
+  data_device: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1
+  data_filesystem: ext4
+  data_mount_path: /srv/data
+  data_layout:
+  - downloads/incomplete
+  - downloads/usenet
+  - downloads/torrents
+  - media/movies
+  - media/tv
+  - media/music
+  - media/audiobooks
+  - media/comedy
+  - media/software
+  - media/roms
+  shared_ids:
+    uid: 1000
+    gid: 1000
+  nfs:
+    export_path: /srv/data
+    allowed_cidr: 10.20.30.0/24
+    options: rw,sync,no_subtree_check
 cloudflare:
   zone: lax.dog
   public_ip: auto

@@ -8,3 +8,4 @@
     - proxmox-haos
     - proxmox-container-ssh
     - proxmox-lxc-tun
+    - proxmox-media-vm

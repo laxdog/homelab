@@ -132,6 +132,7 @@ resource "proxmox_virtual_environment_vm" "vms" {
   lifecycle {
     ignore_changes = [
       description,
+      hostpci,
       tags,
     ]
   }
