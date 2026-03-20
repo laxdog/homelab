@@ -250,24 +250,12 @@ services:
       roles:
       - docker
       - media
+      - nfs
       os: ubuntu
       cores: 4
       memory_mb: 8192
-      disk_gb: 64
+      disk_gb: 20
       mounts:
-      - /tank/media:/mnt/media
-      - /tank/downloads:/mnt/downloads
-    nfs-server:
-      id: 121
-      ip: 10.20.30.121
-      roles:
-      - nfs
-      os: ubuntu
-      cores: 2
-      memory_mb: 2048
-      disk_gb: 16
-      mounts:
-      - /tank/personal:/mnt/personal
       - /tank/media:/mnt/media
       - /tank/downloads:/mnt/downloads
     home-assistant:
@@ -400,10 +388,6 @@ proxmox_metadata:
     - label: ui
       username: admin
       password_var: jellyfin_admin_password
-    nfs-server:
-    - label: ssh
-      username: root
-      password_var: root_password
     home-assistant:
     - label: ui
       username: mrobinson
@@ -1300,9 +1284,6 @@ nagios:
     check_ssh: true
   - name: media-stack
     address: 10.20.30.120
-    check_ssh: true
-  - name: nfs-server
-    address: 10.20.30.121
     check_ssh: true
   - name: home-assistant
     address: 10.20.30.134

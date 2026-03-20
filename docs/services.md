@@ -3,8 +3,7 @@
 Source of truth: `config/homelab.yaml`.
 
 ## VMs
-- media-stack (Docker)
-- nfs-server
+- media-stack (Docker + NFS role)
 - home-assistant (HAOS)
 - nagios
 - tailscale-gateway (Tailscale subnet router + exit node)
@@ -66,7 +65,7 @@ Internal (`laxdog.uk`):
 - Media stack currently includes Jellyfin only; more services will be added.
 - Jellyfin is exposed internally and externally without forward-auth to keep native apps working.
   Bootstrap is automated; see `docs/jellyfin.md`.
-- NFS server role is a placeholder pending storage attachment strategy.
+- NFS role currently runs on `media-stack` and remains a placeholder pending storage attachment strategy.
 - Internal proxy hosts use HTTPS via Let's Encrypt (DNS-01) in NPM.
 - `couchdb.lax.dog` is externally reachable for Obsidian LiveSync clients (CORS enabled for the Obsidian origin set).
 - Authentik is active as IdP and forward-auth provider for selected admin endpoints.
