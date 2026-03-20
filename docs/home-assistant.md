@@ -222,8 +222,29 @@ Source of truth:
   - Requires vault vars referenced by `config.home_assistant.tplink.username_var` and `config.home_assistant.tplink.password_var`.
 - `python3 scripts/home_assistant.py sync-heating-dashboard`
   - Ensures a dedicated Heating dashboard exists in Lovelace using `config.home_assistant.heating_dashboard`.
-  - Uses a panel-width dashboard layout to maximize horizontal space usage.
-  - Adds boiler control, lockout controls, group target sliders, apply buttons, and thermostat cards for configured TRVs.
+  - Keeps the existing `overview` page intact and can also generate additional concept views for side-by-side UI comparison.
+  - Current concept pages are:
+    - `/heating-overview/overview`
+    - `/heating-overview/concept-a`
+    - `/heating-overview/concept-b`
+    - `/heating-overview/concept-c`
+  - `overview` remains the existing baseline Heating page.
+  - `concept-a` is a status-first operational layout:
+    - strong top-level state summary
+    - boost status
+    - quick actions
+    - room status grid
+    - good for "what is happening right now?"
+  - `concept-b` is a room-centric layout:
+    - one richer stack per room/zone
+    - room status + controls + short-term trend together
+    - good for adjusting several rooms in one pass
+  - `concept-c` is a compact mobile-first quick panel:
+    - chips at top
+    - big tap targets for boost/cancel/lockout
+    - one-column room controls below
+    - good for phone use
+  - Adds boiler control, lockout controls, group target sliders, boost/cancel quick actions, and thermostat cards for configured TRVs.
   - Adds a 48h combined TRV temperature graph plus one per-TRV graph card (current vs target, 12h window) when HACS `mini-graph-card` is installed.
   - If HACS `apexcharts-card` is installed, per-TRV graphs use ApexCharts with a smooth `Current` line and stepline `Target`.
   - If `mini-graph-card` is not installed, a reminder card is shown instead.
@@ -239,6 +260,15 @@ Source of truth:
   - Current URL path is `/<dashboard_url_path>/<view_path>` (default `/heating-overview/overview`).
   - Supports `style: mushroom` (HACS Mushroom cards) or `style: default`.
   - `style: mushroom` requires HACS + Mushroom to already be installed in Home Assistant.
+  - Current frontend assumptions from the live HA install:
+    - required: HACS `lovelace-mushroom`
+    - optional, detected if present: HACS `mini-graph-card`, `apexcharts-card`
+    - intentionally not used for these concepts: Bubble Card, because it is not currently installed and the review goal here is to compare dashboard ideas without adding new frontend dependencies
+  - Current recommendation after the first concept pass:
+    - strongest overall: `concept-a`
+    - strongest for mobile: `concept-c`
+    - strongest for room-by-room control: `concept-b`
+    - likely final direction: a hybrid of `concept-a` summary/state framing with parts of `concept-c` mobile action density
 - `python3 scripts/home_assistant.py sync-heating-control`
   - Creates/updates six HA scripts:
     - `script.heating_lockout_enable`

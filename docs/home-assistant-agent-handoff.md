@@ -166,6 +166,18 @@
 - Hue remote scene-cycle automation generated from `home_assistant.hue_scene_cycle`.
   - `trigger_subtype` in repo config drives the generated ZHA event command.
 - Heating dashboard uses Mushroom layout and ApexCharts (if installed).
+- Heating dashboard review concepts now exist side by side on the same Lovelace dashboard:
+  - `overview` = existing baseline page kept intact
+  - `concept-a` = status-first operational view
+  - `concept-b` = room-centric control view
+  - `concept-c` = mobile quick-panel view
+- Current UI recommendation:
+  - best overall starting point: `concept-a`
+  - best mobile-specific concept: `concept-c`
+  - best room-adjustment concept: `concept-b`
+- Card dependency stance for these concept views:
+  - use the cards already installed in HA (`lovelace-mushroom`, `mini-graph-card`, `apexcharts-card` when present)
+  - do not add Bubble Card just for experimentation unless there is a later decision to pursue a more touch-first premium concept
 
 ## Known Constraints
 - HAOS: HACS install remains manual (cannot be fully automated reliably on appliance image).

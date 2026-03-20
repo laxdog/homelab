@@ -426,8 +426,34 @@ def cmd_sync_heating_dashboard() -> None:
     view_path = dashboard_cfg.get("view_path", "overview")
     icon = dashboard_cfg.get("icon", "mdi:radiator")
     style = dashboard_cfg.get("style", "default")
+    concept_views_cfg = dashboard_cfg.get(
+        "concept_views",
+        [
+            {
+                "title": "Heating - Concept A",
+                "path": "concept-a",
+                "icon": "mdi:clipboard-pulse-outline",
+                "concept": "status_first",
+            },
+            {
+                "title": "Heating - Concept B",
+                "path": "concept-b",
+                "icon": "mdi:radiator-disabled",
+                "concept": "room_centric",
+            },
+            {
+                "title": "Heating - Concept C",
+                "path": "concept-c",
+                "icon": "mdi:cellphone-thermometer",
+                "concept": "mobile_quick",
+            },
+        ],
+    )
     boiler_entity = dashboard_cfg.get("boiler_entity")
     climate_entities = dashboard_cfg.get("climate_entities", [])
+    groups = dashboard_cfg.get("groups", {})
+    upstairs_climates = groups.get("upstairs", [])
+    downstairs_climates = groups.get("downstairs", [])
     temp_helpers = dashboard_cfg.get("temp_helpers", {})
     house_target_entity = temp_helpers.get("house", "input_number.house_target")
     upstairs_target_entity = temp_helpers.get("upstairs", "input_number.upstairs_target")
@@ -441,31 +467,308 @@ def cmd_sync_heating_dashboard() -> None:
     downstairs_boost_cancel_script = "script.cancel_boost_downstairs"
     bedroom_boost_script = "script.boost_bedroom"
     bedroom_boost_cancel_script = "script.cancel_boost_bedroom"
+    all_off_script = "script.heating_all_off"
+    downstairs_timer_entity = "timer.boost_downstairs"
+    bedroom_timer_entity = "timer.boost_bedroom"
     on_automation_entity = "automation.heating_boiler_on_demand"
 
-    cards = []
-    section_cards = []
-    if style == "mushroom":
-        resources = ws_call(base, token, "lovelace/resources")
-        mushroom_present = any(
-            isinstance(resource, dict)
-            and "lovelace-mushroom" in str(resource.get("url", ""))
-            for resource in resources
+    def climate_list_literal(entity_ids: List[str]) -> str:
+        return "[" + ", ".join(f"'{entity_id}'" for entity_id in entity_ids) + "]"
+
+    def calling_for_heat_secondary(entity_ids: List[str]) -> str:
+        return (
+            "{% set ns = namespace(items=[]) %}"
+            + f"{{% for entity_id in {climate_list_literal(entity_ids)} %}}"
+            + "{% if state_attr(entity_id, 'hvac_action') == 'heating' %}"
+            + "{% set ns.items = ns.items + [state_attr(entity_id, 'friendly_name') or entity_id] %}"
+            + "{% endif %}"
+            + "{% endfor %}"
+            + "{{ ns.items | join(', ') if ns.items else 'No rooms actively heating' }}"
         )
-        mini_graph_present = any(
-            isinstance(resource, dict)
-            and "mini-graph-card" in str(resource.get("url", ""))
-            for resource in resources
+
+    def calling_for_heat_count(entity_ids: List[str]) -> str:
+        return (
+            "{% set ns = namespace(count=0) %}"
+            + f"{{% for entity_id in {climate_list_literal(entity_ids)} %}}"
+            + "{% if state_attr(entity_id, 'hvac_action') == 'heating' %}"
+            + "{% set ns.count = ns.count + 1 %}"
+            + "{% endif %}"
+            + "{% endfor %}"
+            + "{{ ns.count }}"
         )
-        apexcharts_present = any(
-            isinstance(resource, dict)
-            and "apexcharts-card" in str(resource.get("url", ""))
-            for resource in resources
+
+    def timer_secondary(timer_entity: str) -> str:
+        return (
+            "{% if is_state('"
+            + timer_entity
+            + "', 'active') %}"
+            + "Until {{ as_timestamp(state_attr('"
+            + timer_entity
+            + "', 'finishes_at')) | timestamp_custom('%H:%M') }}"
+            + "{% else %}Idle{% endif %}"
         )
-        if not mushroom_present:
-            raise RuntimeError(
-                "Mushroom card resource is missing. Install HACS + Mushroom first, then rerun sync-heating-dashboard."
-            )
+
+    def room_secondary(entity_id: str) -> str:
+        return (
+            "{{ state_attr('"
+            + entity_id
+            + "', 'current_temperature') | round(1) }}C now"
+            + " • {{ state_attr('"
+            + entity_id
+            + "', 'temperature') | round(1) }}C target"
+            + " • {{ state_attr('"
+            + entity_id
+            + "', 'hvac_action') or states('"
+            + entity_id
+            + "') }}"
+        )
+
+    def room_icon_color(entity_id: str) -> str:
+        return (
+            "{{ 'red' if state_attr('"
+            + entity_id
+            + "', 'hvac_action') == 'heating' else "
+            + "'orange' if is_state('"
+            + entity_id
+            + "', 'heat') else 'grey' }}"
+        )
+
+    def action_card(
+        name: str,
+        secondary: str,
+        icon_name: str,
+        icon_color: str,
+        entity_id: str,
+    ) -> Dict[str, Any]:
+        return {
+            "type": "custom:mushroom-template-card",
+            "primary": name,
+            "secondary": secondary,
+            "icon": icon_name,
+            "icon_color": icon_color,
+            "multiline_secondary": True,
+            "tap_action": {
+                "action": "call-service",
+                "service": "script.turn_on",
+                "target": {"entity_id": entity_id},
+            },
+        }
+
+    def timer_card(name: str, timer_entity: str, icon_name: str, active_color: str) -> Dict[str, Any]:
+        return {
+            "type": "custom:mushroom-template-card",
+            "entity": timer_entity,
+            "primary": name,
+            "secondary": timer_secondary(timer_entity),
+            "icon": icon_name,
+            "icon_color": (
+                "{{ '" + active_color + "' if is_state('" + timer_entity + "', 'active') else 'grey' }}"
+            ),
+        }
+
+    def room_status_card(entity_id: str) -> Dict[str, Any]:
+        return {
+            "type": "custom:mushroom-template-card",
+            "entity": entity_id,
+            "primary": pretty_climate_name(entity_id),
+            "secondary": room_secondary(entity_id),
+            "icon": "mdi:radiator",
+            "icon_color": room_icon_color(entity_id),
+            "multiline_secondary": True,
+            "tap_action": {"action": "more-info"},
+        }
+
+    def climate_control_card(entity_id: str) -> Dict[str, Any]:
+        return {
+            "type": "custom:mushroom-climate-card",
+            "entity": entity_id,
+            "show_temperature_control": True,
+            "fill_container": False,
+        }
+
+    def room_graph_card(entity_id: str, hours: int = 12) -> Dict[str, Any]:
+        if apexcharts_present:
+            return {
+                "type": "custom:apexcharts-card",
+                "header": {"show": True, "title": pretty_climate_name(entity_id)},
+                "graph_span": f"{hours}h",
+                "apex_config": {
+                    "chart": {"height": 180},
+                    "stroke": {"width": [2, 2], "curve": ["smooth", "stepline"]},
+                },
+                "series": [
+                    {
+                        "entity": entity_id,
+                        "attribute": "current_temperature",
+                        "name": "Current",
+                        "color": "#42a5f5",
+                    },
+                    {
+                        "entity": entity_id,
+                        "attribute": "temperature",
+                        "name": "Target",
+                        "color": "#ff9800",
+                    },
+                ],
+            }
+        return {
+            "type": "custom:mini-graph-card",
+            "name": pretty_climate_name(entity_id),
+            "hours_to_show": hours,
+            "points_per_hour": 4,
+            "line_width": 2,
+            "show": {
+                "icon": False,
+                "name": True,
+                "state": True,
+                "legend": True,
+            },
+            "entities": [
+                {
+                    "entity": entity_id,
+                    "attribute": "current_temperature",
+                    "name": "Current",
+                    "color": "#42a5f5",
+                },
+                {
+                    "entity": entity_id,
+                    "attribute": "temperature",
+                    "name": "Target",
+                    "color": "#ff9800",
+                    "show_line": False,
+                    "show_points": True,
+                },
+            ],
+        }
+
+    def target_cards() -> List[Dict[str, Any]]:
+        return [
+            {
+                "type": "custom:mushroom-number-card",
+                "entity": house_target_entity,
+                "name": "House Target",
+                "icon": "mdi:home-thermometer",
+                "display_mode": "slider",
+                "icon_color": "red",
+                "fill_container": False,
+            },
+            {
+                "type": "custom:mushroom-number-card",
+                "entity": upstairs_target_entity,
+                "name": "Upstairs Target",
+                "icon": "mdi:stairs-up",
+                "display_mode": "slider",
+                "icon_color": "orange",
+                "fill_container": False,
+            },
+            {
+                "type": "custom:mushroom-number-card",
+                "entity": downstairs_target_entity,
+                "name": "Downstairs Target",
+                "icon": "mdi:stairs-down",
+                "display_mode": "slider",
+                "icon_color": "green",
+                "fill_container": False,
+            },
+        ]
+
+    def quick_action_cards() -> List[Dict[str, Any]]:
+        return [
+            action_card(
+                "Boost Downstairs",
+                "Front Window, Dining Area, Bathroom to 23C",
+                "mdi:fire",
+                "red",
+                downstairs_boost_script,
+            ),
+            action_card(
+                "Cancel Downstairs",
+                "Restore pre-boost downstairs state",
+                "mdi:fire-off",
+                "deep-purple",
+                downstairs_boost_cancel_script,
+            ),
+            action_card(
+                "Boost Bedroom",
+                "Bedroom to 23C",
+                "mdi:bed",
+                "red",
+                bedroom_boost_script,
+            ),
+            action_card(
+                "Cancel Bedroom",
+                "Restore bedroom pre-boost state",
+                "mdi:bed-empty",
+                "deep-purple",
+                bedroom_boost_cancel_script,
+            ),
+            action_card(
+                "All Off",
+                "Turn all managed TRVs off",
+                "mdi:radiator-off",
+                "blue-grey",
+                all_off_script,
+            ),
+            action_card(
+                "Enable Lockout",
+                "Disable auto-heating and turn boiler off",
+                "mdi:snowflake-alert",
+                "blue",
+                lockout_enable_script,
+            ),
+            action_card(
+                "Disable Lockout",
+                "Resume automatic heating control",
+                "mdi:radiator",
+                "red",
+                lockout_disable_script,
+            ),
+        ]
+
+    resources = ws_call(base, token, "lovelace/resources")
+    mushroom_present = any(
+        isinstance(resource, dict)
+        and "lovelace-mushroom" in str(resource.get("url", ""))
+        for resource in resources
+    )
+    mini_graph_present = any(
+        isinstance(resource, dict)
+        and "mini-graph-card" in str(resource.get("url", ""))
+        for resource in resources
+    )
+    apexcharts_present = any(
+        isinstance(resource, dict)
+        and "apexcharts-card" in str(resource.get("url", ""))
+        for resource in resources
+    )
+    if style == "mushroom" and not mushroom_present:
+        raise RuntimeError(
+            "Mushroom card resource is missing. Install HACS + Mushroom first, then rerun sync-heating-dashboard."
+        )
+
+    def build_overview_view() -> Dict[str, Any]:
+        if style != "mushroom":
+            cards: List[Dict[str, Any]] = []
+            if boiler_entity:
+                cards.append(
+                    {
+                        "type": "entities",
+                        "title": "Boiler",
+                        "entities": [boiler_entity],
+                        "state_color": True,
+                    }
+                )
+            for entity_id in climate_entities:
+                cards.append({"type": "thermostat", "entity": entity_id})
+            return {
+                "title": title,
+                "path": view_path,
+                "icon": icon,
+                "cards": cards,
+                "badges": [],
+            }
+
+        section_cards: List[Dict[str, Any]] = []
         if boiler_entity:
             section_cards.append(
                 {
@@ -498,125 +801,18 @@ def cmd_sync_heating_dashboard() -> None:
                             + "', 'on') else 'grey' }}"
                         ),
                     },
-                    {
-                        "type": "custom:mushroom-template-card",
-                        "primary": "Enable Lockout",
-                        "secondary": "Disable auto-heating and turn boiler off",
-                        "icon": "mdi:snowflake-alert",
-                        "icon_color": "blue",
-                        "tap_action": {
-                            "action": "call-service",
-                            "service": "script.turn_on",
-                            "target": {"entity_id": lockout_enable_script},
-                        },
-                    },
-                    {
-                        "type": "custom:mushroom-template-card",
-                        "primary": "Disable Lockout",
-                        "secondary": "Resume automatic heating control",
-                        "icon": "mdi:radiator",
-                        "icon_color": "red",
-                        "tap_action": {
-                            "action": "call-service",
-                            "service": "script.turn_on",
-                            "target": {"entity_id": lockout_disable_script},
-                        },
-                    },
-                    {
-                        "type": "custom:mushroom-number-card",
-                        "entity": house_target_entity,
-                        "name": "House Target",
-                        "icon": "mdi:home-thermometer",
-                        "display_mode": "slider",
-                        "icon_color": "red",
-                        "fill_container": False,
-                    },
-                    {
-                        "type": "custom:mushroom-number-card",
-                        "entity": upstairs_target_entity,
-                        "name": "Upstairs Target",
-                        "icon": "mdi:stairs-up",
-                        "display_mode": "slider",
-                        "icon_color": "orange",
-                        "fill_container": False,
-                    },
-                    {
-                        "type": "custom:mushroom-number-card",
-                        "entity": downstairs_target_entity,
-                        "name": "Downstairs Target",
-                        "icon": "mdi:stairs-down",
-                        "display_mode": "slider",
-                        "icon_color": "green",
-                        "fill_container": False,
-                    },
-                    {
-                        "type": "custom:mushroom-template-card",
-                        "primary": "Boost Downstairs",
-                        "secondary": "Front Window, Dining Area, Bathroom to 23C",
-                        "icon": "mdi:fire",
-                        "icon_color": "red",
-                        "tap_action": {
-                            "action": "call-service",
-                            "service": "script.turn_on",
-                            "target": {"entity_id": downstairs_boost_script},
-                        },
-                    },
-                    {
-                        "type": "custom:mushroom-template-card",
-                        "primary": "Cancel Boost",
-                        "secondary": "Restore pre-boost setpoints",
-                        "icon": "mdi:fire-off",
-                        "icon_color": "deep-purple",
-                        "tap_action": {
-                            "action": "call-service",
-                            "service": "script.turn_on",
-                            "target": {"entity_id": downstairs_boost_cancel_script},
-                        },
-                    },
-                    {
-                        "type": "custom:mushroom-template-card",
-                        "primary": "Boost Bedroom",
-                        "secondary": "Bedroom to 23C",
-                        "icon": "mdi:bed",
-                        "icon_color": "red",
-                        "tap_action": {
-                            "action": "call-service",
-                            "service": "script.turn_on",
-                            "target": {"entity_id": bedroom_boost_script},
-                        },
-                    },
-                    {
-                        "type": "custom:mushroom-template-card",
-                        "primary": "Cancel Bedroom Boost",
-                        "secondary": "Restore bedroom pre-boost setpoint",
-                        "icon": "mdi:bed-empty",
-                        "icon_color": "deep-purple",
-                        "tap_action": {
-                            "action": "call-service",
-                            "service": "script.turn_on",
-                            "target": {"entity_id": bedroom_boost_cancel_script},
-                        },
-                    },
+                    *target_cards(),
+                    *quick_action_cards()[:4],
                 ],
             }
         )
-        climate_cards = []
-        for entity_id in climate_entities:
-            climate_cards.append(
-                {
-                    "type": "custom:mushroom-climate-card",
-                    "entity": entity_id,
-                    "show_temperature_control": True,
-                    "fill_container": False,
-                }
-            )
         section_cards.append(
             {
                 "type": "grid",
                 "title": "TRVs",
                 "columns": 4,
                 "square": False,
-                "cards": climate_cards,
+                "cards": [climate_control_card(entity_id) for entity_id in climate_entities],
             }
         )
         if mini_graph_present:
@@ -649,67 +845,7 @@ def cmd_sync_heating_dashboard() -> None:
                     "title": "TRV Graphs",
                     "columns": 2,
                     "square": False,
-                    "cards": (
-                        [
-                            {
-                                "type": "custom:apexcharts-card",
-                                "header": {"show": True, "title": pretty_climate_name(entity_id)},
-                                "graph_span": "12h",
-                                "apex_config": {
-                                    "chart": {"height": 180},
-                                    "stroke": {"width": [2, 2], "curve": ["smooth", "stepline"]},
-                                },
-                                "series": [
-                                    {
-                                        "entity": entity_id,
-                                        "attribute": "current_temperature",
-                                        "name": "Current",
-                                        "color": "#42a5f5",
-                                    },
-                                    {
-                                        "entity": entity_id,
-                                        "attribute": "temperature",
-                                        "name": "Target",
-                                        "color": "#ff9800",
-                                    },
-                                ],
-                            }
-                            for entity_id in climate_entities
-                        ]
-                        if apexcharts_present
-                        else [
-                            {
-                                "type": "custom:mini-graph-card",
-                                "name": pretty_climate_name(entity_id),
-                                "hours_to_show": 12,
-                                "points_per_hour": 4,
-                                "line_width": 2,
-                                "show": {
-                                    "icon": False,
-                                    "name": True,
-                                    "state": True,
-                                    "legend": True,
-                                },
-                                "entities": [
-                                    {
-                                        "entity": entity_id,
-                                        "attribute": "current_temperature",
-                                        "name": "Current",
-                                        "color": "#42a5f5",
-                                    },
-                                    {
-                                        "entity": entity_id,
-                                        "attribute": "temperature",
-                                        "name": "Target",
-                                        "color": "#ff9800",
-                                        "show_line": False,
-                                        "show_points": True,
-                                    },
-                                ],
-                            }
-                            for entity_id in climate_entities
-                        ]
-                    ),
+                    "cards": [room_graph_card(entity_id) for entity_id in climate_entities],
                 }
             )
         else:
@@ -722,41 +858,330 @@ def cmd_sync_heating_dashboard() -> None:
                     ),
                 }
             )
-    else:
-        if boiler_entity:
-            cards.append(
-                {
-                    "type": "entities",
-                    "title": "Boiler",
-                    "entities": [boiler_entity],
-                    "state_color": True,
-                }
-            )
-        for entity_id in climate_entities:
-            cards.append({"type": "thermostat", "entity": entity_id})
-
-    if style == "mushroom":
-        heating_view = {
+        return {
             "title": title,
             "path": view_path,
             "icon": icon,
             "panel": True,
-            "cards": [
-                {
-                    "type": "vertical-stack",
-                    "cards": section_cards,
-                }
-            ],
+            "cards": [{"type": "vertical-stack", "cards": section_cards}],
             "badges": [],
         }
-    else:
-        heating_view = {
-            "title": title,
-            "path": view_path,
-            "icon": icon,
+
+    def build_status_first_view(view_title: str, view_icon: str, path: str) -> Dict[str, Any]:
+        cards: List[Dict[str, Any]] = [
+            {
+                "type": "markdown",
+                "content": (
+                    "## Status-first operations\n"
+                    "Optimized for answering: what is heating right now, which boosts are active, and what quick action do I need next?"
+                ),
+            },
+            {
+                "type": "grid",
+                "title": "System State",
+                "columns": 4,
+                "square": False,
+                "cards": [
+                    {
+                        "type": "custom:mushroom-entity-card",
+                        "entity": boiler_entity,
+                        "name": "Gas Boiler",
+                        "icon_color": "red",
+                    },
+                    {
+                        "type": "custom:mushroom-template-card",
+                        "primary": "Calling for Heat",
+                        "secondary": calling_for_heat_secondary(climate_entities),
+                        "icon": "mdi:fire-circle",
+                        "icon_color": (
+                            "{{ 'red' if (" + calling_for_heat_count(climate_entities) + ")|int > 0 else 'grey' }}"
+                        ),
+                        "multiline_secondary": True,
+                    },
+                    timer_card("Downstairs Boost", downstairs_timer_entity, "mdi:fire", "red"),
+                    timer_card("Bedroom Boost", bedroom_timer_entity, "mdi:bed", "red"),
+                ],
+            },
+            {
+                "type": "grid",
+                "title": "Targets",
+                "columns": 3,
+                "square": False,
+                "cards": target_cards(),
+            },
+            {
+                "type": "grid",
+                "title": "Quick Actions",
+                "columns": 4,
+                "square": False,
+                "cards": quick_action_cards(),
+            },
+            {
+                "type": "grid",
+                "title": "Room Status",
+                "columns": 3,
+                "square": False,
+                "cards": [room_status_card(entity_id) for entity_id in climate_entities],
+            },
+        ]
+        if mini_graph_present:
+            cards.extend(
+                [
+                    {
+                        "type": "custom:mini-graph-card",
+                        "name": "Whole-house temperatures (24h)",
+                        "hours_to_show": 24,
+                        "points_per_hour": 4,
+                        "line_width": 2,
+                        "show": {"icon": False, "name": True, "state": False, "legend": True},
+                        "entities": [
+                            {
+                                "entity": entity_id,
+                                "attribute": "current_temperature",
+                                "name": pretty_climate_name(entity_id),
+                            }
+                            for entity_id in climate_entities
+                        ],
+                    },
+                    {
+                        "type": "grid",
+                        "title": "Detailed Room Trends",
+                        "columns": 2,
+                        "square": False,
+                        "cards": [room_graph_card(entity_id) for entity_id in climate_entities],
+                    },
+                ]
+            )
+        return {
+            "title": view_title,
+            "path": path,
+            "icon": view_icon,
+            "panel": True,
+            "cards": [{"type": "vertical-stack", "cards": cards}],
+            "badges": [],
+        }
+
+    def build_room_centric_view(view_title: str, view_icon: str, path: str) -> Dict[str, Any]:
+        upstairs_cards = []
+        downstairs_cards = []
+        for entity_id in upstairs_climates:
+            upstairs_cards.append(
+                {
+                    "type": "vertical-stack",
+                    "cards": [
+                        room_status_card(entity_id),
+                        climate_control_card(entity_id),
+                        room_graph_card(entity_id, hours=8) if mini_graph_present else room_status_card(entity_id),
+                    ],
+                }
+            )
+        for entity_id in downstairs_climates:
+            downstairs_cards.append(
+                {
+                    "type": "vertical-stack",
+                    "cards": [
+                        room_status_card(entity_id),
+                        climate_control_card(entity_id),
+                        room_graph_card(entity_id, hours=8) if mini_graph_present else room_status_card(entity_id),
+                    ],
+                }
+            )
+
+        cards: List[Dict[str, Any]] = [
+            {
+                "type": "markdown",
+                "content": (
+                    "## Room-centric control\n"
+                    "Optimized for moving room by room, with each space showing its live status, controls, and short-term trend together."
+                ),
+            },
+            {
+                "type": "grid",
+                "title": "Zone Controls",
+                "columns": 3,
+                "square": False,
+                "cards": target_cards(),
+            },
+            {
+                "type": "grid",
+                "title": "Boosts",
+                "columns": 4,
+                "square": False,
+                "cards": [
+                    timer_card("Downstairs Boost", downstairs_timer_entity, "mdi:fire", "red"),
+                    timer_card("Bedroom Boost", bedroom_timer_entity, "mdi:bed", "red"),
+                    action_card(
+                        "Boost Downstairs",
+                        "23C for Front Window, Dining Area, Bathroom",
+                        "mdi:fire",
+                        "red",
+                        downstairs_boost_script,
+                    ),
+                    action_card(
+                        "Boost Bedroom",
+                        "23C for Bedroom",
+                        "mdi:bed",
+                        "red",
+                        bedroom_boost_script,
+                    ),
+                    action_card(
+                        "Cancel Downstairs",
+                        "Return downstairs to pre-boost state",
+                        "mdi:fire-off",
+                        "deep-purple",
+                        downstairs_boost_cancel_script,
+                    ),
+                    action_card(
+                        "Cancel Bedroom",
+                        "Return bedroom to pre-boost state",
+                        "mdi:bed-empty",
+                        "deep-purple",
+                        bedroom_boost_cancel_script,
+                    ),
+                ],
+            },
+            {"type": "markdown", "content": "## Upstairs"},
+            {
+                "type": "grid",
+                "columns": 2,
+                "square": False,
+                "cards": upstairs_cards,
+            },
+            {"type": "markdown", "content": "## Downstairs"},
+            {
+                "type": "grid",
+                "columns": 2,
+                "square": False,
+                "cards": downstairs_cards,
+            },
+        ]
+        return {
+            "title": view_title,
+            "path": path,
+            "icon": view_icon,
+            "panel": True,
+            "cards": [{"type": "vertical-stack", "cards": cards}],
+            "badges": [],
+        }
+
+    def build_mobile_quick_view(view_title: str, view_icon: str, path: str) -> Dict[str, Any]:
+        cards: List[Dict[str, Any]] = [
+            {
+                "type": "markdown",
+                "content": (
+                    "## Mobile quick panel\n"
+                    "Optimized for phone use: big taps, compact status, and the fastest path to boosts, targets, and room tweaks."
+                ),
+            },
+            {
+                "type": "custom:mushroom-chips-card",
+                "chips": [
+                    {"type": "entity", "entity": boiler_entity, "icon_color": "red", "content_info": "state"},
+                    {
+                        "type": "template",
+                        "icon": "mdi:fire-circle",
+                        "icon_color": "{{ 'red' if (" + calling_for_heat_count(climate_entities) + ")|int > 0 else 'grey' }}",
+                        "content": "{{ " + calling_for_heat_count(climate_entities) + " }} heating",
+                    },
+                    {
+                        "type": "template",
+                        "icon": "mdi:fire",
+                        "icon_color": "{{ 'red' if is_state('" + downstairs_timer_entity + "', 'active') else 'grey' }}",
+                        "content": "{{ 'Downstairs boost' if is_state('" + downstairs_timer_entity + "', 'active') else 'No downstairs boost' }}",
+                    },
+                    {
+                        "type": "template",
+                        "icon": "mdi:bed",
+                        "icon_color": "{{ 'red' if is_state('" + bedroom_timer_entity + "', 'active') else 'grey' }}",
+                        "content": "{{ 'Bedroom boost' if is_state('" + bedroom_timer_entity + "', 'active') else 'No bedroom boost' }}",
+                    },
+                ],
+            },
+            {
+                "type": "grid",
+                "columns": 2,
+                "square": False,
+                "cards": [
+                    action_card(
+                        "Downstairs Boost",
+                        "Start 30m boost",
+                        "mdi:fire",
+                        "red",
+                        downstairs_boost_script,
+                    ),
+                    action_card(
+                        "Cancel Downstairs",
+                        "Stop downstairs boost",
+                        "mdi:fire-off",
+                        "deep-purple",
+                        downstairs_boost_cancel_script,
+                    ),
+                    action_card(
+                        "Bedroom Boost",
+                        "Start 30m boost",
+                        "mdi:bed",
+                        "red",
+                        bedroom_boost_script,
+                    ),
+                    action_card(
+                        "Cancel Bedroom",
+                        "Stop bedroom boost",
+                        "mdi:bed-empty",
+                        "deep-purple",
+                        bedroom_boost_cancel_script,
+                    ),
+                    action_card(
+                        "All Off",
+                        "Turn everything off",
+                        "mdi:radiator-off",
+                        "blue-grey",
+                        all_off_script,
+                    ),
+                    action_card(
+                        "Lockout",
+                        "Disable automatic heating",
+                        "mdi:snowflake-alert",
+                        "blue",
+                        lockout_enable_script,
+                    ),
+                ],
+            },
+            *target_cards(),
+            {
+                "type": "grid",
+                "title": "Rooms",
+                "columns": 1,
+                "square": False,
+                "cards": [climate_control_card(entity_id) for entity_id in climate_entities],
+            },
+        ]
+        return {
+            "title": view_title,
+            "path": path,
+            "icon": view_icon,
             "cards": cards,
             "badges": [],
         }
+
+    views_to_sync = [build_overview_view()]
+    if style == "mushroom":
+        concept_builders = {
+            "status_first": build_status_first_view,
+            "room_centric": build_room_centric_view,
+            "mobile_quick": build_mobile_quick_view,
+        }
+        for concept_view in concept_views_cfg:
+            concept_name = concept_view.get("concept")
+            builder = concept_builders.get(concept_name)
+            if not builder:
+                continue
+            views_to_sync.append(
+                builder(
+                    concept_view.get("title", concept_name.replace("_", " ").title()),
+                    concept_view.get("icon", icon),
+                    concept_view.get("path", concept_name),
+                )
+            )
 
     dashboards = ws_call(base, token, "lovelace/dashboards/list")
     if not any(d.get("url_path") == dashboard_url_path for d in dashboards):
@@ -785,19 +1210,22 @@ def cmd_sync_heating_dashboard() -> None:
     if not isinstance(views, list):
         views = []
 
-    replaced = False
-    for idx, view in enumerate(views):
-        if isinstance(view, dict) and view.get("path") == view_path:
-            views[idx] = heating_view
-            replaced = True
-            break
-    if not replaced:
-        views.append(heating_view)
+    actions = []
+    for target_view in views_to_sync:
+        replaced = False
+        for idx, view in enumerate(views):
+            if isinstance(view, dict) and view.get("path") == target_view.get("path"):
+                views[idx] = target_view
+                replaced = True
+                break
+        if not replaced:
+            views.append(target_view)
+        actions.append(("Updated" if replaced else "Created", target_view.get("path")))
 
     lovelace_config["views"] = views
     ws_call(base, token, "lovelace/config/save", url_path=dashboard_url_path, config=lovelace_config)
-    action = "Updated" if replaced else "Created"
-    print(f"{action} Heating dashboard at /{dashboard_url_path}/{view_path}")
+    for action, saved_path in actions:
+        print(f"{action} Heating dashboard view at /{dashboard_url_path}/{saved_path}")
 
 
 def build_heating_demand_template(
