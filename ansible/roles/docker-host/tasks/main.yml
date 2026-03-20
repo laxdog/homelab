@@ -16,7 +16,7 @@
 
 - name: Download Docker GPG key
   ansible.builtin.command:
-    cmd: curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    cmd: curl -4 -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
     creates: /etc/apt/keyrings/docker.asc
 
 - name: Ensure Docker GPG key permissions
