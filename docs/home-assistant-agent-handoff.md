@@ -168,16 +168,22 @@
 - Heating dashboard uses Mushroom layout and ApexCharts (if installed).
 - Heating dashboard review concepts now exist side by side on the same Lovelace dashboard:
   - `overview` = existing baseline page kept intact
-  - `concept-a` = status-first operational view
-  - `concept-b` = room-centric control view
-  - `concept-c` = mobile quick-panel view
+  - `hybrid-a` = operational / summary-first hybrid
+  - `hybrid-b` = dense desktop-first room-control hybrid
+  - `hybrid-c` = mobile-first hybrid
+  - `hybrid-d` = supported rich-panel substitute for `better-thermostat-ui-card`
 - Current UI recommendation:
-  - best overall starting point: `concept-a`
-  - best mobile-specific concept: `concept-c`
-  - best room-adjustment concept: `concept-b`
+  - best overall starting point: `hybrid-a`
+  - best mobile-specific concept: `hybrid-c`
+  - best room-adjustment concept: `hybrid-b`
 - Card dependency stance for these concept views:
   - use the cards already installed in HA (`lovelace-mushroom`, `mini-graph-card`, `apexcharts-card` when present)
-  - do not add Bubble Card just for experimentation unless there is a later decision to pursue a more touch-first premium concept
+  - repo-managed local card assets are now staged into HA `/local/repo-managed-cards/` by the
+    bootstrap role for:
+    - `simple-thermostat`
+    - `mini-climate-card`
+  - do not use `better-thermostat-ui-card` with the current `tplink` climate entities; it is a
+    `better_thermostat` companion card, not a generic climate card
 
 ## Known Constraints
 - HAOS: HACS install remains manual (cannot be fully automated reliably on appliance image).

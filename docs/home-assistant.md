@@ -222,29 +222,38 @@ Source of truth:
   - Requires vault vars referenced by `config.home_assistant.tplink.username_var` and `config.home_assistant.tplink.password_var`.
 - `python3 scripts/home_assistant.py sync-heating-dashboard`
   - Ensures a dedicated Heating dashboard exists in Lovelace using `config.home_assistant.heating_dashboard`.
-  - Keeps the existing `overview` page intact and can also generate additional concept views for side-by-side UI comparison.
+  - Keeps the existing `overview` page intact and can also generate additional review concepts for side-by-side UI comparison.
   - Current concept pages are:
     - `/heating-overview/overview`
-    - `/heating-overview/concept-a`
-    - `/heating-overview/concept-b`
-    - `/heating-overview/concept-c`
+    - `/heating-overview/hybrid-a`
+    - `/heating-overview/hybrid-b`
+    - `/heating-overview/hybrid-c`
+    - `/heating-overview/hybrid-d`
   - `overview` remains the existing baseline Heating page.
-  - `concept-a` is a status-first operational layout:
-    - strong top-level state summary
-    - boost status
-    - quick actions
-    - room status grid
-    - good for "what is happening right now?"
-  - `concept-b` is a room-centric layout:
-    - one richer stack per room/zone
-    - room status + controls + short-term trend together
-    - good for adjusting several rooms in one pass
-  - `concept-c` is a compact mobile-first quick panel:
-    - chips at top
-    - big tap targets for boost/cancel/lockout
-    - one-column room controls below
-    - good for phone use
-  - Adds boiler control, lockout controls, group target sliders, boost/cancel quick actions, and thermostat cards for configured TRVs.
+  - Every hybrid concept keeps two hero controls at the top:
+    - `Downstairs` as a composite zone card
+    - `Bedroom` as a direct climate card
+  - `hybrid-a` is a dual-use operational layout:
+    - Mushroom summary chips
+    - Downstairs composite hero
+    - Bedroom `simple-thermostat` hero
+    - `mini-climate-card` room list below
+  - `hybrid-b` is a dense desktop-first room-control layout:
+    - Mushroom summary chips
+    - Downstairs composite hero
+    - Bedroom `simple-thermostat` hero
+    - compact `simple-thermostat` room grid underneath
+  - `hybrid-c` is a mobile-first quick panel:
+    - Mushroom summary chips
+    - Downstairs composite hero
+    - Bedroom `mini-climate-card` hero
+    - one-column `mini-climate-card` room rows
+  - `hybrid-d` is a supported rich-panel substitute for `better-thermostat-ui-card`:
+    - Downstairs composite hero
+    - Bedroom `simple-thermostat` hero
+    - per-room rich panels combining Mushroom status + compact thermostat + trend
+    - this intentionally captures the "dense rich thermostat panel" feel without pretending unsupported compatibility
+  - Adds boiler control, lockout controls, group target sliders, boost/cancel quick actions, and room controls for configured TRVs.
   - Adds a 48h combined TRV temperature graph plus one per-TRV graph card (current vs target, 12h window) when HACS `mini-graph-card` is installed.
   - If HACS `apexcharts-card` is installed, per-TRV graphs use ApexCharts with a smooth `Current` line and stepline `Target`.
   - If `mini-graph-card` is not installed, a reminder card is shown instead.
@@ -260,15 +269,24 @@ Source of truth:
   - Current URL path is `/<dashboard_url_path>/<view_path>` (default `/heating-overview/overview`).
   - Supports `style: mushroom` (HACS Mushroom cards) or `style: default`.
   - `style: mushroom` requires HACS + Mushroom to already be installed in Home Assistant.
-  - Current frontend assumptions from the live HA install:
+  - Current frontend/card model for these review concepts:
     - required: HACS `lovelace-mushroom`
     - optional, detected if present: HACS `mini-graph-card`, `apexcharts-card`
-    - intentionally not used for these concepts: Bubble Card, because it is not currently installed and the review goal here is to compare dashboard ideas without adding new frontend dependencies
-  - Current recommendation after the first concept pass:
-    - strongest overall: `concept-a`
-    - strongest for mobile: `concept-c`
-    - strongest for room-by-room control: `concept-b`
-    - likely final direction: a hybrid of `concept-a` summary/state framing with parts of `concept-c` mobile action density
+    - repo-managed custom cards now copied into HA `/local/repo-managed-cards/` by the
+      HA bootstrap role:
+      - `simple-thermostat.js`
+      - `mini-climate-card-bundle.js`
+  - Compatibility notes from the current card research:
+    - `simple-thermostat` is compatible with normal HA `climate` entities and is used directly
+    - `mini-climate-card` is compatible with normal HA `climate` entities and is used directly
+    - `better-thermostat-ui-card` is not compatible with this setup's managed climate entities
+      because the TRVs are `tplink` climates, not `better_thermostat` climates
+  - Current recommendation after the hybrid pass:
+    - strongest overall: `hybrid-a`
+    - strongest for mobile: `hybrid-c`
+    - strongest for desktop density: `hybrid-b`
+    - strongest for operational clarity: `hybrid-a`
+    - strongest supported "rich panel" substitute: `hybrid-d`
 - `python3 scripts/home_assistant.py sync-heating-control`
   - Creates/updates six HA scripts:
     - `script.heating_lockout_enable`
