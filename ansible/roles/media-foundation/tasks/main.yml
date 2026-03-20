@@ -1,0 +1,104 @@
+---
+- name: Install media foundation packages
+  ansible.builtin.apt:
+    name:
+      - e2fsprogs
+      - gdisk
+      - linux-modules-extra-{{ ansible_kernel }}
+    state: present
+    update_cache: true
+  register: media_foundation_packages
+
+- name: Reboot media host when kernel extra modules were installed
+  ansible.builtin.reboot:
+    reboot_timeout: 600
+    test_command: whoami
+  when: media_foundation_packages.changed
+
+- name: Ensure appdata directory exists on root disk
+  ansible.builtin.file:
+    path: "{{ config.media_stack.appdata_path }}"
+    state: directory
+    mode: "0755"
+
+- name: Check media data device exists
+  ansible.builtin.stat:
+    path: "{{ config.media_stack.data_device }}"
+  register: media_data_device
+
+- name: Resolve media data device symlink to block device path
+  ansible.builtin.command: "readlink -f {{ config.media_stack.data_device }}"
+  register: media_data_device_real
+  changed_when: false
+
+- name: Check resolved media data device is block device
+  ansible.builtin.stat:
+    path: "{{ media_data_device_real.stdout | trim }}"
+  register: media_data_device_real_stat
+
+- name: Fail when media data device is missing
+  ansible.builtin.assert:
+    that:
+      - media_data_device.stat.exists
+      - media_data_device_real_stat.stat.exists
+      - media_data_device_real_stat.stat.isblk | default(false)
+    fail_msg: >-
+      Media data device {{ config.media_stack.data_device }} is missing.
+      Confirm VM 120 scsi1 disk attachment before running media foundation.
+
+- name: Check filesystem type on media data device
+  ansible.builtin.command: "blkid -o value -s TYPE {{ media_data_device_real.stdout | trim }}"
+  register: media_data_fs_type
+  changed_when: false
+  failed_when: false
+
+- name: Create filesystem on media data device when missing
+  ansible.builtin.command: "mkfs.{{ config.media_stack.data_filesystem }} -F {{ media_data_device_real.stdout | trim }}"
+  when: media_data_fs_type.rc != 0 or media_data_fs_type.stdout | trim == ""
+
+- name: Read UUID of media data device
+  ansible.builtin.command: "blkid -o value -s UUID {{ media_data_device_real.stdout | trim }}"
+  register: media_data_uuid
+  changed_when: false
+
+- name: Mount media data filesystem persistently
+  ansible.posix.mount:
+    path: "{{ config.media_stack.data_mount_path }}"
+    src: "UUID={{ media_data_uuid.stdout | trim }}"
+    fstype: "{{ config.media_stack.data_filesystem }}"
+    opts: defaults,nofail
+    state: mounted
+
+- name: Ensure media data layout directories exist
+  ansible.builtin.file:
+    path: "{{ config.media_stack.data_mount_path }}/{{ item }}"
+    state: directory
+    owner: "{{ config.media_stack.shared_ids.uid }}"
+    group: "{{ config.media_stack.shared_ids.gid }}"
+    mode: "0775"
+  loop: "{{ config.media_stack.data_layout }}"
+
+- name: Load i915 module for Intel iGPU
+  ansible.builtin.command: modprobe i915
+  changed_when: false
+
+- name: Ensure i915 module loads on boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/media-igpu.conf
+    mode: "0644"
+    content: |
+      i915
+
+- name: Verify Intel render node is present
+  ansible.builtin.stat:
+    path: /dev/dri/renderD128
+  register: media_render_node
+
+- name: Assert Intel render node is available for Docker
+  ansible.builtin.assert:
+    that:
+      - media_render_node.stat.exists
+      - media_render_node.stat.ischr | default(false)
+    fail_msg: >-
+      /dev/dri/renderD128 is not available on media-stack.
+      Verify host PCI passthrough and guest kernel modules.

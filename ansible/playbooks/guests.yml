@@ -246,6 +246,15 @@
   gather_facts: true
   vars:
     config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - media-foundation
+
+- name: Configure media stack apps
+  hosts: media_hosts
+  become: true
+  gather_facts: true
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
   pre_tasks:
     - name: Load vault secrets when available
       ansible.builtin.include_vars:

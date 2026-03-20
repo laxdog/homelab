@@ -1,4 +1,40 @@
 ---
-- name: Placeholder for NFS server setup
-  ansible.builtin.debug:
-    msg: "NFS server role placeholder - storage attachment strategy still needed"
+- name: Install NFS server package
+  ansible.builtin.apt:
+    name: nfs-kernel-server
+    state: present
+    update_cache: true
+
+- name: Assert media data mount exists before export
+  ansible.builtin.command: "mountpoint -q {{ config.media_stack.nfs.export_path }}"
+  changed_when: false
+
+- name: Ensure exports directory exists
+  ansible.builtin.file:
+    path: /etc/exports.d
+    state: directory
+    mode: "0755"
+
+- name: Configure media-stack NFS export
+  ansible.builtin.copy:
+    dest: /etc/exports.d/media-stack.exports
+    mode: "0644"
+    content: |
+      {{ config.media_stack.nfs.export_path }} {{ config.media_stack.nfs.allowed_cidr }}({{ config.media_stack.nfs.options }})
+  register: media_stack_exports
+
+- name: Reload NFS exports when changed
+  ansible.builtin.command: exportfs -ra
+  when: media_stack_exports.changed
+  changed_when: true
+
+- name: Ensure NFS service is enabled and running
+  ansible.builtin.shell: |
+    if systemctl list-unit-files --no-legend --no-pager | grep -q '^nfs-server.service'; then
+      systemctl enable --now nfs-server
+    else
+      systemctl enable --now nfs-kernel-server
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: false
