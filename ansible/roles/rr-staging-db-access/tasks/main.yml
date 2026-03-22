@@ -1,0 +1,159 @@
+---
+- name: Resolve RR staging DB access config
+  ansible.builtin.set_fact:
+    rr_db_access_cfg: >-
+      {{
+        (
+          (config.services | default({})).get('vms', {}).get(inventory_hostname, {}).get('rr_staging_db_access', {})
+        )
+        | combine(
+            (config.services | default({})).get('lxcs', {}).get(inventory_hostname, {}).get('rr_staging_db_access', {}),
+            recursive=True
+          )
+      }}
+
+- name: Skip host when RR staging DB access is not enabled
+  ansible.builtin.meta: end_host
+  when: not (rr_db_access_cfg.enabled | default(false) | bool)
+
+- name: Assert required RR staging DB access settings are present
+  ansible.builtin.assert:
+    that:
+      - rr_db_access_cfg.db_container | default('') | length > 0
+      - rr_db_access_cfg.database | default('') | length > 0
+      - rr_db_access_cfg.username | default('') | length > 0
+      - rr_db_access_cfg.password_var | default('') | length > 0
+      - rr_db_access_cfg.allowed_tailscale_source | default('') | length > 0
+    fail_msg: "Missing required rr_staging_db_access config for {{ inventory_hostname }}"
+
+- name: Assert vaulted DB password is available
+  ansible.builtin.assert:
+    that:
+      - lookup('vars', rr_db_access_cfg.password_var, default='') | length > 0
+    fail_msg: "Missing vaulted password variable '{{ rr_db_access_cfg.password_var }}'"
+
+- name: Install RR staging DB access prerequisites
+  ansible.builtin.apt:
+    name:
+      - socat
+      - jq
+      - iptables
+    state: present
+    update_cache: true
+
+- name: Install RR staging DB Tailscale proxy script
+  ansible.builtin.template:
+    src: rr-db-ts-proxy.sh.j2
+    dest: /usr/local/sbin/rr-db-ts-proxy
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install RR staging DB Tailscale proxy service
+  ansible.builtin.template:
+    src: rr-db-ts-proxy.service.j2
+    dest: /etc/systemd/system/rr-db-ts-proxy.service
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install RR staging DB ingress firewall script
+  ansible.builtin.template:
+    src: rr-db-ts-firewall.sh.j2
+    dest: /usr/local/sbin/rr-db-ts-firewall
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install RR staging DB ingress firewall service
+  ansible.builtin.template:
+    src: rr-db-ts-firewall.service.j2
+    dest: /etc/systemd/system/rr-db-ts-firewall.service
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Reload systemd for RR staging DB access units
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable and start RR staging DB ingress firewall service
+  ansible.builtin.systemd:
+    name: rr-db-ts-firewall.service
+    enabled: true
+    state: started
+
+- name: Apply RR staging DB ingress firewall rules now
+  ansible.builtin.command: /usr/local/sbin/rr-db-ts-firewall
+  changed_when: false
+
+- name: Enable and start RR staging DB Tailscale proxy service
+  ansible.builtin.systemd:
+    name: rr-db-ts-proxy.service
+    enabled: true
+    state: started
+
+- name: Read DB container gateway IP for pg_hba allow list
+  ansible.builtin.command: >-
+    docker inspect {{ rr_db_access_cfg.db_container }}
+  register: rr_db_container_inspect
+  changed_when: false
+
+- name: Parse DB container gateway IP
+  ansible.builtin.set_fact:
+    rr_db_container_gateway: >-
+      {{
+        ((rr_db_container_inspect.stdout | from_json)[0].NetworkSettings.Networks | dict2items | first).value.Gateway
+      }}
+
+- name: Assert DB container gateway IP is available
+  ansible.builtin.assert:
+    that:
+      - rr_db_container_gateway | default('') | length > 0
+    fail_msg: "Unable to determine DB container gateway IP for pg_hba allow list."
+
+- name: Enforce pg_hba rules for RR discovery user
+  ansible.builtin.shell: |
+    set -euo pipefail
+    docker exec {{ rr_db_access_cfg.db_container }} sh -lc '
+      set -e
+      HBA={{ rr_db_access_cfg.pg_hba_file | default("/var/lib/postgresql/data/pg_hba.conf") }}
+      TMP=$(mktemp)
+      printf "host {{ rr_db_access_cfg.database }} {{ rr_db_access_cfg.username }} {{ rr_db_container_gateway }}/32 scram-sha-256\n" > "$TMP"
+      printf "host {{ rr_db_access_cfg.database }} {{ rr_db_access_cfg.username }} 0.0.0.0/0 reject\n" >> "$TMP"
+      printf "host {{ rr_db_access_cfg.database }} {{ rr_db_access_cfg.username }} ::0/0 reject\n" >> "$TMP"
+      grep -vF "{{ rr_db_access_cfg.username }}" "$HBA" >> "$TMP"
+      cat "$TMP" > "$HBA"
+      rm -f "$TMP"
+      psql -U {{ rr_db_access_cfg.admin_user | default("postgres") }} -d {{ rr_db_access_cfg.database }} -c "SELECT pg_reload_conf();" >/dev/null
+    '
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Ensure RR discovery DB user and read-only grants
+  ansible.builtin.shell: |
+    set -euo pipefail
+    docker exec -i {{ rr_db_access_cfg.db_container }} psql -U {{ rr_db_access_cfg.admin_user | default('postgres') }} -d {{ rr_db_access_cfg.database }} <<'SQL'
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{ rr_db_access_cfg.username }}') THEN
+        CREATE ROLE {{ rr_db_access_cfg.username }} LOGIN PASSWORD '{{ lookup('vars', rr_db_access_cfg.password_var) }}';
+      ELSE
+        ALTER ROLE {{ rr_db_access_cfg.username }} LOGIN PASSWORD '{{ lookup('vars', rr_db_access_cfg.password_var) }}';
+      END IF;
+    END
+    $$;
+
+    REVOKE ALL ON DATABASE {{ rr_db_access_cfg.database }} FROM {{ rr_db_access_cfg.username }};
+    GRANT CONNECT ON DATABASE {{ rr_db_access_cfg.database }} TO {{ rr_db_access_cfg.username }};
+    GRANT USAGE ON SCHEMA public TO {{ rr_db_access_cfg.username }};
+    GRANT SELECT ON ALL TABLES IN SCHEMA public TO {{ rr_db_access_cfg.username }};
+    GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO {{ rr_db_access_cfg.username }};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO {{ rr_db_access_cfg.username }};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON SEQUENCES TO {{ rr_db_access_cfg.username }};
+    SQL
+  args:
+    executable: /bin/bash
+  changed_when: false
+  no_log: true

@@ -81,6 +81,13 @@ Internal (`laxdog.uk`):
 - AdGuard config export/import workflow is documented in `docs/adguard.md`.
 - Proxmox tags/notes are managed by `scripts/proxmox_metadata.py` (see `docs/proxmox-metadata.md`).
 - `raffle-raptor-dev` is marked `tun_required` and receives `/dev/net/tun` passthrough from Proxmox for Gluetun-based networking.
+- `raffle-raptor-dev` exposes a staging-only Postgres discovery path over Tailscale for `raptor-node-staging`:
+  - endpoint: `100.92.43.108:5432` (Tailscale IP only)
+  - source restriction: `100.88.35.124/32` only
+  - DB user: `rr_discovery_staging` (read-only discovery role)
+  - password source-of-truth: `ansible/secrets-rr-staging.yml` (`rr_discovery_staging_db_password`, vaulted)
+  - current staging worker bootstrap copy: `/etc/raffle-raptor/remote-discovery-db.env` on `raptor-node-staging`
+  - managed by Ansible role `rr-staging-db-access` (runtime units + firewall + pg_hba + role grants)
 - `tailscale-gateway` is a dedicated VM used for remote LAN access via Tailscale:
   - advertises subnet route `10.20.30.0/24`
   - advertises exit-node capability for optional/on-demand client use

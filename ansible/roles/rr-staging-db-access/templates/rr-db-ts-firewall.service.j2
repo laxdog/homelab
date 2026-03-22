@@ -1,0 +1,12 @@
+[Unit]
+Description=Restrict RR DB tailscale ingress to staging node
+After=network-online.target tailscaled.service
+Wants=network-online.target tailscaled.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rr-db-ts-firewall
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

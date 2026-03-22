@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ALLOW_SRC="{{ rr_db_access_cfg.allowed_tailscale_source | regex_replace('/32$', '') }}"
+PORT="{{ rr_db_access_cfg.port | default(5432) }}"
+if ! iptables -C INPUT -i tailscale0 -p tcp --dport ${PORT} -s ${ALLOW_SRC} -j ACCEPT 2>/dev/null; then
+  iptables -I INPUT 1 -i tailscale0 -p tcp --dport ${PORT} -s ${ALLOW_SRC} -j ACCEPT
+fi
+if ! iptables -C INPUT -i tailscale0 -p tcp --dport ${PORT} -j DROP 2>/dev/null; then
+  iptables -I INPUT 2 -i tailscale0 -p tcp --dport ${PORT} -j DROP
+fi

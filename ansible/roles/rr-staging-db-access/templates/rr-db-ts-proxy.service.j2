@@ -1,0 +1,13 @@
+[Unit]
+Description=Raffle Raptor staging DB proxy on Tailscale
+After=network-online.target tailscaled.service docker.service
+Wants=network-online.target tailscaled.service docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/rr-db-ts-proxy
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

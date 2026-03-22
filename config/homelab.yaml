@@ -420,6 +420,15 @@ services:
         advertise_routes: []
         advertise_exit_node: false
         accept_dns: false
+      rr_staging_db_access:
+        enabled: true
+        db_container: raffle-raptor-db-1
+        database: raffle_raptor
+        username: rr_discovery_staging
+        password_var: rr_discovery_staging_db_password
+        allowed_tailscale_source: 100.88.35.124/32
+        port: 5432
+        sslmode: disable
       users:
       - name: mrobinson
         groups:
