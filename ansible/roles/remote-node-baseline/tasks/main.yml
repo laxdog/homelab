@@ -246,6 +246,20 @@
     line: 'HandleLidSwitch=ignore'
   notify: Restart systemd-logind
 
+- name: Disable KWallet auth PAM hook for unattended remote nodes
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/sddm
+    regexp: '^-auth\s+optional\s+pam_kwallet5\.so$'
+    line: '# -auth   optional        pam_kwallet5.so'
+  when: config.remote_nodes.disable_kwallet_integration | default(true) | bool
+
+- name: Disable KWallet session PAM hook for unattended remote nodes
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/sddm
+    regexp: '^-session\s+optional\s+pam_kwallet5\.so\s+auto_start$|^# \\1$'
+    line: '# -session optional       pam_kwallet5.so auto_start'
+  when: config.remote_nodes.disable_kwallet_integration | default(true) | bool
+
 - name: Prevent sleep on lid close (external power)
   ansible.builtin.lineinfile:
     path: /etc/systemd/logind.conf

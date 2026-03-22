@@ -39,10 +39,11 @@ Current first node:
 - helper for manual join:
   - `/usr/local/sbin/tailscale-phase1-up`
 - WiFi hardening for reboot-safe pre-login access:
-  - active WiFi profile is forced system-wide (`connection.permissions=''`)
-  - active WiFi autoconnect enabled with high priority
-  - active WiFi PSK persisted (`psk-flags=0`) when readable
-  - non-active WiFi profiles have autoconnect disabled to avoid selecting stale user-bound profiles
+  - configured fleet SSIDs are forced system-wide (`connection.permissions=''`)
+  - configured fleet SSIDs keep their configured autoconnect + priority values
+  - configured fleet SSID PSKs are persisted in NetworkManager (`psk-flags=0`)
+  - non-catalog stale WiFi profiles have autoconnect disabled to avoid selecting user-bound profiles
+  - KWallet PAM hooks in `/etc/pam.d/sddm` are commented for unattended-node behavior
 
 ## Tailscale Notes
 - Remote nodes can override global tailscale settings via:
@@ -76,8 +77,8 @@ Current expected active profile state:
 - `connection.autoconnect-priority=100`
 - `802-11-wireless-security.psk-flags=0`
 
-Current expected non-active profile state:
-- `connection.autoconnect=no`
+Current expected non-catalog profile state:
+- `connection.autoconnect=no` (unless explicitly cataloged in `config.remote_nodes.wifi_networks`)
 
 ## Apply Commands
 - apply remote-node baseline only:
@@ -100,6 +101,19 @@ From control host:
   - `autoconnect_priority`
 - Password values live only in `ansible/secrets.yml` (vaulted), for example:
   - `remote_node_wifi_woof50_psk`
+  - `remote_node_wifi_dog50_psk`
+  - `remote_node_wifi_dog24_psk`
+  - `remote_node_wifi_dog_psk`
+
+Current fleet catalog:
+- `woof50` (priority 100)
+- `dog50` (priority 90)
+- `dog24` (priority 80)
+- `dog` (priority 70)
+
+Current fallback note:
+- Existing profile `PSNI surveillance van #3` is present on `mums-house-mbp` but currently user-bound with no recoverable PSK in system profile data.
+- Until PSK is provided and vaulted, it is intentionally left `autoconnect=no`.
 
 To add a new fleet SSID safely:
 1. Add network entry under `config.remote_nodes.wifi_networks`.
@@ -120,10 +134,9 @@ To add a new fleet SSID safely:
 - automatic Nagios onboarding of remote nodes
 
 ## KWallet Handling
-- We do not globally disable/remove KWallet in baseline automation.
+- Baseline now disables KWallet PAM hooks in `/etc/pam.d/sddm` for unattended remote nodes.
+- We do not remove all KDE/KWallet packages in phase 1.
 - Requirement is that WiFi reconnect does not depend on KWallet or logged-in desktop agents.
-- If the active profile state above is enforced, KWallet can remain installed but irrelevant to
-  unattended WiFi reconnect.
 
 ## Tailscale Persistence / Key Expiry
 - Local CLI can prove joined/running state and current key expiry timestamp:
@@ -143,6 +156,11 @@ If connecting this laptop to a different WiFi at the destination:
 5. Complete Tailscale login:
    - `ssh mrobinson@<laptop-ip> 'sudo /usr/local/sbin/tailscale-phase1-up'`
    - approve in Tailscale admin.
+
+## Open WiFi Policy
+- Arbitrary open-SSID autoconnect is intentionally not enabled for this node class.
+- Reason: captive portals/rogue SSIDs can steal priority and strand unattended admin access.
+- Safe pattern is to add known-good SSIDs to the vaulted catalog with explicit priorities.
 
 ## Process Note
 - Remote-node changes should be committed locally at stable checkpoints.
