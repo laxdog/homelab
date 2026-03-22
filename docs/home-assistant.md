@@ -229,6 +229,13 @@ Source of truth:
     - `/heating-overview/hybrid-b`
     - `/heating-overview/hybrid-c`
     - `/heating-overview/hybrid-d`
+  - Current top tab labels are intentionally short so all concept pages are reachable on narrower screens:
+    - `Heating`
+    - `A`
+    - `B`
+    - `C`
+    - `D`
+    - each concept page still identifies itself internally as `Hybrid A` / `Hybrid B` / `Hybrid C` / `Hybrid D`
   - `overview` remains the existing baseline Heating page.
   - Every hybrid concept keeps two hero controls at the top:
     - `Downstairs` as a composite zone card
@@ -287,6 +294,27 @@ Source of truth:
     - strongest for desktop density: `hybrid-b`
     - strongest for operational clarity: `hybrid-a`
     - strongest supported "rich panel" substitute: `hybrid-d`
+
+## Fully Kiosk Status
+- Runtime check status:
+  - no `fully_kiosk` config entry is currently configured in Home Assistant
+  - no Fully Kiosk device/entities were present in the latest runtime inventory
+  - the only current mobile-style config entry is the Pixel phone `mobile_app`, not the tablet
+- Official integration direction:
+  - Home Assistant's built-in Fully Kiosk Browser integration is the right path here
+  - it requires the tablet IP/hostname plus the Fully Remote Admin password from the app
+  - Fully Remote Admin requires the paid Fully Plus license
+- Recommended first slice:
+  - integrate the tablet cleanly into HA using the official integration
+  - confirm the basic controls/entities first:
+    - tablet status in HA
+    - `screen on` / `screen off`
+    - `load_url` for the intended dashboard page
+    - start URL sanity for kiosk use
+  - leave motion-driven wake/sleep or more complex tablet automations for a later slice
+- Repo/runtime boundary:
+  - the integration setup itself is runtime-managed in HA
+  - any later automations, scripts, or dashboard URLs that depend on the tablet should be documented here and, where practical, generated or referenced from the repo
 - `python3 scripts/home_assistant.py sync-heating-control`
   - Creates/updates six HA scripts:
     - `script.heating_lockout_enable`

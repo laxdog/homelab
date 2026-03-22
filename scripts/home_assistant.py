@@ -454,25 +454,25 @@ def cmd_sync_heating_dashboard() -> None:
         "concept_views",
         [
             {
-                "title": "Heating - Hybrid A",
+                "title": "A",
                 "path": "hybrid-a",
                 "icon": "mdi:view-dashboard",
                 "concept": "hybrid_a",
             },
             {
-                "title": "Heating - Hybrid B",
+                "title": "B",
                 "path": "hybrid-b",
                 "icon": "mdi:view-grid-plus",
                 "concept": "hybrid_b",
             },
             {
-                "title": "Heating - Hybrid C",
+                "title": "C",
                 "path": "hybrid-c",
                 "icon": "mdi:cellphone-thermometer",
                 "concept": "hybrid_c",
             },
             {
-                "title": "Heating - Hybrid D",
+                "title": "D",
                 "path": "hybrid-d",
                 "icon": "mdi:tune-variant",
                 "concept": "hybrid_d",
@@ -1298,7 +1298,8 @@ def cmd_sync_heating_dashboard() -> None:
             "title": view_title,
             "path": path,
             "icon": view_icon,
-            "cards": cards,
+            "panel": True,
+            "cards": [{"type": "vertical-stack", "cards": cards}],
             "badges": [],
         }
 

@@ -172,6 +172,8 @@
   - `hybrid-b` = dense desktop-first room-control hybrid
   - `hybrid-c` = mobile-first hybrid
   - `hybrid-d` = supported rich-panel substitute for `better-thermostat-ui-card`
+  - dashboard tab labels are currently shortened to `Heating`, `A`, `B`, `C`, `D`
+    so all concept pages remain reachable on narrower screens and kiosk browsers
 - Current UI recommendation:
   - best overall starting point: `hybrid-a`
   - best mobile-specific concept: `hybrid-c`
@@ -192,6 +194,16 @@
   - ApexCharts Card
   - mini-graph-card (optional fallback)
 - Some ZHA remote long-press repeat behavior can be device-limited; short-press flows are currently the stable path.
+- Fully Kiosk Browser:
+  - not integrated in HA yet
+  - no `fully_kiosk` config entry, device, or entities were present in the latest runtime check
+  - when picked up again, use the official HA Fully Kiosk Browser integration rather than an old custom approach
+  - sensible first slice:
+    - add the tablet to HA
+    - confirm status entities
+    - confirm `screen on` / `screen off`
+    - confirm dashboard `load_url`
+    - defer motion/screen-wake automation until the base integration is stable
 
 ## Guardrails for Future Changes
 - Make changes in `config/homelab.yaml` first, then regenerate via script commands above.
