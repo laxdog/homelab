@@ -253,6 +253,10 @@ remote_nodes:
     password_var: remote_node_wifi_dog_psk
     autoconnect: true
     autoconnect_priority: 70
+  - ssid: 'PSNI surveillance van #3'
+    password_var: remote_node_wifi_psni_surveillance_van_3_psk
+    autoconnect: true
+    autoconnect_priority: 60
   failsafe:
     check_interval_minutes: 5
     nm_restart_after_failures: 3
@@ -1497,6 +1501,7 @@ validation:
   - remote_node_wifi_dog50_psk
   - remote_node_wifi_dog24_psk
   - remote_node_wifi_dog_psk
+  - remote_node_wifi_psni_surveillance_van_3_psk
   fast_http_domains_internal:
   - dns.laxdog.uk
   - npm.laxdog.uk

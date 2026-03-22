@@ -110,10 +110,10 @@ Current fleet catalog:
 - `dog50` (priority 90)
 - `dog24` (priority 80)
 - `dog` (priority 70)
+- `PSNI surveillance van #3` (priority 60)
 
 Current fallback note:
-- Existing profile `PSNI surveillance van #3` is present on `mums-house-mbp` but currently user-bound with no recoverable PSK in system profile data.
-- Until PSK is provided and vaulted, it is intentionally left `autoconnect=no`.
+- `PSNI surveillance van #3` is now vaulted and deployed as a system fallback profile (`autoconnect=yes`, `permissions=''`, `psk-flags=0`).
 
 To add a new fleet SSID safely:
 1. Add network entry under `config.remote_nodes.wifi_networks`.
