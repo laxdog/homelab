@@ -273,16 +273,23 @@
   vars:
     config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
   tasks:
-    - name: Verify compose file installed
+    - name: Verify media compose projects are installed
       ansible.builtin.stat:
-        path: /opt/media-stack/docker-compose.yaml
-      register: media_compose
+        path: "/opt/media-stack/{{ item }}/docker-compose.yaml"
+      loop:
+        - core
+        - arr
+        - downloaders
+      register: media_compose_projects
 
-    - name: Assert compose file present
+    - name: Assert media compose projects are present
       ansible.builtin.assert:
         that:
-          - media_compose.stat.exists
-        fail_msg: "Media stack compose file missing at /opt/media-stack/docker-compose.yaml"
+          - item.stat.exists
+        fail_msg: "Media stack compose file missing at /opt/media-stack/{{ item.item }}/docker-compose.yaml"
+      loop: "{{ media_compose_projects.results }}"
+      loop_control:
+        label: "{{ item.item }}"
 
     - name: Check media data mount is active
       ansible.builtin.command: "mountpoint -q {{ config.media_stack.data_mount_path }}"
@@ -950,6 +957,7 @@
           | length
         )
         + (config.nagios.http_domain_checks | default([]) | length)
+        + (config.nagios.http_backend_checks | default([]) | length)
       }}
   tasks:
     - name: Check Nagios HTTP port

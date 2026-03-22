@@ -15,6 +15,7 @@ Source of truth: `config/homelab.yaml`.
 - Service `DNS` checks for all `config.adguard.rewrites`.
 - Service `HTTP` checks for all NPM hosts with `monitor_http: true`.
 - Service `HTTP Domain` checks for explicit domains in `config.nagios.http_domain_checks` (including non-NPM endpoints), e.g. `/healthz` probes.
+- Service `HTTP Backend` checks for direct backend endpoints in `config.nagios.http_backend_checks` (used for backend-layer detection independent of NPM path checks).
 - Service `RaffleRaptor Healthz` and `RaffleRaptor Statusz` checks from `config.nagios.raffle_raptor_checks` using `/usr/local/nagios/libexec/check_raffle_raptor.py`.
   These checks implement the contract in `/home/mrobinson/source/raffle-raptor/docs/monitoring.md`.
 

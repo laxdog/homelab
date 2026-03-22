@@ -631,6 +631,7 @@ npm:
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
+    monitor_http: false
   - name: Organizr
     domain: organizr.laxdog.uk
     forward_host: 10.20.30.164
@@ -1377,6 +1378,11 @@ nagios:
     domain: iana.org
     host: adguard
   http_domain_checks:
+  - domain: proxmox.laxdog.uk
+    host: nginx-proxy-manager
+    target_ip: 10.20.30.154
+    path: /api2/json/version
+    expected_status: 401
   - domain: raffle-raptor-dev.laxdog.uk
     host: nagios
     target_ip: 10.20.30.154
@@ -1388,6 +1394,12 @@ nagios:
   - domain: raffle-raptor.lax.dog
     host: nagios
     path: /healthz
+  http_backend_checks:
+  - name: home-assistant
+    host: home-assistant
+    target_host: 10.20.30.134
+    target_port: 8123
+    path: /
   raffle_raptor_checks:
   - name: raffle-raptor-dev-external
     host: nagios

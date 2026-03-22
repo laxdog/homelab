@@ -16,6 +16,16 @@ define command {
 }
 
 define command {
+  command_name check_http_npm_path_expect
+  command_line /usr/lib/nagios/plugins/check_http -I $ARG2$ -H $ARG1$ -S --sni -p 443 -u $ARG3$ -j GET -e $ARG4$
+}
+
+define command {
+  command_name check_http_backend_plain
+  command_line /usr/lib/nagios/plugins/check_http -I $ARG1$ -p $ARG2$ -u $ARG3$ -j GET
+}
+
+define command {
   command_name check_dns_adguard
   command_line /usr/lib/nagios/plugins/check_dns -s $ARG1$ -H $ARG2$
 }
@@ -147,7 +157,21 @@ define service {
   use                     generic-service
   host_name               {{ check.host | default('nagios') }}
   service_description     HTTP Domain {{ check.domain }}
+{% if check.expected_status is defined %}
+  check_command           check_http_npm_path_expect!{{ check.domain }}!{{ check.target_ip | default(check.domain) }}!{{ check.path | default('/') }}!{{ check.expected_status }}
+{% else %}
   check_command           check_http_npm_path!{{ check.domain }}!{{ check.target_ip | default(check.domain) }}!{{ check.path | default('/') }}
+{% endif %}
+  contact_groups          admins
+}
+{% endfor %}
+
+{% for check in config.nagios.http_backend_checks | default([]) %}
+define service {
+  use                     generic-service
+  host_name               {{ check.host | default('nagios') }}
+  service_description     HTTP Backend {{ check.name }}
+  check_command           check_http_backend_plain!{{ check.target_host }}!{{ check.target_port }}!{{ check.path | default('/') }}
   contact_groups          admins
 }
 {% endfor %}
