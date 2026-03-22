@@ -1,6 +1,6 @@
 # Tailscale (Phase 1)
 
-Source of truth: `config/homelab.yaml` (`services.vms.tailscale-gateway`, `tailscale`).
+Source of truth: `config/homelab.yaml` (`tailscale`, `services.vms.tailscale-gateway`, `services.lxcs.<name>.tailscale`).
 
 ## Scope
 Phase 1 provides:
@@ -18,6 +18,14 @@ Out of scope in phase 1:
 - VMID: `171`
 - LAN IP: `10.20.30.171`
 - Role: `tailscale_router`
+- Service LXC: `raffle-raptor-dev`
+- CT ID: `163`
+- LAN IP: `10.20.30.163`
+- Role: `tailscale_router`
+- Node override:
+  - no advertised routes
+  - no exit-node advertisement
+  - `accept-dns=false`
 
 This keeps Tailscale off the Proxmox host and limits routing changes to one guest VM.
 
@@ -40,9 +48,12 @@ Default phase-1 flags used by helper command:
 1. Join/login the node:
    - `ssh ubuntu@10.20.30.171`
    - `sudo /usr/local/sbin/tailscale-phase1-up`
+   - `ssh root@10.20.30.163`
+   - `sudo /usr/local/sbin/tailscale-phase1-up`
 2. In Tailscale admin console, approve:
    - subnet route `10.20.30.0/24`
    - exit node advertisement
+   - (none required for `raffle-raptor-dev` unless policy approval is enabled in tailnet)
 3. Configure split DNS in Tailscale admin:
    - domain: `laxdog.uk`
    - nameserver: `10.20.30.53`

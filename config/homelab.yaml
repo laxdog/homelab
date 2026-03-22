@@ -415,6 +415,11 @@ services:
       roles:
       - docker
       - python_bot
+      - tailscale_router
+      tailscale:
+        advertise_routes: []
+        advertise_exit_node: false
+        accept_dns: false
       users:
       - name: mrobinson
         groups:

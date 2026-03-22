@@ -1,9 +1,23 @@
 ---
 - name: Resolve host-specific tailscale config
   ansible.builtin.set_fact:
+    tailscale_service_cfg: >-
+      {{
+        (
+          (config.services | default({})).get('vms', {}).get(inventory_hostname, {}).get('tailscale', {})
+        )
+        | combine(
+            (config.services | default({})).get('lxcs', {}).get(inventory_hostname, {}).get('tailscale', {}),
+            recursive=True
+          )
+      }}
+
+- name: Merge global and host-specific tailscale config
+  ansible.builtin.set_fact:
     tailscale_node_cfg: >-
       {{
         (config.tailscale | default({}))
+        | combine(tailscale_service_cfg, recursive=True)
         | combine(
             (
               (config.remote_nodes | default({})).get('nodes', {}).get(inventory_hostname, {}).get('tailscale', {})
