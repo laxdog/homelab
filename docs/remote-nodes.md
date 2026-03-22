@@ -13,6 +13,9 @@ Current nodes:
 - LAN bootstrap IP: `10.20.30.153`
 - desired hostname: `raptor-node-staging`
 - purpose: staging remote node for future remote deploy testing
+- current tailscale state: joined (`BackendState=Running`)
+- exit-node capability: enabled (`Self.ExitNodeOption=true`)
+- key expiry: disabled (`Self.KeyExpiry=null`)
 
 Role split:
 - `raptor-node-staging` is the staging node for remote deploy validation.
