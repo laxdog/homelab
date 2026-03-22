@@ -82,6 +82,22 @@ def write_inventory(cfg: dict) -> Path:
             inventory.setdefault(group, {"hosts": {}})
             inventory[group]["hosts"][name] = inventory["guests"]["hosts"][name]
 
+    for name, meta in cfg.get("remote_nodes", {}).get("nodes", {}).items():
+        host_entry = {
+            "ansible_host": meta["ip"],
+            "ansible_ssh_user": meta.get("ssh_user", cfg.get("remote_nodes", {}).get("defaults", {}).get("ssh_user", "ubuntu")),
+            "ansible_ssh_private_key_file": meta.get(
+                "ssh_private_key_path",
+                cfg.get("remote_nodes", {}).get("defaults", {}).get("ssh_private_key_path", proxmox["ssh_private_key_path"]),
+            ),
+        }
+        inventory.setdefault("remote_nodes_hosts", {"hosts": {}})
+        inventory["remote_nodes_hosts"]["hosts"][name] = host_entry
+        for role in meta.get("roles", []):
+            group = f"{role.replace('-', '_')}_hosts"
+            inventory.setdefault(group, {"hosts": {}})
+            inventory[group]["hosts"][name] = host_entry
+
     inventory_path.parent.mkdir(parents=True, exist_ok=True)
     with inventory_path.open("w", encoding="utf-8") as fh:
         yaml.safe_dump(inventory, fh, sort_keys=True)
@@ -212,6 +228,12 @@ def cmd_guests() -> None:
     ansible_playbook("guests.yml")
 
 
+def cmd_remote_nodes() -> None:
+    cfg = load_config()
+    write_inventory(cfg)
+    ansible_playbook("remote-nodes.yml")
+
+
 def cmd_validate(mode: str) -> None:
     cfg = load_config()
     inventory_path = write_inventory(cfg)
@@ -227,6 +249,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("apply")
     sub.add_parser("host")
     sub.add_parser("guests")
+    sub.add_parser("remote-nodes")
     sub.add_parser("metadata")
     validate_parser = sub.add_parser("validate")
     validate_parser.add_argument(
@@ -248,6 +271,8 @@ def main() -> None:
         cmd_host()
     elif args.command == "guests":
         cmd_guests()
+    elif args.command == "remote-nodes":
+        cmd_remote_nodes()
     elif args.command == "metadata":
         proxmox_metadata_sync(check=False)
     elif args.command == "validate":

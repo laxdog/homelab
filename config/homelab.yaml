@@ -231,6 +231,35 @@ tailscale:
   split_dns:
     domain: laxdog.uk
     nameserver: 10.20.30.53
+remote_nodes:
+  defaults:
+    ssh_user: mrobinson
+    ssh_private_key_path: /home/mrobinson/.ssh/id_rsa
+  wifi_networks:
+  - ssid: woof50
+    password_var: remote_node_wifi_woof50_psk
+    autoconnect: true
+    autoconnect_priority: 100
+  failsafe:
+    check_interval_minutes: 5
+    nm_restart_after_failures: 3
+    nm_restart_cooldown_seconds: 900
+    reboot_after_failure_seconds: 2700
+    reboot_cooldown_seconds: 86400
+  nodes:
+    mums-house-mbp:
+      ip: 10.20.30.75
+      ssh_user: mrobinson
+      location_label: Mum's House
+      hostname: mums-house-mbp
+      roles:
+      - remote_node_baseline
+      - tailscale_router
+      wifi_only: true
+      tailscale:
+        advertise_routes: []
+        advertise_exit_node: true
+        accept_dns: false
 services:
   defaults:
     vm:
@@ -1451,6 +1480,7 @@ validation:
   - nagios_admin_password
   - jellyfin_admin_password
   - home_assistant_admin_password
+  - remote_node_wifi_woof50_psk
   fast_http_domains_internal:
   - dns.laxdog.uk
   - npm.laxdog.uk

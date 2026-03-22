@@ -1,4 +1,17 @@
 ---
+- name: Resolve host-specific tailscale config
+  ansible.builtin.set_fact:
+    tailscale_node_cfg: >-
+      {{
+        (config.tailscale | default({}))
+        | combine(
+            (
+              (config.remote_nodes | default({})).get('nodes', {}).get(inventory_hostname, {}).get('tailscale', {})
+            ),
+            recursive=True
+          )
+      }}
+
 - name: Install prerequisites for Tailscale apt repository
   ansible.builtin.apt:
     name:
@@ -57,9 +70,9 @@
       #!/usr/bin/env bash
       set -euo pipefail
       tailscale up \
-        --advertise-routes={{ (config.tailscale.advertise_routes | default(['10.20.30.0/24'])) | join(',') }} \
-        {% if config.tailscale.advertise_exit_node | default(true) %}--advertise-exit-node \
-        {% endif %}--accept-dns={{ 'true' if (config.tailscale.accept_dns | default(false) | bool) else 'false' }}
+        {% if (tailscale_node_cfg.advertise_routes | default([]) | length) > 0 %}--advertise-routes={{ (tailscale_node_cfg.advertise_routes | default([])) | join(',') }} \
+        {% endif %}{% if tailscale_node_cfg.advertise_exit_node | default(true) %}--advertise-exit-node \
+        {% endif %}--accept-dns={{ 'true' if (tailscale_node_cfg.accept_dns | default(false) | bool) else 'false' }}
 
 - name: Check Tailscale backend state (informational only in phase 1)
   ansible.builtin.command: tailscale status --json
@@ -70,7 +83,7 @@
 - name: Show manual-login hint when node is not yet joined
   ansible.builtin.debug:
     msg: >-
-      tailscale-gateway is installed but not joined yet (state={{ (tailscale_status_json.stdout | default('{}') | from_json).BackendState | default('unknown') }}).
+      {{ inventory_hostname }} is installed but not joined yet (state={{ (tailscale_status_json.stdout | default('{}') | from_json).BackendState | default('unknown') }}).
       Run /usr/local/sbin/tailscale-phase1-up and complete the login + admin approvals.
   when:
     - tailscale_status_json.rc == 0
