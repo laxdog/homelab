@@ -5,10 +5,18 @@ Source of truth: `config/homelab.yaml` under `remote_nodes`.
 ## Scope
 This baseline is for WiFi-only remote laptops that are administered over SSH + Tailscale.
 
-Current first node:
+Current nodes:
 - inventory name: `mums-house-mbp`
 - LAN bootstrap IP: `10.20.30.75`
 - desired hostname: `mums-house-mbp`
+- inventory name: `raptor-node-staging`
+- LAN bootstrap IP: `10.20.30.153`
+- desired hostname: `raptor-node-staging`
+- purpose: staging remote node for future remote deploy testing
+
+Role split:
+- `raptor-node-staging` is the staging node for remote deploy validation.
+- `mums-house-mbp` remains the production-style remote node baseline reference.
 
 ## Repo Layout
 - inventory generation: `scripts/run.py` (`remote_nodes` -> `remote_nodes_hosts`)
@@ -91,6 +99,11 @@ From control host:
 - `ssh mrobinson@10.20.30.75 'systemctl is-active ssh tailscaled unattended-upgrades remote-node-healthcheck.timer'`
 - `ssh mrobinson@10.20.30.75 'grep -E "^(HandleLidSwitch|HandleLidSwitchExternalPower|HandleLidSwitchDocked)=" /etc/systemd/logind.conf'`
 - `ssh mrobinson@10.20.30.75 'sudo tailscale status --json | jq -r .BackendState'`
+- `ssh mrobinson@10.20.30.153 'hostnamectl --static'`
+- `ssh mrobinson@10.20.30.153 'sudo -n true'`
+- `ssh mrobinson@10.20.30.153 'systemctl is-active ssh tailscaled unattended-upgrades remote-node-healthcheck.timer'`
+- `ssh mrobinson@10.20.30.153 'grep -E "^(HandleLidSwitch|HandleLidSwitchExternalPower|HandleLidSwitchDocked)=" /etc/systemd/logind.conf'`
+- `ssh mrobinson@10.20.30.153 'sudo tailscale status --json | jq -r .BackendState'`
 
 ## Fleet WiFi Model (Vaulted)
 - Network definitions live in `config.remote_nodes.wifi_networks`.

@@ -277,6 +277,19 @@ remote_nodes:
         advertise_routes: []
         advertise_exit_node: true
         accept_dns: false
+    raptor-node-staging:
+      ip: 10.20.30.153
+      ssh_user: mrobinson
+      location_label: staging
+      hostname: raptor-node-staging
+      roles:
+      - remote_node_baseline
+      - tailscale_router
+      wifi_only: true
+      tailscale:
+        advertise_routes: []
+        advertise_exit_node: true
+        accept_dns: false
 services:
   defaults:
     vm:
