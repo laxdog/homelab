@@ -7,6 +7,10 @@
   ansible.builtin.set_fact:
     remote_node_wifi_networks: "{{ (config.remote_nodes.wifi_networks | default([])) + (remote_node_cfg.wifi_networks | default([])) }}"
 
+- name: Resolve configured remote-node WiFi SSID names
+  ansible.builtin.set_fact:
+    remote_node_wifi_ssids: "{{ remote_node_wifi_networks | map(attribute='ssid') | list }}"
+
 - name: Determine desired hostname
   ansible.builtin.set_fact:
     remote_node_desired_hostname: "{{ remote_node_cfg.hostname | default(inventory_hostname) }}"
@@ -195,7 +199,11 @@
       - connection.autoconnect
       - "no"
   loop: "{{ remote_node_inactive_wifi_profiles.stdout_lines }}"
-  when: remote_node_inactive_wifi_profiles.stdout_lines | length > 0
+  loop_control:
+    label: "{{ item }}"
+  when:
+    - remote_node_inactive_wifi_profiles.stdout_lines | length > 0
+    - item not in remote_node_wifi_ssids
   changed_when: false
 
 - name: Bring active WiFi profile up to confirm validity

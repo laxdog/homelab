@@ -235,11 +235,24 @@ remote_nodes:
   defaults:
     ssh_user: mrobinson
     ssh_private_key_path: /home/mrobinson/.ssh/id_rsa
+  disable_kwallet_integration: true
   wifi_networks:
   - ssid: woof50
     password_var: remote_node_wifi_woof50_psk
     autoconnect: true
     autoconnect_priority: 100
+  - ssid: dog50
+    password_var: remote_node_wifi_dog50_psk
+    autoconnect: true
+    autoconnect_priority: 90
+  - ssid: dog24
+    password_var: remote_node_wifi_dog24_psk
+    autoconnect: true
+    autoconnect_priority: 80
+  - ssid: dog
+    password_var: remote_node_wifi_dog_psk
+    autoconnect: true
+    autoconnect_priority: 70
   failsafe:
     check_interval_minutes: 5
     nm_restart_after_failures: 3
@@ -1481,6 +1494,9 @@ validation:
   - jellyfin_admin_password
   - home_assistant_admin_password
   - remote_node_wifi_woof50_psk
+  - remote_node_wifi_dog50_psk
+  - remote_node_wifi_dog24_psk
+  - remote_node_wifi_dog_psk
   fast_http_domains_internal:
   - dns.laxdog.uk
   - npm.laxdog.uk
