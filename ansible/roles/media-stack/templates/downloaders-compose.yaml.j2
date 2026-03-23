@@ -1,0 +1,53 @@
+services:
+  gluetun:
+    image: "{{ config.media_stack.apps.gluetun.image }}"
+    container_name: gluetun
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    env_file:
+      - ./.env
+    environment:
+      TZ: "{{ config.homelab.timezone }}"
+      FIREWALL_INPUT_PORTS: "{{ config.media_stack.apps.qbittorrent.port }},{{ config.media_stack.apps.sabnzbd.port }}"
+      HTTP_CONTROL_SERVER_ADDRESS: ":{{ config.media_stack.apps.gluetun.health_port }}"
+    ports:
+      - "{{ config.media_stack.apps.qbittorrent.port }}:{{ config.media_stack.apps.qbittorrent.port }}"
+      - "{{ config.media_stack.apps.sabnzbd.port }}:{{ config.media_stack.apps.sabnzbd.port }}"
+      - "{{ config.media_stack.apps.gluetun.health_port }}:{{ config.media_stack.apps.gluetun.health_port }}"
+    volumes:
+      - "{{ config.media_stack.appdata_path }}/gluetun:/gluetun"
+
+  sabnzbd:
+    image: "{{ config.media_stack.apps.sabnzbd.image }}"
+    container_name: sabnzbd
+    restart: unless-stopped
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    environment:
+      TZ: "{{ config.homelab.timezone }}"
+      PUID: "{{ config.media_stack.shared_ids.uid }}"
+      PGID: "{{ config.media_stack.shared_ids.gid }}"
+      UMASK_SET: "002"
+    volumes:
+      - "{{ config.media_stack.appdata_path }}/sabnzbd:/config"
+      - "{{ config.media_stack.data_mount_path }}:/data"
+
+  qbittorrent:
+    image: "{{ config.media_stack.apps.qbittorrent.image }}"
+    container_name: qbittorrent
+    restart: unless-stopped
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    environment:
+      TZ: "{{ config.homelab.timezone }}"
+      PUID: "{{ config.media_stack.shared_ids.uid }}"
+      PGID: "{{ config.media_stack.shared_ids.gid }}"
+      WEBUI_PORT: "{{ config.media_stack.apps.qbittorrent.port }}"
+    volumes:
+      - "{{ config.media_stack.appdata_path }}/qbittorrent:/config"
+      - "{{ config.media_stack.data_mount_path }}:/data"

@@ -1,31 +1,181 @@
 ---
-- name: Create media stack directory
-  ansible.builtin.file:
-    path: /opt/media-stack
-    state: directory
-    mode: '0755'
+- name: Define media stack paths
+  ansible.builtin.set_fact:
+    media_stack_root: "{{ config.media_stack.stack_root }}"
+    media_stack_projects:
+      - name: core
+        compose_template: core-compose.yaml.j2
+        env_template: core.env.j2
+        path: "{{ config.media_stack.stack_root }}/core"
+      - name: arr
+        compose_template: arr-compose.yaml.j2
+        path: "{{ config.media_stack.stack_root }}/arr"
+      - name: downloaders
+        compose_template: downloaders-compose.yaml.j2
+        env_template: downloaders.env.j2
+        path: "{{ config.media_stack.stack_root }}/downloaders"
 
-- name: Create media stack appdata directory
-  ansible.builtin.file:
-    path: /opt/media-stack/appdata/jellyfin
-    state: directory
-    mode: '0755'
-
-- name: Install compose file
-  ansible.builtin.template:
-    src: docker-compose.yaml.j2
-    dest: /opt/media-stack/docker-compose.yaml
-    mode: '0644'
-
-- name: Deploy media stack via Docker Compose
-  ansible.builtin.command: docker compose -f /opt/media-stack/docker-compose.yaml up -d
-  args:
-    chdir: /opt/media-stack
+- name: Look up render group
+  ansible.builtin.command: getent group render
+  register: media_render_group
   changed_when: false
+  failed_when: false
+
+- name: Look up video group
+  ansible.builtin.command: getent group video
+  register: media_video_group
+  changed_when: false
+  failed_when: false
+
+- name: Set hardware acceleration group IDs
+  ansible.builtin.set_fact:
+    media_device_group_ids: "{{ [media_render_gid, media_video_gid] | reject('equalto', '') | list }}"
+  vars:
+    media_render_gid: "{{ (media_render_group.stdout.split(':')[2]) if media_render_group.rc == 0 else '' }}"
+    media_video_gid: "{{ (media_video_group.stdout.split(':')[2]) if media_video_group.rc == 0 else '' }}"
+
+- name: Determine whether downloader secrets are ready
+  ansible.builtin.set_fact:
+    media_downloaders_ready: >-
+      {{
+        (
+          (config.media_stack.apps.gluetun.provider | default('') | length) > 0
+        ) and (
+          (
+            (config.media_stack.apps.gluetun.vpn_type | default('openvpn')) == 'openvpn'
+            and (gluetun_openvpn_user | default('') | length) > 0
+            and (gluetun_openvpn_password | default('') | length) > 0
+          ) or (
+            (config.media_stack.apps.gluetun.vpn_type | default('openvpn')) == 'wireguard'
+            and (gluetun_wireguard_private_key | default('') | length) > 0
+            and (gluetun_wireguard_addresses | default('') | length) > 0
+          )
+        )
+      }}
+
+- name: Create media stack root directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ media_stack_root }}"
+    - "{{ config.media_stack.appdata_path }}"
+    - "{{ media_stack_root }}/core"
+    - "{{ media_stack_root }}/arr"
+    - "{{ media_stack_root }}/downloaders"
+
+- name: Create media stack appdata directories
+  ansible.builtin.file:
+    path: "{{ config.media_stack.appdata_path }}/{{ item }}"
+    state: directory
+    owner: "{{ config.media_stack.shared_ids.uid }}"
+    group: "{{ config.media_stack.shared_ids.gid }}"
+    mode: "0775"
+  loop:
+    - jellyfin
+    - plex
+    - prowlarr
+    - sonarr
+    - radarr
+    - cleanuparr
+    - gluetun
+    - sabnzbd
+    - nzbget
+    - qbittorrent
+
+- name: Install media stack compose files
+  ansible.builtin.template:
+    src: "{{ item.compose_template }}"
+    dest: "{{ item.path }}/docker-compose.yaml"
+    mode: "0644"
+  loop: "{{ media_stack_projects }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Install media stack env files
+  ansible.builtin.template:
+    src: "{{ item.env_template }}"
+    dest: "{{ item.path }}/.env"
+    mode: "0600"
+  loop: "{{ media_stack_projects | selectattr('env_template', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Install SABnzbd configuration
+  ansible.builtin.template:
+    src: sabnzbd.ini.j2
+    dest: "{{ config.media_stack.appdata_path }}/sabnzbd/sabnzbd.ini"
+    owner: "{{ config.media_stack.shared_ids.uid }}"
+    group: "{{ config.media_stack.shared_ids.gid }}"
+    mode: "0664"
+
+- name: Check for legacy media compose file
+  ansible.builtin.stat:
+    path: "{{ media_stack_root }}/docker-compose.yaml"
+  register: media_legacy_compose
+
+- name: Stop legacy single-stack media deployment
+  ansible.builtin.command: docker compose -f docker-compose.yaml down --remove-orphans
+  args:
+    chdir: "{{ media_stack_root }}"
+  when: media_legacy_compose.stat.exists
+
+- name: Remove legacy media compose file
+  ansible.builtin.file:
+    path: "{{ media_stack_root }}/docker-compose.yaml"
+    state: absent
+  when: media_legacy_compose.stat.exists
+
+- name: Deploy media core stack
+  ansible.builtin.command: docker compose up -d --remove-orphans
+  args:
+    chdir: "{{ media_stack_root }}/core"
+
+- name: Deploy media arr stack
+  ansible.builtin.command: docker compose up -d --remove-orphans prowlarr sonarr radarr
+  args:
+    chdir: "{{ media_stack_root }}/arr"
+
+- name: Set Servarr apps to external authentication mode
+  ansible.builtin.replace:
+    path: "{{ config.media_stack.appdata_path }}/{{ item }}/config.xml"
+    regexp: "<AuthenticationMethod>[^<]+</AuthenticationMethod>"
+    replace: "<AuthenticationMethod>External</AuthenticationMethod>"
+  loop:
+    - prowlarr
+    - sonarr
+    - radarr
+  register: media_servarr_auth_mode
+
+- name: Restart Servarr apps after auth mode change
+  ansible.builtin.command: docker compose up -d {{ item.item }}
+  args:
+    chdir: "{{ media_stack_root }}/arr"
+  loop: "{{ media_servarr_auth_mode.results }}"
+  when: item.changed
+
+- name: Attempt Cleanuparr deployment
+  ansible.builtin.command: docker compose up -d cleanuparr
+  args:
+    chdir: "{{ media_stack_root }}/arr"
+  register: cleanuparr_deploy
+  failed_when: false
+
+- name: Note Cleanuparr deployment failure without aborting the role
+  ansible.builtin.debug:
+    msg: "Cleanuparr deployment skipped after pull/start failure: {{ cleanuparr_deploy.stderr | default(cleanuparr_deploy.stdout, true) }}"
+  when: cleanuparr_deploy.rc != 0
+
+- name: Deploy media downloader stack when secrets are present
+  ansible.builtin.command: docker compose up -d --remove-orphans
+  args:
+    chdir: "{{ media_stack_root }}/downloaders"
+  when: media_downloaders_ready
 
 - name: Wait for Jellyfin health endpoint
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ config.jellyfin.port }}/health"
+    url: "http://127.0.0.1:{{ config.media_stack.apps.jellyfin.port }}/health"
     method: GET
     status_code: 200
   register: jellyfin_health
@@ -33,14 +183,65 @@
   delay: 5
   until: jellyfin_health.status == 200
 
+- name: Wait for Plex to answer locally
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.plex.port }}/identity"
+    method: GET
+    status_code: 200
+  register: plex_identity
+  retries: 12
+  delay: 5
+  until: plex_identity.status == 200
+
+- name: Wait for Prowlarr to answer locally
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.prowlarr.port }}"
+    method: GET
+    status_code: [200, 302, 401]
+  register: prowlarr_http
+  retries: 12
+  delay: 5
+  until: prowlarr_http.status in [200, 302, 401]
+
+- name: Wait for Sonarr to answer locally
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.sonarr.port }}"
+    method: GET
+    status_code: [200, 302, 401]
+  register: sonarr_http
+  retries: 12
+  delay: 5
+  until: sonarr_http.status in [200, 302, 401]
+
+- name: Wait for Radarr to answer locally
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.radarr.port }}"
+    method: GET
+    status_code: [200, 302, 401]
+  register: radarr_http
+  retries: 12
+  delay: 5
+  until: radarr_http.status in [200, 302, 401]
+
+- name: Wait for Cleanuparr to answer locally
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.cleanuparr.port }}/health"
+    method: GET
+    status_code: [200, 204]
+  register: cleanuparr_http
+  retries: 12
+  delay: 5
+  until: cleanuparr_http.status in [200, 204]
+  when: cleanuparr_deploy.rc == 0
+
 - name: Read Jellyfin system configuration
   ansible.builtin.slurp:
-    src: /opt/media-stack/appdata/jellyfin/config/system.xml
+    src: "{{ config.media_stack.appdata_path }}/jellyfin/config/system.xml"
   register: jellyfin_system_xml
 
 - name: Set Jellyfin server name
   ansible.builtin.replace:
-    path: /opt/media-stack/appdata/jellyfin/config/system.xml
+    path: "{{ config.media_stack.appdata_path }}/jellyfin/config/system.xml"
     regexp: "<ServerName>.*</ServerName>"
     replace: "<ServerName>{{ config.jellyfin.server_name }}</ServerName>"
   when: config.jellyfin.server_name | length > 0
@@ -52,7 +253,7 @@
 
 - name: Configure Jellyfin startup settings
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ config.jellyfin.port }}/Startup/Configuration"
+    url: "http://127.0.0.1:{{ config.media_stack.apps.jellyfin.port }}/Startup/Configuration"
     method: POST
     body_format: json
     body:
@@ -62,16 +263,16 @@
     status_code: [200, 204]
   when: not jellyfin_wizard_complete
 
-- name: Create Jellyfin admin user
+- name: Read Jellyfin startup user endpoint before bootstrap
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ config.jellyfin.port }}/Startup/User"
+    url: "http://127.0.0.1:{{ config.media_stack.apps.jellyfin.port }}/Startup/User"
     method: GET
     status_code: 200
   when: not jellyfin_wizard_complete
 
 - name: Create Jellyfin admin user
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ config.jellyfin.port }}/Startup/User"
+    url: "http://127.0.0.1:{{ config.media_stack.apps.jellyfin.port }}/Startup/User"
     method: POST
     body_format: json
     body:
@@ -83,7 +284,7 @@
 
 - name: Configure Jellyfin remote access
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ config.jellyfin.port }}/Startup/RemoteAccess"
+    url: "http://127.0.0.1:{{ config.media_stack.apps.jellyfin.port }}/Startup/RemoteAccess"
     method: POST
     body_format: json
     body:
@@ -94,7 +295,7 @@
 
 - name: Complete Jellyfin startup wizard
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ config.jellyfin.port }}/Startup/Complete"
+    url: "http://127.0.0.1:{{ config.media_stack.apps.jellyfin.port }}/Startup/Complete"
     method: POST
     status_code: [200, 204]
   when: not jellyfin_wizard_complete

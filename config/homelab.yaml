@@ -1514,6 +1514,7 @@ nagios:
     host: nagios
     base_url: https://raffle-raptor.lax.dog
 media_stack:
+  stack_root: /opt/media-stack
   appdata_path: /opt/media-stack/appdata
   data_device: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1
   data_filesystem: ext4
@@ -1536,6 +1537,39 @@ media_stack:
     export_path: /srv/data
     allowed_cidr: 10.20.30.0/24
     options: rw,sync,no_subtree_check
+  apps:
+    jellyfin:
+      image: jellyfin/jellyfin:latest
+      port: 8096
+    plex:
+      image: lscr.io/linuxserver/plex:latest
+      port: 32400
+      claim_token_var: plex_claim_token
+    prowlarr:
+      image: lscr.io/linuxserver/prowlarr:latest
+      port: 9696
+    sonarr:
+      image: lscr.io/linuxserver/sonarr:latest
+      port: 8989
+    radarr:
+      image: lscr.io/linuxserver/radarr:latest
+      port: 7878
+    cleanuparr:
+      image: ghcr.io/cleanuparr/cleanuparr:latest
+      port: 11011
+    gluetun:
+      image: qmcgaw/gluetun:latest
+      vpn_type: wireguard
+      provider: mullvad
+      server_countries:
+      - France
+      health_port: 8000
+    sabnzbd:
+      image: lscr.io/linuxserver/sabnzbd:latest
+      port: 6789
+    qbittorrent:
+      image: lscr.io/linuxserver/qbittorrent:latest
+      port: 8080
 cloudflare:
   zone: lax.dog
   public_ip: auto

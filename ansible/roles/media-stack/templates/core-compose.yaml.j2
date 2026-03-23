@@ -1,0 +1,45 @@
+services:
+  jellyfin:
+    image: "{{ config.media_stack.apps.jellyfin.image }}"
+    container_name: jellyfin
+    restart: unless-stopped
+    environment:
+      TZ: "{{ config.homelab.timezone }}"
+    ports:
+      - "{{ config.media_stack.apps.jellyfin.port }}:8096"
+    volumes:
+      - "{{ config.media_stack.appdata_path }}/jellyfin:/config"
+      - "{{ config.media_stack.data_mount_path }}/media:/media:ro"
+    devices:
+      - /dev/dri:/dev/dri
+{% if media_device_group_ids | length > 0 %}
+    group_add:
+{% for gid in media_device_group_ids %}
+      - "{{ gid }}"
+{% endfor %}
+{% endif %}
+
+  plex:
+    image: "{{ config.media_stack.apps.plex.image }}"
+    container_name: plex
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      TZ: "{{ config.homelab.timezone }}"
+      PUID: "{{ config.media_stack.shared_ids.uid }}"
+      PGID: "{{ config.media_stack.shared_ids.gid }}"
+      VERSION: docker
+    ports:
+      - "{{ config.media_stack.apps.plex.port }}:32400"
+    volumes:
+      - "{{ config.media_stack.appdata_path }}/plex:/config"
+      - "{{ config.media_stack.data_mount_path }}/media:/media:ro"
+    devices:
+      - /dev/dri:/dev/dri
+{% if media_device_group_ids | length > 0 %}
+    group_add:
+{% for gid in media_device_group_ids %}
+      - "{{ gid }}"
+{% endfor %}
+{% endif %}

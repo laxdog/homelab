@@ -1,0 +1,100 @@
+__version__ = 19
+__encoding__ = utf-8
+[misc]
+host = 0.0.0.0
+port = {{ config.media_stack.apps.sabnzbd.port }}
+https_port = ""
+username = ""
+password = ""
+api_key = {{ media_stack_sabnzbd_api_key }}
+nzb_key =
+download_dir = /data/downloads/incomplete
+complete_dir = /data/downloads/usenet
+admin_dir = admin
+log_dir = logs
+web_dir = Glitter
+language = en
+enable_https = 0
+enable_https_verification = 1
+inet_exposure = 4
+permissions = ""
+bandwidth_max = 0
+cache_limit = 1G
+direct_unpack = 1
+flat_unpack = 0
+cleanup_list = ,
+unwanted_extensions = ,
+action_on_unwanted_extensions = 0
+folder_rename = 1
+replace_spaces = 0
+replace_dots = 0
+safe_postproc = 1
+enable_recursive = 1
+host_whitelist = localhost,media-stack,10.20.30.120
+local_ranges = 127.0.0.1/8,10.20.30.0/24,172.16.0.0/12
+api_logging = 1
+disable_api_key = 0
+ipv6_hosting = 0
+fixed_ports = 1
+movie_categories = movies,
+date_categories = tv,
+enable_tv_sorting = 0
+enable_movie_sorting = 0
+enable_date_sorting = 0
+enable_season_sorting = 1
+config_conversion_version = 4
+history_retention_option = all
+history_retention_number = 0
+
+[logging]
+log_level = 1
+max_log_size = 5242880
+log_backups = 5
+
+[servers]
+[[news.eweka.nl]]
+name = news.eweka.nl
+displayname = news.eweka.nl
+host = news.eweka.nl
+port = 119
+timeout = 60
+username = {{ media_stack_usenet_username }}
+password = {{ media_stack_usenet_password }}
+connections = 8
+ssl = 0
+ssl_verify = 3
+ssl_ciphers = ""
+enable = 1
+required = 0
+optional = 0
+retention = 0
+send_group = 0
+priority = 0
+
+[categories]
+[[movies]]
+name = movies
+order = 0
+pp = ""
+script = Default
+dir = movies
+newzbin = movies
+priority = -100
+
+[[tv]]
+name = tv
+order = 0
+pp = ""
+script = Default
+dir = tv
+newzbin = tv
+priority = -100
+
+[[ebooks]]
+name = ebooks
+order = 0
+pp = ""
+script = Default
+dir = ebooks-downloads
+newzbin = ebooks
+priority = -100

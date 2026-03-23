@@ -1,0 +1,60 @@
+services:
+  prowlarr:
+    image: "{{ config.media_stack.apps.prowlarr.image }}"
+    container_name: prowlarr
+    restart: unless-stopped
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: "1"
+      net.ipv6.conf.default.disable_ipv6: "1"
+    environment:
+      TZ: "{{ config.homelab.timezone }}"
+      PUID: "{{ config.media_stack.shared_ids.uid }}"
+      PGID: "{{ config.media_stack.shared_ids.gid }}"
+    ports:
+      - "{{ config.media_stack.apps.prowlarr.port }}:9696"
+    volumes:
+      - "{{ config.media_stack.appdata_path }}/prowlarr:/config"
+
+  sonarr:
+    image: "{{ config.media_stack.apps.sonarr.image }}"
+    container_name: sonarr
+    restart: unless-stopped
+    environment:
+      TZ: "{{ config.homelab.timezone }}"
+      PUID: "{{ config.media_stack.shared_ids.uid }}"
+      PGID: "{{ config.media_stack.shared_ids.gid }}"
+    ports:
+      - "{{ config.media_stack.apps.sonarr.port }}:8989"
+    volumes:
+      - "{{ config.media_stack.appdata_path }}/sonarr:/config"
+      - "{{ config.media_stack.data_mount_path }}:/data"
+
+  radarr:
+    image: "{{ config.media_stack.apps.radarr.image }}"
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      TZ: "{{ config.homelab.timezone }}"
+      PUID: "{{ config.media_stack.shared_ids.uid }}"
+      PGID: "{{ config.media_stack.shared_ids.gid }}"
+    ports:
+      - "{{ config.media_stack.apps.radarr.port }}:7878"
+    volumes:
+      - "{{ config.media_stack.appdata_path }}/radarr:/config"
+      - "{{ config.media_stack.data_mount_path }}:/data"
+
+  cleanuparr:
+    image: "{{ config.media_stack.apps.cleanuparr.image }}"
+    container_name: cleanuparr
+    restart: unless-stopped
+    environment:
+      TZ: "{{ config.homelab.timezone }}"
+      PORT: "{{ config.media_stack.apps.cleanuparr.port }}"
+      PUID: "{{ config.media_stack.shared_ids.uid }}"
+      PGID: "{{ config.media_stack.shared_ids.gid }}"
+      UMASK: "022"
+      BASE_PATH: ""
+    ports:
+      - "{{ config.media_stack.apps.cleanuparr.port }}:{{ config.media_stack.apps.cleanuparr.port }}"
+    volumes:
+      - "{{ config.media_stack.appdata_path }}/cleanuparr:/config"

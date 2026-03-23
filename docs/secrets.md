@@ -45,5 +45,21 @@ Recommended: `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`
 - `tplink_username` (optional; required for HA TP-Link/KH100 integration)
 - `tplink_password` (optional; required for HA TP-Link/KH100 integration)
 
+## Optional media-stack vars
+- `plex_claim_token`
+- `gluetun_openvpn_user`
+- `gluetun_openvpn_password`
+- `gluetun_wireguard_private_key`
+- `gluetun_wireguard_addresses`
+- `media_stack_sabnzbd_api_key`
+- `media_stack_usenet_username`
+- `media_stack_usenet_password`
+- `media_stack_indexer_nzbgeek_api_key`
+- `media_stack_indexer_nzbfinder_api_key`
+- `media_stack_indexer_nzbplanet_api_key`
+- `media_stack_indexer_jackett_api_key`
+- `media_stack_transmission_rpc_username`
+- `media_stack_transmission_rpc_password`
+
 Notes:
 - `scripts/run.py apply` will use `terraform_user_password` when the vault password file is available.
