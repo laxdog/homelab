@@ -185,6 +185,20 @@ adguard:
     answer: 10.20.30.154
   - domain: jellyfin.laxdog.uk
     answer: 10.20.30.154
+  - domain: plex.laxdog.uk
+    answer: 10.20.30.154
+  - domain: prowlarr.laxdog.uk
+    answer: 10.20.30.154
+  - domain: sonarr.laxdog.uk
+    answer: 10.20.30.154
+  - domain: radarr.laxdog.uk
+    answer: 10.20.30.154
+  - domain: cleanuparr.laxdog.uk
+    answer: 10.20.30.154
+  - domain: sabnzbd.laxdog.uk
+    answer: 10.20.30.154
+  - domain: qbittorrent.laxdog.uk
+    answer: 10.20.30.154
   - domain: router.laxdog.uk
     answer: 10.20.30.154
   - domain: unifi-primary.laxdog.uk
@@ -619,6 +633,13 @@ npm:
     - ha.laxdog.uk
     - nagios.laxdog.uk
     - jellyfin.laxdog.uk
+    - plex.laxdog.uk
+    - prowlarr.laxdog.uk
+    - sonarr.laxdog.uk
+    - radarr.laxdog.uk
+    - cleanuparr.laxdog.uk
+    - sabnzbd.laxdog.uk
+    - qbittorrent.laxdog.uk
     - router.laxdog.uk
     - unifi-primary.laxdog.uk
     - unifi-secondary.laxdog.uk
@@ -761,6 +782,55 @@ npm:
     domain: jellyfin.laxdog.uk
     forward_host: 10.20.30.120
     forward_port: 8096
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Plex
+    domain: plex.laxdog.uk
+    forward_host: 10.20.30.120
+    forward_port: 32400
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Prowlarr
+    domain: prowlarr.laxdog.uk
+    forward_host: 10.20.30.120
+    forward_port: 9696
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Sonarr
+    domain: sonarr.laxdog.uk
+    forward_host: 10.20.30.120
+    forward_port: 8989
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Radarr
+    domain: radarr.laxdog.uk
+    forward_host: 10.20.30.120
+    forward_port: 7878
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Cleanuparr
+    domain: cleanuparr.laxdog.uk
+    forward_host: 10.20.30.120
+    forward_port: 11011
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: SABnzbd
+    domain: sabnzbd.laxdog.uk
+    forward_host: 10.20.30.120
+    forward_port: 6789
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: qBittorrent
+    domain: qbittorrent.laxdog.uk
+    forward_host: 10.20.30.120
+    forward_port: 8080
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
