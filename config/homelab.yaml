@@ -652,6 +652,13 @@ npm:
     - nagios.lax.dog
     - proxmox.lax.dog
     - jellyfin.lax.dog
+    - plex.lax.dog
+    - prowlarr.lax.dog
+    - sonarr.lax.dog
+    - radarr.lax.dog
+    - cleanuparr.lax.dog
+    - sabnzbd.lax.dog
+    - qbittorrent.lax.dog
     - netalertx.lax.dog
     - ha.lax.dog
     - couchdb.lax.dog
@@ -906,6 +913,62 @@ npm:
     ssl: true
     certificate: laxdog-external-le
     authentik_protect: true
+  - name: Plex External
+    domain: plex.lax.dog
+    forward_host: 10.20.30.120
+    forward_port: 32400
+    access_list: External Public
+    ssl: true
+    certificate: laxdog-external-le
+    authentik_protect: true
+  - name: Prowlarr External
+    domain: prowlarr.lax.dog
+    forward_host: 10.20.30.120
+    forward_port: 9696
+    access_list: External Public
+    ssl: true
+    certificate: laxdog-external-le
+    authentik_protect: true
+  - name: Sonarr External
+    domain: sonarr.lax.dog
+    forward_host: 10.20.30.120
+    forward_port: 8989
+    access_list: External Public
+    ssl: true
+    certificate: laxdog-external-le
+    authentik_protect: true
+  - name: Radarr External
+    domain: radarr.lax.dog
+    forward_host: 10.20.30.120
+    forward_port: 7878
+    access_list: External Public
+    ssl: true
+    certificate: laxdog-external-le
+    authentik_protect: true
+  - name: Cleanuparr External
+    domain: cleanuparr.lax.dog
+    forward_host: 10.20.30.120
+    forward_port: 11011
+    access_list: External Public
+    ssl: true
+    certificate: laxdog-external-le
+    authentik_protect: true
+  - name: SABnzbd External
+    domain: sabnzbd.lax.dog
+    forward_host: 10.20.30.120
+    forward_port: 6789
+    access_list: External Public
+    ssl: true
+    certificate: laxdog-external-le
+    authentik_protect: true
+  - name: qBittorrent External
+    domain: qbittorrent.lax.dog
+    forward_host: 10.20.30.120
+    forward_port: 8080
+    access_list: External Public
+    ssl: true
+    certificate: laxdog-external-le
+    authentik_protect: true
   - name: NetAlertX External
     domain: netalertx.lax.dog
     forward_host: 10.20.30.158
@@ -983,6 +1046,27 @@ authentik:
   - name: Jellyfin
     slug: jellyfin
     external_host: https://jellyfin.lax.dog
+  - name: Plex
+    slug: plex
+    external_host: https://plex.lax.dog
+  - name: Prowlarr
+    slug: prowlarr
+    external_host: https://prowlarr.lax.dog
+  - name: Sonarr
+    slug: sonarr
+    external_host: https://sonarr.lax.dog
+  - name: Radarr
+    slug: radarr
+    external_host: https://radarr.lax.dog
+  - name: Cleanuparr
+    slug: cleanuparr
+    external_host: https://cleanuparr.lax.dog
+  - name: SABnzbd
+    slug: sabnzbd
+    external_host: https://sabnzbd.lax.dog
+  - name: qBittorrent
+    slug: qbittorrent
+    external_host: https://qbittorrent.lax.dog
 couchdb:
   admin_user: admin
   port: 5984
