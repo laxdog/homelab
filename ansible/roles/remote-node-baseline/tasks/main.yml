@@ -45,6 +45,17 @@
     state: present
     update_cache: true
 
+- name: Disable WiFi power saving for unattended remote nodes
+  ansible.builtin.copy:
+    dest: /etc/NetworkManager/conf.d/99-remote-node-wifi-powersave.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [connection]
+      wifi.powersave=2
+  notify: Restart NetworkManager
+
 - name: Ensure OpenSSH service is enabled and running
   ansible.builtin.service:
     name: ssh
@@ -213,6 +224,9 @@
       - connection
       - up
       - "{{ remote_node_active_wifi.stdout | trim }}"
+  when:
+    - (remote_node_active_wifi.stdout | trim) in remote_node_wifi_ssids
+      or (remote_node_active_wifi_psk.stdout | default('') | trim | length > 0)
   changed_when: false
 
 - name: Enable unattended upgrades (APT periodic)
@@ -273,6 +287,19 @@
     regexp: '^HandleLidSwitchDocked='
     line: 'HandleLidSwitchDocked=ignore'
   notify: Restart systemd-logind
+
+- name: Hard-disable suspend and hibernate targets for unattended remote nodes
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+    masked: true
+  loop:
+    - sleep.target
+    - suspend.target
+    - hibernate.target
+    - hybrid-sleep.target
+  when: config.remote_nodes.disable_sleep_targets | default(true) | bool
 
 - name: Install remote-node healthcheck script
   ansible.builtin.copy:

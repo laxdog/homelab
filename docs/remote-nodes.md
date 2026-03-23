@@ -37,6 +37,11 @@ Role split:
   - `HandleLidSwitch=ignore`
   - `HandleLidSwitchExternalPower=ignore`
   - `HandleLidSwitchDocked=ignore`
+- sleep targets hard-masked to prevent desktop power managers from suspending:
+  - `sleep.target`
+  - `suspend.target`
+  - `hibernate.target`
+  - `hybrid-sleep.target`
 - conservative self-check watchdog:
   - script: `/usr/local/sbin/remote-node-healthcheck`
   - timer: `remote-node-healthcheck.timer` (every 5 minutes)
@@ -53,6 +58,7 @@ Role split:
   - configured fleet SSIDs are forced system-wide (`connection.permissions=''`)
   - configured fleet SSIDs keep their configured autoconnect + priority values
   - configured fleet SSID PSKs are persisted in NetworkManager (`psk-flags=0`)
+  - WiFi power saving is disabled via `/etc/NetworkManager/conf.d/99-remote-node-wifi-powersave.conf`
   - non-catalog stale WiFi profiles have autoconnect disabled to avoid selecting user-bound profiles
   - KWallet PAM hooks in `/etc/pam.d/sddm` are commented for unattended-node behavior
 
@@ -79,8 +85,9 @@ NetworkManager log evidence looked like:
 That indicates dependency on desktop secret agents (KWallet/plasma NM agent) for some
 profiles, which is not acceptable for remote unattended nodes.
 
-The durable fix is to normalize the active deployment WiFi profile as a system profile and
-disable autoconnect on stale non-active profiles.
+The durable fix is to normalize the active deployment WiFi profile as a system profile,
+disable autoconnect on stale non-active profiles, and hard-mask sleep targets for unattended nodes
+so lid events cannot suspend the host via desktop power managers.
 
 Current expected active profile state:
 - `connection.permissions=''`
