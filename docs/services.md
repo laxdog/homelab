@@ -69,6 +69,10 @@ Internal (`laxdog.uk`):
 - `raffle-raptor-dev.laxdog.uk` -> raffle-raptor-dev via NPM (`10.20.30.163:8081`)
 
 ## Notes
+- Media stack day-1 app layout is repo-managed under `/opt/media-stack`.
+- Compose projects are split into `core` (Plex, Jellyfin), `arr` (Prowlarr, Sonarr, Radarr, Cleanuparr), and `downloaders` (Gluetun, SABnzbd, qBittorrent).
+- Jellyfin is exposed internally and externally without forward-auth to keep native apps working.
+  Bootstrap is automated; see `docs/jellyfin.md`.
 - Media-stack internal UI routes are internal-only (`laxdog.uk`) and terminate at NPM:
   - `plex.laxdog.uk` -> `10.20.30.120:32400`
   - `jellyfin.laxdog.uk` -> `10.20.30.120:8096`
@@ -78,8 +82,6 @@ Internal (`laxdog.uk`):
   - `cleanuparr.laxdog.uk` -> `10.20.30.120:11011`
   - `sabnzbd.laxdog.uk` -> `10.20.30.120:6789`
   - `qbittorrent.laxdog.uk` -> `10.20.30.120:8080`
-- Jellyfin is exposed internally and externally without forward-auth to keep native apps working.
-  Bootstrap is automated; see `docs/jellyfin.md`.
 - Dashboard entries in both Organizr and Heimdall are generated from `config.npm.proxy_hosts`; adding a proxy host entry automatically adds a dashboard link.
 - `media-stack` now provides a real internal NFS baseline:
   - export path: `/srv/data`

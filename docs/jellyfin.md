@@ -18,5 +18,11 @@ The media-stack role automates the initial wizard:
 - Creates the admin user from vault (`jellyfin_admin_password`).
 - Marks the startup wizard as complete.
 
+## Runtime Layout
+- Compose project: `/opt/media-stack/core/docker-compose.yaml`
+- Appdata: `/opt/media-stack/appdata/jellyfin`
+- Media mount: `/srv/data/media` mounted read-only at `/media`
+- Hardware acceleration: `/dev/dri` passed through for Intel Quick Sync
+
 If you ever need to re-run the bootstrap, delete the Jellyfin config directory
 and re-run `./scripts/run.py guests`.

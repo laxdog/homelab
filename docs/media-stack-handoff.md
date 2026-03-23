@@ -1,7 +1,6 @@
-# Media-Stack Infra Handoff
+# Media-Stack Handoff
 
-Scope: infra foundation for VM `120` only.  
-App stack deployment is intentionally deferred to a dedicated media-stack agent.
+Scope: VM `120` infra foundation plus day-1 app-layer deployment state.
 
 ## VM Identity
 - Name: `media-stack`
@@ -50,15 +49,320 @@ App stack deployment is intentionally deferred to a dedicated media-stack agent.
   - `i915` module loaded and persisted (`/etc/modules-load.d/media-igpu.conf`)
   - `/dev/dri/renderD128` present for Docker `--device /dev/dri`.
 
-## What The Next Media Agent Should Build (Day 1)
-- Plex
-- Jellyfin
-- Sonarr
-- Radarr
-- Prowlarr
-- NZBGet via gluetun
-- qBittorrent via gluetun
-- Cleanuparr
+## Day-1 App Layout
+- Stack root: `/opt/media-stack`
+- Compose projects:
+  - `/opt/media-stack/core/docker-compose.yaml`
+  - `/opt/media-stack/arr/docker-compose.yaml`
+  - `/opt/media-stack/downloaders/docker-compose.yaml`
+- Appdata:
+  - `/opt/media-stack/appdata/jellyfin`
+  - `/opt/media-stack/appdata/plex`
+  - `/opt/media-stack/appdata/prowlarr`
+  - `/opt/media-stack/appdata/sonarr`
+  - `/opt/media-stack/appdata/radarr`
+  - `/opt/media-stack/appdata/cleanuparr`
+  - `/opt/media-stack/appdata/gluetun`
+  - `/opt/media-stack/appdata/sabnzbd`
+  - `/opt/media-stack/appdata/qbittorrent`
+  - `/opt/media-stack/appdata/nzbget` is preserved on disk for rollback but is no longer in the active downloader compose
+
+## Day-1 Services
+- `core`
+  - Plex on `10.20.30.120:32400`
+  - Jellyfin on `10.20.30.120:8096`
+- `arr`
+  - Prowlarr on `10.20.30.120:9696`
+  - Sonarr on `10.20.30.120:8989`
+  - Radarr on `10.20.30.120:7878`
+  - Cleanuparr on `10.20.30.120:11011`
+- `downloaders`
+  - Gluetun is the only VPN boundary
+  - SABnzbd on `10.20.30.120:6789` via `network_mode: service:gluetun`
+  - qBittorrent on `10.20.30.120:8080` via `network_mode: service:gluetun`
+  - downloader compose is active with Gluetun healthy and a France egress IP
+
+## Day-1 Path Mapping
+- Shared UID/GID remains `1000:1000`
+- Arr and downloader containers mount `/srv/data` at `/data`
+- Media servers mount `/srv/data/media` read-only at `/media`
+- Hardlink-friendly imports depend on using `/data/downloads/...` and `/data/media/...` consistently in Sonarr and Radarr
+- SABnzbd is configured for `/data/downloads/incomplete` -> `/data/downloads/usenet`
+- category mappings carried forward from legacy:
+  - Radarr -> `movies`
+  - Sonarr -> `tv`
+  - Readarr -> `ebooks-downloads` (documented only; Readarr is not in scope on VM `120`)
+- Plex and Jellyfin both receive `/dev/dri` for Intel Quick Sync
+
+## Secrets Still Required
+- Optional but recommended:
+  - `ansible/secrets.yml` -> `plex_claim_token`
+- Downloader inputs now configured and active:
+  - `config/homelab.yaml` -> `media_stack.apps.gluetun.provider: mullvad`
+  - `config/homelab.yaml` -> `media_stack.apps.gluetun.vpn_type: wireguard`
+  - `config/homelab.yaml` -> `media_stack.apps.gluetun.server_countries: [France]`
+  - `ansible/secrets.yml` -> `gluetun_wireguard_private_key`
+  - `ansible/secrets.yml` -> `gluetun_wireguard_addresses`
+- SABnzbd bootstrap now consumes:
+  - `ansible/secrets.yml` -> `media_stack_sabnzbd_api_key`
+  - `ansible/secrets.yml` -> `media_stack_usenet_username`
+  - `ansible/secrets.yml` -> `media_stack_usenet_password`
+- Current usenet endpoint class in use:
+  - host `news.eweka.nl`
+  - port `119`
+  - ssl `0`
+
+## Validation Notes
+- Foundation checks required before app deployment:
+  - `/srv/data` mounted from the bulk disk
+  - `/srv/data` exported over NFS to `10.20.30.0/24`
+  - `/dev/dri/renderD128` present
+- Full validation now expects all three compose project files under `/opt/media-stack/`.
+- Validated on `2026-03-21`:
+  - `ansible-playbook ansible/playbooks/validate.yml --limit media-stack` passed
+  - Plex, Jellyfin, Prowlarr, Sonarr, and Radarr answered on localhost ports
+  - `/dev/dri/renderD128` is visible inside both Plex and Jellyfin containers
+- Re-validated on `2026-03-21` during retry:
+  - `ansible-playbook ansible/playbooks/guests.yml --limit media-stack` passed after restoring Cleanuparr to `ghcr.io/cleanuparr/cleanuparr:latest`
+  - `ansible-playbook ansible/playbooks/validate.yml --limit media-stack` passed again
+  - localhost checks returned `32400 -> 200`, `8096 -> 302`, `9696 -> 200`, `8989 -> 200`, `7878 -> 200`, `11011 -> 200`
+  - downloader containers are still absent by design until VPN inputs are supplied
+- Re-verified on `2026-03-22`:
+  - `docker ps -a` still shows Plex, Jellyfin, Prowlarr, Sonarr, Radarr, and Cleanuparr running
+  - localhost checks still return `32400 -> 200`, `8096 -> 302`, `9696 -> 200`, `8989 -> 200`, `7878 -> 200`, `11011 -> 200`
+  - downloader containers are absent in the final state after the failed WireGuard bring-up was reverted
+- Downloader bring-up attempted on `2026-03-22` with Mullvad WireGuard inputs:
+  - `ansible-playbook ansible/playbooks/guests.yml --limit media-stack` rendered the downloader env with `provider=mullvad`, `vpn_type=wireguard`, and the supplied WireGuard key/addresses
+  - `docker pull qmcgaw/gluetun:latest`, `docker pull lscr.io/linuxserver/nzbget:latest`, and `docker pull lscr.io/linuxserver/qbittorrent:latest` succeeded on retry
+  - `docker compose up -d` for `/opt/media-stack/downloaders` created all three containers
+  - Gluetun then exited with `Wireguard settings: interface address is IPv6 but IPv6 is not supported: address fc00:bbbb:bbbb:bb01::1:1ac0/128`
+  - because `nzbget` and `qbittorrent` use `network_mode: service:gluetun`, the downloader ports `8000`, `6789`, and `8080` did not come up cleanly
+  - the downloader stack was taken back down with `docker compose down` to restore the last clean known-good state
+- Downloader bring-up retried on `2026-03-22` with `gluetun_wireguard_addresses=10.64.26.193/32`:
+  - `ansible-playbook ansible/playbooks/guests.yml --limit media-stack` passed
+  - downloader containers now stay up:
+    - `gluetun`
+    - `qbittorrent`
+    - `nzbget`
+  - rendered downloader env now contains:
+    - `VPN_SERVICE_PROVIDER=mullvad`
+    - `VPN_TYPE=wireguard`
+    - `WIREGUARD_ADDRESSES=10.64.26.193/32`
+    - `SERVER_COUNTRIES=France`
+  - localhost checks now return:
+    - `8000 -> 401`
+    - `6789 -> 401`
+    - `8080 -> 200`
+  - network mode confirms downloader traffic is behind Gluetun:
+    - `gluetun` uses `downloaders_default`
+    - `nzbget` uses `network_mode: container:<gluetun>`
+    - `qbittorrent` uses `network_mode: container:<gluetun>`
+  - Gluetun reports a France public IP (`193.32.126.238`) and healthy WireGuard setup
+- Downloader stack updated on `2026-03-22` to replace NZBGet with SABnzbd:
+  - `ansible-playbook ansible/playbooks/guests.yml --limit media-stack` passed after a transient `lscr.io/linuxserver/sabnzbd:latest` pull redirect failure cleared on retry
+  - `ansible-playbook ansible/playbooks/validate.yml --limit media-stack` passed after the swap
+  - active downloader containers are now:
+    - `gluetun`
+    - `sabnzbd`
+    - `qbittorrent`
+  - active localhost checks now return:
+    - `8000 -> 401`
+    - `6789 -> 403`
+    - `8080 -> 200`
+  - active downloader network mode confirms the Gluetun kill-switch boundary remains intact:
+    - `gluetun` uses `downloaders_default`
+    - `sabnzbd` uses `network_mode: container:<gluetun>`
+    - `qbittorrent` uses `network_mode: container:<gluetun>`
+  - active downloader mounts are now:
+    - `gluetun` -> `/opt/media-stack/appdata/gluetun:/gluetun`
+    - `sabnzbd` -> `/opt/media-stack/appdata/sabnzbd:/config` and `/srv/data:/data`
+    - `qbittorrent` -> `/opt/media-stack/appdata/qbittorrent:/config` and `/srv/data:/data`
+  - `nzbget` was removed from the active downloader compose as an orphaned container, but `/opt/media-stack/appdata/nzbget` was left in place for rollback
+  - Gluetun still reports a healthy France WireGuard egress IP after the swap
+- App-to-app wiring completed on `2026-03-22`:
+  - Sonarr and Radarr now use the VM host address (`10.20.30.120`) to reach the downloader stack across compose-project boundaries
+  - Sonarr download clients configured and passing test:
+    - `SABnzbd` at `10.20.30.120:6789` with category `tv`
+    - `qBittorrent` at `10.20.30.120:8080` with category `tv`
+  - Radarr download clients configured and passing test:
+    - `SABnzbd` at `10.20.30.120:6789` with category `movies`
+    - `qBittorrent` at `10.20.30.120:8080` with category `movies`
+  - Prowlarr application links configured and passing test:
+    - `Sonarr` full sync
+    - `Radarr` full sync
+  - Prowlarr indexer state after configuration:
+    - `NZBFinder` configured successfully as a `Newznab` indexer
+  - SABnzbd was adjusted to allow Arr-originated API requests from the Docker bridge ranges now in use:
+    - `inet_exposure = 4`
+    - `local_ranges = 127.0.0.1/8,10.20.30.0/24,172.16.0.0/12`
+- App bootstrap that is repo-managed today:
+  - Jellyfin startup wizard
+- App bootstrap still deferred to first-run credentials or UI/API values:
+  - Plex claim and sign-in
+- Prowlarr indexer follow-up on `2026-03-22`:
+  - container DNS/TLS checks from inside `prowlarr` succeeded for `NZBFinder`, `api.nzbgeek.info`, and `api.nzbplanet.net`
+  - `prowlarr` itself only had loopback IPv6 and no IPv6 route, while the failing hosts advertise AAAA records
+  - a container-local fix was applied by disabling IPv6 for the `prowlarr` service in the arr compose definition
+  - after that change:
+    - `NZBgeek` no longer failed on connectivity and was reduced to a credential error
+    - the vaulted `media_stack_indexer_nzbgeek_api_key` was updated to the known-good legacy Sonarr value and `NZBgeek` was then created successfully in Prowlarr
+    - `NzbPlanet` still fails Prowlarr's own test with `Incorrect user credentials` for every legacy credential source checked (`radarr`, `sonarr`, and `readarr`)
+  - current Prowlarr indexer state is now:
+    - `NZBFinder` working
+    - `NZBgeek` working
+    - `NzbPlanet` deferred pending a valid upstream credential
+- NzbPlanet follow-up on `2026-03-23`:
+  - current repo-managed secret remains `ansible/secrets.yml -> media_stack_indexer_nzbplanet_api_key`
+  - that secret still matches the legacy extracted values stored in legacy `radarr`, `sonarr`, and `readarr`
+  - host-side checks to `api.nzbplanet.net:443` succeeded for DNS resolution, TCP/TLS handshake, and direct HTTPS requests
+  - in-container checks from `prowlarr` also succeeded for DNS resolution and direct HTTPS requests to `https://api.nzbplanet.net/api?t=caps`
+  - direct authenticated requests using the stored key to `https://api.nzbplanet.net/api?t=caps&apikey=...` returned valid `caps` XML from the host
+  - repeated Prowlarr `indexer/test` calls for `NzbPlanet` returned the same application-level failure five times in a row:
+    - `Indexer returned result for RSS URL, Credentials appears to be invalid. Response: Incorrect user credentials`
+  - recent `prowlarr` logs still show occasional connect-side `SocketException (11)` noise for external hosts, including `api.nzbplanet.net`, but the current blocker for `NzbPlanet` is the upstream credential response seen by Prowlarr itself
+  - no repo-managed secret change was made during this investigation pass
+- NzbPlanet credential retry on `2026-03-23`:
+  - `media_stack_indexer_nzbplanet_api_key` was updated once with a user-supplied replacement key
+  - an immediate retry still hit Prowlarr's intermittent connect-path error:
+    - `Resource temporarily unavailable (api.nzbplanet.net:443)`
+  - a subsequent retry with the same key succeeded
+  - `NzbPlanet` was then created successfully in Prowlarr as a `Newznab` indexer
+- Current blockers:
+  - Plex claim remains optional and is still a manual/bootstrap follow-up if desired
+  - no indexer blocker remains for day-1 Prowlarr; current configured indexers are `NZBFinder`, `NZBgeek`, and `NzbPlanet`
+
+## App Auth Mode Split Prep
+- Goal for later proxy work:
+  - internal `*.laxdog.uk` stays no-auth at the proxy
+  - future external `*.lax.dog` is protected at the reverse proxy / Authentik layer
+- App-side auth changes applied on `2026-03-23`:
+  - `Sonarr` switched from `AuthenticationMethod=None` to `AuthenticationMethod=External`
+  - `Radarr` switched from `AuthenticationMethod=None` to `AuthenticationMethod=External`
+  - `Prowlarr` switched from `AuthenticationMethod=None` to `AuthenticationMethod=External`
+  - `AuthenticationRequired` remains `Enabled` for all three Servarr apps
+  - result: these three apps are now prepared for proxy-owned auth instead of app-owned auth
+- Services intentionally left alone in this pass:
+  - `Cleanuparr`
+    - no clear repo-managed external-auth mode was found in the live config layout
+    - current direct UI access loads normally; keep app behavior unchanged until a supported model is identified
+  - `SABnzbd`
+    - no Servarr-style external-auth mode is available in the managed config
+    - current UI auth is effectively off at the app layer (`username = ""`, `password = ""`)
+    - leave as-is and rely on later proxy policy for external protection
+  - `qBittorrent`
+    - current WebUI password remains configured in `qBittorrent.conf`
+    - no clear safe proxy-owned auth mode was identified, so app auth stays enabled
+  - `Jellyfin`
+    - keep native account auth in place
+    - view-side app auth is still required and was not changed in this pass
+  - `Plex`
+    - keep native Plex auth/sign-in model in place
+    - no app-auth change was made in this pass
+- Validation on `2026-03-23`:
+  - direct localhost checks still return `200` for `Sonarr`, `Radarr`, and `Prowlarr` after the auth-mode switch
+  - downloader boundary remains unchanged:
+    - `gluetun` on `8000`
+    - `sabnzbd` behind `container:<gluetun>` on `6789`
+    - `qbittorrent` behind `container:<gluetun>` on `8080`
+  - core and view services remain healthy:
+    - `Plex` on `32400`
+    - `Jellyfin` on `8096`
+  - arr services remain healthy:
+    - `Prowlarr` on `9696`
+    - `Sonarr` on `8989`
+    - `Radarr` on `7878`
+    - `Cleanuparr` on `11011`
+
+## Cleanuparr Investigation
+- Correct working image reference is `ghcr.io/cleanuparr/cleanuparr:latest`
+- Current grounded checks from VM `120`:
+  - `curl -I https://ghcr.io/v2/` succeeded
+  - `docker pull ghcr.io/cleanuparr/cleanuparr:latest` succeeded
+  - `docker pull cleanuparr/cleanuparr:latest` failed while resolving `registry-1.docker.io`
+- Current conclusion:
+  - the earlier GHCR failure was transient
+  - the Docker Hub path should not be used for this stack
+  - Cleanuparr is no longer blocked and is now running from GHCR
+
+## Legacy Downloader Migration (`10.20.30.74`)
+- Legacy host execution context on `2026-03-22` was local on `plex-poo` (`10.20.30.74`), not over SSH.
+- Legacy stack definition:
+  - compose project: `docker`
+  - compose file: `/home/mrobinson/docker/docker-compose.yaml`
+  - env file: `/home/mrobinson/docker/.env`
+  - no downloader-specific systemd wrapper was found during `/etc/systemd` and `/home/mrobinson` searches
+- Legacy downloader-related containers identified:
+  - `sabnzbd`
+  - `transmission-vpn`
+- Legacy but not shutdown in this pass:
+  - `plexms`
+  - `radarr`
+  - `sonarr`
+  - `readarr`
+  - `traefik`
+  - `oauth`
+  - `heimdall`
+  - `healthchecks`
+  - `firefox`
+  - `webnut`
+  - unrelated `raffle-raptor-*` containers
+- Legacy networking model:
+  - `sabnzbd`, `radarr`, `sonarr`, `readarr`, `plexms`, and the other legacy compose services use Docker network `t2_proxy`
+  - `transmission-vpn` uses `haugene/transmission-openvpn` with `NET_ADMIN`, `/dev/net/tun`, and inline Mullvad OpenVPN settings
+  - there is no shared VPN namespace or Gluetun-style kill-switch boundary for `sabnzbd` or the arr apps on `10.20.30.74`
+  - practical result: legacy torrent traffic was intended to stay inside `transmission-vpn`, but legacy usenet and arr traffic were not behind an equivalent kill-switch
+- Current downloader model on `10.20.30.120` remains the intended day-1 pattern:
+  - `/gluetun|downloaders_default`
+  - `/sabnzbd|container:<gluetun>`
+  - `/qbittorrent|container:<gluetun>`
+  - localhost checks now return `8000 -> 401`, `6789 -> 403`, `8080 -> 200`
+- Secret/config classes extracted from the legacy host and placed into `ansible/secrets.yml`:
+  - `gluetun_openvpn_user`
+  - `gluetun_openvpn_password`
+  - `media_stack_sabnzbd_api_key`
+  - `media_stack_usenet_username`
+  - `media_stack_usenet_password`
+  - `media_stack_indexer_nzbgeek_api_key`
+  - `media_stack_indexer_nzbfinder_api_key`
+  - `media_stack_indexer_nzbplanet_api_key`
+  - `media_stack_indexer_jackett_api_key`
+  - `media_stack_transmission_rpc_username`
+  - `media_stack_transmission_rpc_password`
+- Legacy source paths inspected for those values:
+  - `/home/mrobinson/docker/docker-compose.yaml`
+  - `/home/mrobinson/docker/.env`
+  - `/home/mrobinson/docker/sabnzbd/sabnzbd.ini`
+  - `/home/mrobinson/docker/transmission-vpn/config/openvpn-credentials.txt`
+  - `/home/mrobinson/docker/transmission-vpn/config/transmission-credentials.txt`
+  - `/home/mrobinson/docker/transmission-vpn/data/transmission-home/settings.json`
+  - `/home/mrobinson/docker/radarr/radarr.db`
+  - `/home/mrobinson/docker/sonarr/sonarr.db`
+  - `/home/mrobinson/docker/appdata/readarr/readarr.db`
+  - `/home/mrobinson/docker/appdata/prowlarr/prowlarr.db`
+- Legacy downloader settings worth preserving:
+  - usenet server endpoint was `news.eweka.nl:119` with `ssl=0`
+  - SAB categories map to `movies -> movies`, `tv -> tv`, `ebooks -> ebooks-downloads`
+  - Radarr pointed SAB to category `movies`
+  - Sonarr pointed SAB to category `tv` and Transmission to category `tv`
+  - Readarr pointed SAB to category `ebooks`
+- Legacy downloader shutdown completed on `2026-03-22`:
+  - stopped: `sabnzbd`
+  - stopped: `transmission-vpn`
+  - verified down afterward: `sabnzbd` -> `Exited (0)`, `transmission-vpn` -> `Exited (1)`
+  - verified untouched afterward: `plexms` stayed `Up (healthy)` and unrelated containers remained in their prior states
+- Remaining manual follow-up:
+  - the extracted secrets are stored in vault but are not yet wired into automated first-run API configuration for SABnzbd, qBittorrent, or Prowlarr
+  - Plex claim remains optional and manual unless first-run bootstrap is added later
+
+## Operations
+- Apply to VM `120` only:
+  - `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass ansible-playbook ansible/playbooks/guests.yml --limit media-stack`
+- Validate:
+  - `python3 scripts/run.py validate --mode full`
+- Compose operations on the guest:
+  - `docker compose -f /opt/media-stack/core/docker-compose.yaml up -d`
+  - `docker compose -f /opt/media-stack/arr/docker-compose.yaml up -d`
+  - `docker compose -f /opt/media-stack/downloaders/docker-compose.yaml up -d`
 
 ## Explicitly Deferred
 - Bazarr
