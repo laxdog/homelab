@@ -5,6 +5,7 @@ Source of truth: `config/homelab.yaml`.
 ## Internal (`*.laxdog.uk`)
 - Purpose: LAN/Tailscale access without Authentik prompt at NPM.
 - Path: client -> internal DNS -> NPM (`10.20.30.154`) -> media backend (`10.20.30.120:*`).
+- Servarr behavior (`sonarr`/`radarr`/`prowlarr`): keep app auth at `Forms + DisabledForLocalAddresses`; internal proxied `*.laxdog.uk` requests currently return UI `200` (no login prompt) while external `*.lax.dog` remains upstream-authenticated.
 - Hosts:
   - `plex.laxdog.uk` -> `10.20.30.120:32400`
   - `jellyfin.laxdog.uk` -> `10.20.30.120:8096`
@@ -38,3 +39,4 @@ Source of truth: `config/homelab.yaml`.
 - Internal DNS checks should use authoritative resolver directly (`dig @10.20.30.53 ...`) and cross-check when resolver drift is suspected.
 - NPM checks should use SNI-correct requests (`curl --resolve host:443:10.20.30.154 https://host/`).
 - Use GET semantics for app UI checks where HEAD is known to be misleading.
+- If internal Servarr auth behavior regresses, capture backend request headers on VM120 before redesigning routing (source IP and `X-Forwarded-*` from NPM).
