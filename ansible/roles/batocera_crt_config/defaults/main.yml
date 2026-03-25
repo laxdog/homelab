@@ -1,0 +1,14 @@
+---
+batocera_crt_apply_mode: stage
+batocera_crt_connector_force: ""
+batocera_crt_connector_candidates:
+  - card0-DP-1
+  - card0-DP-2
+batocera_crt_monitor_profile: arcade_15
+batocera_crt_monitor_profile_fallback: generic_15
+batocera_crt_ui_base_res: 768x576
+batocera_crt_switchres_super_width: 1920
+batocera_crt_switchres_dotclock_min: "0"
+batocera_crt_test_mode: 640x480
+batocera_crt_test_display: ":0.0"
+batocera_crt_log_dir: /userdata/system/logs

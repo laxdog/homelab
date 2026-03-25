@@ -1,0 +1,13 @@
+host: batocera-crt1
+ansible_host: 10.20.30.206
+collected_at_utc: 20260325T144046Z
+files:
+  - batocera-version.txt
+  - uname-a.txt
+  - os-release.txt
+  - df-h.txt
+  - mount-boot-userdata.txt
+  - drm-entries.txt
+  - drm-status.txt
+  - xrandr-q.txt
+  - batocera.conf

@@ -1,0 +1,17 @@
+- name: Manage Batocera baseline and CRT staging
+  hosts: batocera_hosts
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - role: batocera_baseline
+      tags:
+        - batocera_baseline
+    - role: batocera_crt_script
+      tags:
+        - batocera_crt
+    - role: batocera_crt_config
+      tags:
+        - batocera_crt
+        - batocera_crt_recovery
+        - batocera_crt_test

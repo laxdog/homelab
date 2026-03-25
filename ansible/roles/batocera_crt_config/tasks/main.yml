@@ -1,0 +1,288 @@
+---
+- name: Validate CRT apply mode
+  ansible.builtin.assert:
+    that:
+      - batocera_crt_apply_mode in ['stage', 'finalize']
+    fail_msg: "batocera_crt_apply_mode must be 'stage' or 'finalize'."
+  tags:
+    - batocera_crt
+
+- name: Read DRM connector status
+  ansible.builtin.raw: |
+    for f in /sys/class/drm/card0-*/status; do
+      dir=$(basename "$(dirname "$f")")
+      val=$(cat "$f")
+      printf '%s=%s\n' "$dir" "$val"
+    done
+  register: batocera_crt_connector_status_raw
+  changed_when: false
+  tags:
+    - batocera_crt
+    - batocera_crt_recovery
+
+- name: Read XRandR outputs
+  ansible.builtin.raw: |
+    if DISPLAY={{ batocera_crt_test_display }} xrandr -q >/dev/null 2>&1; then
+      DISPLAY={{ batocera_crt_test_display }} xrandr -q | awk '/^[^ ]+[[:space:]]+(connected|disconnected)/ {print $1"="$2}'
+    fi
+  register: batocera_crt_xrandr_outputs_raw
+  changed_when: false
+  tags:
+    - batocera_crt
+    - batocera_crt_recovery
+
+- name: Build connector status map
+  ansible.builtin.set_fact:
+    batocera_crt_connector_status_map: "{{ batocera_crt_connector_status_map | default({}) | combine({parts[0]: parts[1]}) }}"
+  vars:
+    parts: "{{ item.split('=', 1) }}"
+  loop: "{{ batocera_crt_connector_status_raw.stdout_lines }}"
+  when: item | length > 0
+  tags:
+    - batocera_crt
+    - batocera_crt_recovery
+
+- name: Build XRandR output map
+  ansible.builtin.set_fact:
+    batocera_crt_xrandr_output_map: "{{ batocera_crt_xrandr_output_map | default({}) | combine({parts[0]: parts[1]}) }}"
+  vars:
+    parts: "{{ item.split('=', 1) }}"
+  loop: "{{ batocera_crt_xrandr_outputs_raw.stdout_lines }}"
+  when: item | length > 0
+  tags:
+    - batocera_crt
+    - batocera_crt_recovery
+
+- name: Choose target DRM connector
+  ansible.builtin.set_fact:
+    batocera_crt_connector_selected: >-
+      {%- if batocera_crt_connector_force | trim | length > 0 -%}
+      {{ batocera_crt_connector_force }}
+      {%- else -%}
+      {%- set ns = namespace(selected='') -%}
+      {%- for candidate in batocera_crt_connector_candidates -%}
+        {%- if batocera_crt_connector_status_map.get(candidate, '') == 'connected' and ns.selected == '' -%}
+          {%- set ns.selected = candidate -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {{ ns.selected if ns.selected else batocera_crt_connector_candidates[0] }}
+      {%- endif -%}
+  tags:
+    - batocera_crt
+
+- name: Derive connector aliases
+  ansible.builtin.set_fact:
+    batocera_crt_connector_short: "{{ batocera_crt_connector_selected | regex_replace('^card[0-9]+-', '') }}"
+    batocera_crt_connector_xrandr: >-
+      {{
+        (batocera_crt_connector_selected | regex_replace('^card[0-9]+-', ''))
+        | regex_replace('^HDMI-A-', 'HDMI-')
+      }}
+  tags:
+    - batocera_crt
+
+- name: Build alternate CRT outputs list
+  ansible.builtin.set_fact:
+    batocera_crt_other_xrandr_outputs: "{{ (batocera_crt_xrandr_output_map.keys() | list) | difference([batocera_crt_connector_xrandr]) | sort }}"
+  tags:
+    - batocera_crt
+
+- name: Select HDMI recovery output
+  ansible.builtin.set_fact:
+    batocera_crt_recovery_connector_short: "{{ (batocera_crt_connector_status_map.keys() | list | select('match', '^card[0-9]+-HDMI-A-[0-9]+$') | list | first | default('')) | regex_replace('^card[0-9]+-', '') }}"
+  when: "'batocera_crt_recovery' in ansible_run_tags"
+  tags:
+    - batocera_crt_recovery
+
+- name: Derive HDMI recovery XRandR alias
+  ansible.builtin.set_fact:
+    batocera_crt_recovery_connector_xrandr: "{{ batocera_crt_recovery_connector_short | regex_replace('^HDMI-A-', 'HDMI-') }}"
+  when: "'batocera_crt_recovery' in ansible_run_tags"
+  tags:
+    - batocera_crt_recovery
+
+- name: Build alternate recovery outputs list
+  ansible.builtin.set_fact:
+    batocera_crt_recovery_other_outputs: "{{ (batocera_crt_xrandr_output_map.keys() | list) | difference([batocera_crt_recovery_connector_xrandr]) | sort }}"
+  when: "'batocera_crt_recovery' in ansible_run_tags"
+  tags:
+    - batocera_crt_recovery
+
+- name: Write staged CRT plan log
+  ansible.builtin.raw: |
+    mkdir -p "{{ batocera_crt_log_dir }}"
+    cat > "{{ batocera_crt_log_dir }}/homelab-batocera-crt-stage.log" <<'EOF'
+    mode={{ batocera_crt_apply_mode }}
+    connector_selected={{ batocera_crt_connector_selected }}
+    connector_short={{ batocera_crt_connector_short }}
+    connector_xrandr={{ batocera_crt_connector_xrandr }}
+    monitor_profile={{ batocera_crt_monitor_profile }}
+    fallback_profile={{ batocera_crt_monitor_profile_fallback }}
+    ui_base_res={{ batocera_crt_ui_base_res }}
+    recovery_connector={{ batocera_crt_recovery_connector_short | default('') }}
+    EOF
+  changed_when: false
+  when: "'batocera_crt' in ansible_run_tags"
+  tags:
+    - batocera_crt
+
+- name: Render switchres.ini in stage or finalize mode
+  ansible.builtin.raw: |
+    set -eu
+    src="{{ batocera_crt_script_install_dir | default('/userdata/system/Batocera-CRT-Script') }}/etc_configs/switchres.ini-generic-v36"
+    tmp=$(mktemp)
+    sed \
+      -e 's/\[monitor-name\]/{{ batocera_crt_monitor_profile }}/g' \
+      -e 's/\[super_width\]/{{ batocera_crt_switchres_super_width }}/g' \
+      -e 's/\[dotclock_min_value\]/{{ batocera_crt_switchres_dotclock_min }}/g' \
+      "$src" > "$tmp"
+    if [ -f /etc/switchres.ini ] && cmp -s "$tmp" /etc/switchres.ini; then
+      rm -f "$tmp"
+      echo unchanged
+    else
+      cp "$tmp" /etc/switchres.ini
+      chmod 755 /etc/switchres.ini
+      rm -f "$tmp"
+      echo changed
+    fi
+  register: batocera_crt_switchres_write
+  changed_when: "'changed' in batocera_crt_switchres_write.stdout"
+  when: "'batocera_crt' in ansible_run_tags"
+  tags:
+    - batocera_crt
+
+- name: Copy profile videomodes.conf in stage or finalize mode
+  ansible.builtin.raw: |
+    set -eu
+    profile_path="{{ batocera_crt_script_install_dir | default('/userdata/system/Batocera-CRT-Script') }}/System_configs/VideoModes/Amd_NvidiaND_IntelDP/videomodes.conf_{{ batocera_crt_monitor_profile }}"
+    fallback_path="{{ batocera_crt_script_install_dir | default('/userdata/system/Batocera-CRT-Script') }}/System_configs/VideoModes/Amd_NvidiaND_IntelDP/videomodes.conf_{{ batocera_crt_monitor_profile_fallback }}"
+    src="$profile_path"
+    if [ ! -f "$src" ]; then
+      src="$fallback_path"
+    fi
+    if [ -f /userdata/system/videomodes.conf ] && cmp -s "$src" /userdata/system/videomodes.conf; then
+      echo unchanged
+    else
+      cp "$src" /userdata/system/videomodes.conf
+      chmod 644 /userdata/system/videomodes.conf
+      cp /userdata/system/videomodes.conf /userdata/system/videomodes.conf.bak
+      echo changed
+    fi
+  register: batocera_crt_videomodes_write
+  changed_when: "'changed' in batocera_crt_videomodes_write.stdout"
+  when: "'batocera_crt' in ansible_run_tags"
+  tags:
+    - batocera_crt
+
+- name: Persist staged overlay-backed CRT files
+  ansible.builtin.raw: batocera-save-overlay
+  when:
+    - "'batocera_crt' in ansible_run_tags"
+    - batocera_crt_switchres_write.changed or batocera_crt_videomodes_write.changed
+  changed_when: true
+  tags:
+    - batocera_crt
+
+- name: Write CRT 10-monitor.conf in finalize mode
+  ansible.builtin.raw: |
+    set -eu
+    tmp=$(mktemp)
+    : > "$tmp"
+    printf '%s\n' '# Managed by homelab Ansible for Batocera CRT' >> "$tmp"
+    {% for output in batocera_crt_other_xrandr_outputs %}
+    printf '%s\n' 'Section "Monitor"' '    Identifier "{{ output }}"' '    Option "Ignore" "true"' 'EndSection' '' >> "$tmp"
+    {% endfor %}
+    printf '%s\n' 'Section "Monitor"' '    Identifier "{{ batocera_crt_connector_xrandr }}"' 'EndSection' >> "$tmp"
+    mkdir -p /etc/X11/xorg.conf.d
+    if [ -f /etc/X11/xorg.conf.d/10-monitor.conf ] && cmp -s "$tmp" /etc/X11/xorg.conf.d/10-monitor.conf; then
+      rm -f "$tmp"
+      echo unchanged
+    else
+      cp "$tmp" /etc/X11/xorg.conf.d/10-monitor.conf
+      chmod 644 /etc/X11/xorg.conf.d/10-monitor.conf
+      rm -f "$tmp"
+      echo changed
+    fi
+  register: batocera_crt_monitor_conf_write
+  changed_when: "'changed' in batocera_crt_monitor_conf_write.stdout"
+  when:
+    - "'batocera_crt' in ansible_run_tags"
+    - batocera_crt_apply_mode == 'finalize'
+  tags:
+    - batocera_crt
+
+- name: Persist finalized CRT monitor config
+  ansible.builtin.raw: batocera-save-overlay
+  when:
+    - "'batocera_crt' in ansible_run_tags"
+    - batocera_crt_apply_mode == 'finalize'
+    - batocera_crt_monitor_conf_write.changed
+  changed_when: true
+  tags:
+    - batocera_crt
+
+- name: Run HDMI recovery config
+  ansible.builtin.raw: |
+    set -eu
+    mkdir -p /etc/X11/xorg.conf.d
+    if [ -n "{{ batocera_crt_recovery_connector_xrandr | default('') }}" ]; then
+      tmp=$(mktemp)
+      : > "$tmp"
+      printf '%s\n' '# Managed by homelab Ansible for Batocera HDMI recovery' >> "$tmp"
+      {% for output in batocera_crt_recovery_other_outputs %}
+      printf '%s\n' 'Section "Monitor"' '    Identifier "{{ output }}"' '    Option "Ignore" "true"' 'EndSection' '' >> "$tmp"
+      {% endfor %}
+      printf '%s\n' 'Section "Monitor"' '    Identifier "{{ batocera_crt_recovery_connector_xrandr }}"' 'EndSection' >> "$tmp"
+      if [ -f /etc/X11/xorg.conf.d/10-monitor.conf ] && cmp -s "$tmp" /etc/X11/xorg.conf.d/10-monitor.conf; then
+        rm -f "$tmp"
+        echo unchanged
+      else
+        cp "$tmp" /etc/X11/xorg.conf.d/10-monitor.conf
+        chmod 644 /etc/X11/xorg.conf.d/10-monitor.conf
+        rm -f "$tmp"
+        echo changed
+      fi
+    else
+      if [ -f /etc/X11/xorg.conf.d/10-monitor.conf ]; then
+        rm -f /etc/X11/xorg.conf.d/10-monitor.conf
+        echo changed
+      else
+        echo unchanged
+      fi
+    fi
+  register: batocera_crt_recovery_write
+  changed_when: "'changed' in batocera_crt_recovery_write.stdout"
+  when: "'batocera_crt_recovery' in ansible_run_tags"
+  tags:
+    - batocera_crt_recovery
+
+- name: Persist HDMI recovery config
+  ansible.builtin.raw: batocera-save-overlay
+  when:
+    - "'batocera_crt_recovery' in ansible_run_tags"
+    - batocera_crt_recovery_write.changed
+  changed_when: true
+  tags:
+    - batocera_crt_recovery
+
+- name: Run CRT test command
+  ansible.builtin.raw: |
+    set +e
+    mkdir -p "{{ batocera_crt_log_dir }}"
+    log="{{ batocera_crt_log_dir }}/batocera-crt-test.log"
+    {
+      echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+      echo "mode={{ batocera_crt_apply_mode }}"
+      echo "connector={{ batocera_crt_connector_xrandr | default('') }}"
+      echo "test_mode={{ batocera_crt_test_mode }}"
+      DISPLAY={{ batocera_crt_test_display }} xrandr --output "{{ batocera_crt_connector_xrandr | default('') }}" --mode "{{ batocera_crt_test_mode }}"
+      rc=$?
+      echo "rc=$rc"
+      exit $rc
+    } >> "$log" 2>&1
+  register: batocera_crt_test_run
+  changed_when: false
+  failed_when: false
+  when: "'batocera_crt_test' in ansible_run_tags"
+  tags:
+    - batocera_crt_test

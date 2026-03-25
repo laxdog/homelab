@@ -1,0 +1,2 @@
+/dev/nvme0n1p1 on /boot type vfat (ro,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro)
+/dev/nvme0n1p2 on /userdata type ext4 (rw,noatime)

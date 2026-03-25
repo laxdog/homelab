@@ -1,0 +1,13 @@
+Filesystem      Size  Used Avail Use% Mounted on
+none            3.4G     0  3.4G   0% /dev
+/dev/nvme0n1p1   10G  3.9G  6.2G  39% /boot
+tmpfs           256M  1.8M  255M   1% /overlay
+/dev/loop0      3.8G  3.8G     0 100% /overlay/base
+overlay         256M  1.8M  255M   1% /
+tmpfs           3.4G     0  3.4G   0% /dev/shm
+tmpfs           3.4G   16K  3.4G   1% /tmp
+tmpfs           3.4G  5.8M  3.4G   1% /var
+tmpfs           3.4G  752K  3.4G   1% /run
+tmpfs           3.4G     0  3.4G   0% /media
+none            122K   72K   45K  62% /sys/firmware/efi/efivars
+/dev/nvme0n1p2  224G  136M  213G   1% /userdata

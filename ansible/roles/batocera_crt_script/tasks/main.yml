@@ -1,0 +1,41 @@
+---
+- name: Check pinned CRT script install state
+  ansible.builtin.raw: |
+    if [ -f "{{ batocera_crt_script_install_dir }}/.homelab-pinned-commit" ]; then
+      cat "{{ batocera_crt_script_install_dir }}/.homelab-pinned-commit"
+    fi
+  register: batocera_crt_script_current_commit
+  changed_when: false
+
+- name: Install pinned CRT script archive
+  ansible.builtin.raw: |
+    set -eu
+    tmpdir=$(mktemp -d /tmp/batocera-crt-script.XXXXXX)
+    cleanup() {
+      rm -rf "$tmpdir"
+    }
+    trap cleanup EXIT
+    curl -L "{{ batocera_crt_script_archive_url }}" -o "$tmpdir/src.tgz"
+    mkdir -p "$tmpdir/extract"
+    tar -xzf "$tmpdir/src.tgz" -C "$tmpdir/extract"
+    srcdir=$(find "$tmpdir/extract" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+    staged="{{ batocera_crt_script_install_dir }}.stage"
+    backup="{{ batocera_crt_script_install_dir }}.prev"
+    rm -rf "$staged" "$backup"
+    mkdir -p "$staged"
+    cp -a "$srcdir/userdata/system/Batocera-CRT-Script/." "$staged/"
+    if [ -d "{{ batocera_crt_script_install_dir }}" ]; then
+      mv "{{ batocera_crt_script_install_dir }}" "$backup"
+    fi
+    mv "$staged" "{{ batocera_crt_script_install_dir }}"
+    printf '%s\n' '{{ batocera_crt_script_commit }}' > "{{ batocera_crt_script_install_dir }}/.homelab-pinned-commit"
+    cat > "{{ batocera_crt_script_install_dir }}/.homelab-source" <<'EOF'
+    repo={{ batocera_crt_script_repo_url }}
+    archive={{ batocera_crt_script_archive_url }}
+    commit={{ batocera_crt_script_commit }}
+    EOF
+    chmod 644 "{{ batocera_crt_script_install_dir }}/.homelab-pinned-commit" "{{ batocera_crt_script_install_dir }}/.homelab-source"
+    echo changed
+  register: batocera_crt_script_install
+  changed_when: "'changed' in batocera_crt_script_install.stdout"
+  when: batocera_crt_script_current_commit.stdout | trim != batocera_crt_script_commit

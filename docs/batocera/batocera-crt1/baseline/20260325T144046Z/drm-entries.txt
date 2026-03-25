@@ -1,0 +1,6 @@
+card0
+card0-DP-1
+card0-DP-2
+card0-HDMI-A-1
+renderD128
+version

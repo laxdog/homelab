@@ -1,0 +1,115 @@
+---
+- name: Compute baseline timestamp on control host
+  ansible.builtin.set_fact:
+    batocera_baseline_timestamp: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+
+- name: Define baseline output directory
+  ansible.builtin.set_fact:
+    batocera_baseline_output_dir: >-
+      {{ playbook_dir }}/../../docs/batocera/{{ inventory_hostname }}/baseline/{{ batocera_baseline_timestamp }}
+
+- name: Ensure baseline output directory exists
+  ansible.builtin.file:
+    path: "{{ batocera_baseline_output_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+
+- name: Capture batocera-version
+  ansible.builtin.raw: batocera-version
+  register: batocera_baseline_version
+  changed_when: false
+
+- name: Capture uname
+  ansible.builtin.raw: uname -a
+  register: batocera_baseline_uname
+  changed_when: false
+
+- name: Capture os-release
+  ansible.builtin.raw: cat /etc/os-release
+  register: batocera_baseline_os_release
+  changed_when: false
+
+- name: Capture df output
+  ansible.builtin.raw: df -h
+  register: batocera_baseline_df
+  changed_when: false
+
+- name: Capture boot and userdata mounts
+  ansible.builtin.raw: mount | grep -E '( /boot | /userdata )'
+  register: batocera_baseline_mounts
+  changed_when: false
+
+- name: Capture DRM entries
+  ansible.builtin.raw: ls -1 /sys/class/drm/ | sort
+  register: batocera_baseline_drm
+  changed_when: false
+
+- name: Capture DRM connector status
+  ansible.builtin.raw: |
+    for f in /sys/class/drm/card0-*/status; do
+      dir=$(basename "$(dirname "$f")")
+      val=$(cat "$f")
+      printf '%s=%s\n' "$dir" "$val"
+    done
+  register: batocera_baseline_connector_status
+  changed_when: false
+
+- name: Capture xrandr output when X is available
+  ansible.builtin.raw: |
+    if DISPLAY=:0.0 xrandr -q >/dev/null 2>&1; then
+      DISPLAY=:0.0 xrandr -q
+    fi
+  register: batocera_baseline_xrandr
+  changed_when: false
+
+- name: Capture batocera.conf
+  ansible.builtin.raw: cat /userdata/system/batocera.conf
+  register: batocera_baseline_batocera_conf
+  changed_when: false
+
+- name: Write baseline files
+  ansible.builtin.copy:
+    dest: "{{ batocera_baseline_output_dir }}/{{ item.name }}"
+    content: "{{ item.content }}"
+    mode: "0644"
+  delegate_to: localhost
+  loop:
+    - name: batocera-version.txt
+      content: "{{ batocera_baseline_version.stdout }}"
+    - name: uname-a.txt
+      content: "{{ batocera_baseline_uname.stdout }}"
+    - name: os-release.txt
+      content: "{{ batocera_baseline_os_release.stdout }}"
+    - name: df-h.txt
+      content: "{{ batocera_baseline_df.stdout }}"
+    - name: mount-boot-userdata.txt
+      content: "{{ batocera_baseline_mounts.stdout }}"
+    - name: drm-entries.txt
+      content: "{{ batocera_baseline_drm.stdout }}"
+    - name: drm-status.txt
+      content: "{{ batocera_baseline_connector_status.stdout }}"
+    - name: xrandr-q.txt
+      content: "{{ batocera_baseline_xrandr.stdout }}"
+    - name: batocera.conf
+      content: "{{ batocera_baseline_batocera_conf.stdout }}"
+
+- name: Write baseline manifest
+  ansible.builtin.copy:
+    dest: "{{ batocera_baseline_output_dir }}/manifest.yml"
+    mode: "0644"
+    content: |
+      host: {{ inventory_hostname }}
+      ansible_host: {{ ansible_host }}
+      collected_at_utc: {{ batocera_baseline_timestamp }}
+      files:
+        - batocera-version.txt
+        - uname-a.txt
+        - os-release.txt
+        - df-h.txt
+        - mount-boot-userdata.txt
+        - drm-entries.txt
+        - drm-status.txt
+        - xrandr-q.txt
+        - batocera.conf
+  delegate_to: localhost

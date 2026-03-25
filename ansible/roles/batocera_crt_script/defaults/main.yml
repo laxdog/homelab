@@ -1,0 +1,5 @@
+---
+batocera_crt_script_repo_url: https://github.com/ZFEbHVUE/Batocera-CRT-Script.git
+batocera_crt_script_archive_url: https://codeload.github.com/ZFEbHVUE/Batocera-CRT-Script/tar.gz/2143bf456108932b9b8ee719401ab9b9131258aa
+batocera_crt_script_commit: 2143bf456108932b9b8ee719401ab9b9131258aa
+batocera_crt_script_install_dir: /userdata/system/Batocera-CRT-Script

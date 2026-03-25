@@ -1,0 +1,188 @@
+adguard_hosts:
+  hosts:
+    adguard: &id005
+      ansible_host: 10.20.30.53
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+apt_cacher_hosts:
+  hosts:
+    apt-cacher-ng: &id006
+      ansible_host: 10.20.30.156
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+batocera_hosts:
+  hosts:
+    batocera-crt1:
+      ansible_host: 10.20.30.206
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+authentik_hosts:
+  hosts:
+    authentik: &id001
+      ansible_host: 10.20.30.170
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+browser_hosts:
+  hosts:
+    browser: &id002
+      ansible_host: 10.20.30.162
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+couchdb_hosts:
+  hosts:
+    couchdb: &id003
+      ansible_host: 10.20.30.128
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+dashboard_hosts:
+  hosts:
+    dashboard: &id007
+      ansible_host: 10.20.30.160
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+docker_hosts:
+  hosts:
+    authentik: *id001
+    browser: *id002
+    couchdb: *id003
+    freshrss: &id004
+      ansible_host: 10.20.30.157
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+    healthchecks: &id008
+      ansible_host: 10.20.30.159
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+    heimdall: &id009
+      ansible_host: 10.20.30.166
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+    media-stack: &id010
+      ansible_host: 10.20.30.120
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: ubuntu
+    netalertx: &id011
+      ansible_host: 10.20.30.158
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+    nginx-proxy-manager: &id012
+      ansible_host: 10.20.30.154
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+    organizr: &id013
+      ansible_host: 10.20.30.164
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+    raffle-raptor-dev: &id014
+      ansible_host: 10.20.30.163
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+    static-sites: &id015
+      ansible_host: 10.20.30.161
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+freshrss_hosts:
+  hosts:
+    freshrss: *id004
+guests:
+  hosts:
+    adguard: *id005
+    apt-cacher-ng: *id006
+    authentik: *id001
+    browser: *id002
+    couchdb: *id003
+    dashboard: *id007
+    freshrss: *id004
+    healthchecks: *id008
+    heimdall: *id009
+    media-stack: *id010
+    nagios: &id016
+      ansible_host: 10.20.30.133
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: ubuntu
+    netalertx: *id011
+    nginx-proxy-manager: *id012
+    organizr: *id013
+    raffle-raptor-dev: *id014
+    static-sites: *id015
+    tailscale-gateway: &id019
+      ansible_host: 10.20.30.171
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: ubuntu
+healthchecks_hosts:
+  hosts:
+    healthchecks: *id008
+heimdall_hosts:
+  hosts:
+    heimdall: *id009
+lxcs:
+  hosts:
+    adguard: *id005
+    apt-cacher-ng: *id006
+    authentik: *id001
+    browser: *id002
+    couchdb: *id003
+    dashboard: *id007
+    freshrss: *id004
+    healthchecks: *id008
+    heimdall: *id009
+    netalertx: *id011
+    nginx-proxy-manager: *id012
+    organizr: *id013
+    raffle-raptor-dev: *id014
+    static-sites: *id015
+media_hosts:
+  hosts:
+    media-stack: *id010
+nagios_hosts:
+  hosts:
+    nagios: *id016
+netalertx_hosts:
+  hosts:
+    netalertx: *id011
+nfs_hosts:
+  hosts:
+    media-stack: *id010
+nginx_proxy_manager_hosts:
+  hosts:
+    nginx-proxy-manager: *id012
+organizr_hosts:
+  hosts:
+    organizr: *id013
+proxmox_hosts:
+  hosts:
+    proxmox:
+      ansible_host: 10.20.30.46
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+python_bot_hosts:
+  hosts:
+    raffle-raptor-dev: *id014
+remote_node_baseline_hosts:
+  hosts:
+    mums-house-mbp: &id017
+      ansible_host: 10.20.30.75
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: mrobinson
+    raptor-node-staging: &id018
+      ansible_host: 10.20.30.153
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: mrobinson
+remote_nodes_hosts:
+  hosts:
+    mums-house-mbp: *id017
+    raptor-node-staging: *id018
+static_sites_hosts:
+  hosts:
+    static-sites: *id015
+tailscale_router_hosts:
+  hosts:
+    mums-house-mbp: *id017
+    raffle-raptor-dev: *id014
+    raptor-node-staging: *id018
+    tailscale-gateway: *id019
+vms:
+  hosts:
+    media-stack: *id010
+    nagios: *id016
+    tailscale-gateway: *id019
