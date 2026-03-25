@@ -130,6 +130,28 @@
   tags:
     - batocera_crt
 
+- name: Build test enabled outputs list
+  ansible.builtin.set_fact:
+    batocera_crt_test_enabled_outputs: >-
+      {%- set ns = namespace(outputs=[]) -%}
+      {%- if batocera_crt_recovery_connector_xrandr | default('') | length > 0 -%}
+        {%- set ns.outputs = ns.outputs + [batocera_crt_recovery_connector_xrandr] -%}
+      {%- endif -%}
+      {%- if batocera_crt_connector_xrandr not in ns.outputs -%}
+        {%- set ns.outputs = ns.outputs + [batocera_crt_connector_xrandr] -%}
+      {%- endif -%}
+      {{ ns.outputs }}
+  when: "'batocera_crt_test' in ansible_run_tags"
+  tags:
+    - batocera_crt_test
+
+- name: Build test ignored outputs list
+  ansible.builtin.set_fact:
+    batocera_crt_test_ignored_outputs: "{{ (batocera_crt_xrandr_output_map.keys() | list) | difference(batocera_crt_test_enabled_outputs) | sort }}"
+  when: "'batocera_crt_test' in ansible_run_tags"
+  tags:
+    - batocera_crt_test
+
 - name: Write staged CRT plan log
   ansible.builtin.raw: |
     mkdir -p "{{ batocera_crt_log_dir }}"
@@ -142,6 +164,7 @@
     fallback_profile={{ batocera_crt_monitor_profile_fallback }}
     ui_base_res={{ batocera_crt_ui_base_res }}
     output_mode={{ batocera_crt_output_mode }}
+    hdmi_safe_resolution={{ batocera_crt_hdmi_safe_resolution }}
     recovery_connector={{ batocera_crt_recovery_connector_short | default('') }}
     finalize_enabled_outputs={{ batocera_crt_finalize_enabled_outputs | default([]) | join(',') }}
     EOF
@@ -150,7 +173,7 @@
   tags:
     - batocera_crt
 
-- name: Render switchres.ini in stage or finalize mode
+- name: Render switchres.ini in CRT-only mode
   ansible.builtin.raw: |
     set -eu
     src="{{ batocera_crt_script_install_dir | default('/userdata/system/Batocera-CRT-Script') }}/etc_configs/switchres.ini-generic-v36"
@@ -171,11 +194,13 @@
     fi
   register: batocera_crt_switchres_write
   changed_when: "'changed' in batocera_crt_switchres_write.stdout"
-  when: "'batocera_crt' in ansible_run_tags or 'all' in ansible_run_tags"
+  when:
+    - "'batocera_crt' in ansible_run_tags or 'all' in ansible_run_tags"
+    - batocera_crt_output_mode == 'crt_only'
   tags:
     - batocera_crt
 
-- name: Copy profile videomodes.conf in stage or finalize mode
+- name: Copy profile videomodes.conf in CRT-only mode
   ansible.builtin.raw: |
     set -eu
     profile_path="{{ batocera_crt_script_install_dir | default('/userdata/system/Batocera-CRT-Script') }}/System_configs/VideoModes/Amd_NvidiaND_IntelDP/videomodes.conf_{{ batocera_crt_monitor_profile }}"
@@ -194,7 +219,96 @@
     fi
   register: batocera_crt_videomodes_write
   changed_when: "'changed' in batocera_crt_videomodes_write.stdout"
-  when: "'batocera_crt' in ansible_run_tags or 'all' in ansible_run_tags"
+  when:
+    - "'batocera_crt' in ansible_run_tags or 'all' in ansible_run_tags"
+    - batocera_crt_output_mode == 'crt_only'
+  tags:
+    - batocera_crt
+
+- name: Remove CRT-only global timing files in hybrid mode
+  ansible.builtin.raw: |
+    changed=0
+    for path in /etc/switchres.ini /userdata/system/videomodes.conf /userdata/system/videomodes.conf.bak; do
+      if [ -e "$path" ]; then
+        rm -f "$path"
+        changed=1
+      fi
+    done
+    if [ "$changed" -eq 1 ]; then
+      echo changed
+    else
+      echo unchanged
+    fi
+  register: batocera_crt_hybrid_cleanup
+  changed_when: "'changed' in batocera_crt_hybrid_cleanup.stdout"
+  when:
+    - "'batocera_crt' in ansible_run_tags or 'batocera_crt_test' in ansible_run_tags or 'all' in ansible_run_tags"
+    - batocera_crt_output_mode == 'hybrid'
+  tags:
+    - batocera_crt
+    - batocera_crt_test
+
+- name: Write HDMI-safe Batocera output override in hybrid mode
+  ansible.builtin.raw: |
+    set -eu
+    cfg=/userdata/system/batocera.conf
+    tmp=$(mktemp)
+    awk '
+      BEGIN { skip=0 }
+      /^## BEGIN HOMELAB BATOCERA CRT HYBRID$/ { skip=1; next }
+      /^## END HOMELAB BATOCERA CRT HYBRID$/ { skip=0; next }
+      skip == 0 { print }
+    ' "$cfg" > "$tmp"
+    cat >> "$tmp" <<'EOF'
+    ## BEGIN HOMELAB BATOCERA CRT HYBRID
+    global.videooutput={{ batocera_crt_recovery_connector_xrandr }}
+    es.resolution={{ batocera_crt_hdmi_safe_resolution }}
+    ## END HOMELAB BATOCERA CRT HYBRID
+    EOF
+    if cmp -s "$tmp" "$cfg"; then
+      rm -f "$tmp"
+      echo unchanged
+    else
+      cp "$tmp" "$cfg"
+      chmod 644 "$cfg"
+      rm -f "$tmp"
+      echo changed
+    fi
+  register: batocera_crt_hybrid_batocera_conf
+  changed_when: "'changed' in batocera_crt_hybrid_batocera_conf.stdout"
+  when:
+    - "'batocera_crt' in ansible_run_tags or 'batocera_crt_test' in ansible_run_tags or 'all' in ansible_run_tags"
+    - batocera_crt_output_mode == 'hybrid'
+    - batocera_crt_recovery_connector_xrandr | default('') | length > 0
+  tags:
+    - batocera_crt
+    - batocera_crt_test
+
+- name: Remove HDMI-safe Batocera output override in CRT-only mode
+  ansible.builtin.raw: |
+    set -eu
+    cfg=/userdata/system/batocera.conf
+    tmp=$(mktemp)
+    awk '
+      BEGIN { skip=0 }
+      /^## BEGIN HOMELAB BATOCERA CRT HYBRID$/ { skip=1; next }
+      /^## END HOMELAB BATOCERA CRT HYBRID$/ { skip=0; next }
+      skip == 0 { print }
+    ' "$cfg" > "$tmp"
+    if cmp -s "$tmp" "$cfg"; then
+      rm -f "$tmp"
+      echo unchanged
+    else
+      cp "$tmp" "$cfg"
+      chmod 644 "$cfg"
+      rm -f "$tmp"
+      echo changed
+    fi
+  register: batocera_crt_crtonly_batocera_conf
+  changed_when: "'changed' in batocera_crt_crtonly_batocera_conf.stdout"
+  when:
+    - "'batocera_crt' in ansible_run_tags or 'all' in ansible_run_tags"
+    - batocera_crt_output_mode == 'crt_only'
   tags:
     - batocera_crt
 
@@ -202,7 +316,12 @@
   ansible.builtin.raw: batocera-save-overlay
   when:
     - "'batocera_crt' in ansible_run_tags or 'all' in ansible_run_tags"
-    - batocera_crt_switchres_write.changed or batocera_crt_videomodes_write.changed
+    - >
+      batocera_crt_switchres_write.changed
+      or batocera_crt_videomodes_write.changed
+      or batocera_crt_hybrid_cleanup.changed
+      or batocera_crt_hybrid_batocera_conf.changed
+      or batocera_crt_crtonly_batocera_conf.changed
   changed_when: true
   tags:
     - batocera_crt
@@ -246,6 +365,46 @@
   changed_when: true
   tags:
     - batocera_crt
+
+- name: Prepare X-visible hybrid monitor config for CRT test
+  ansible.builtin.raw: |
+    set -eu
+    tmp=$(mktemp)
+    : > "$tmp"
+    printf '%s\n' '# Managed by homelab Ansible for Batocera CRT test' '# output_mode=hybrid_test' >> "$tmp"
+    {% for output in batocera_crt_test_ignored_outputs %}
+    printf '%s\n' 'Section "Monitor"' '    Identifier "{{ output }}"' '    Option "Ignore" "true"' 'EndSection' '' >> "$tmp"
+    {% endfor %}
+    {% for output in batocera_crt_test_enabled_outputs %}
+    printf '%s\n' 'Section "Monitor"' '    Identifier "{{ output }}"' 'EndSection' '' >> "$tmp"
+    {% endfor %}
+    mkdir -p /etc/X11/xorg.conf.d
+    if [ -f /etc/X11/xorg.conf.d/10-monitor.conf ] && cmp -s "$tmp" /etc/X11/xorg.conf.d/10-monitor.conf; then
+      rm -f "$tmp"
+      echo unchanged
+    else
+      cp "$tmp" /etc/X11/xorg.conf.d/10-monitor.conf
+      chmod 644 /etc/X11/xorg.conf.d/10-monitor.conf
+      rm -f "$tmp"
+      echo changed
+    fi
+  register: batocera_crt_test_monitor_conf
+  changed_when: "'changed' in batocera_crt_test_monitor_conf.stdout"
+  when: "'batocera_crt_test' in ansible_run_tags"
+  tags:
+    - batocera_crt_test
+
+- name: Persist CRT test prep config
+  ansible.builtin.raw: batocera-save-overlay
+  when:
+    - "'batocera_crt_test' in ansible_run_tags"
+    - >
+      batocera_crt_test_monitor_conf.changed
+      or batocera_crt_hybrid_cleanup.changed
+      or batocera_crt_hybrid_batocera_conf.changed
+  changed_when: true
+  tags:
+    - batocera_crt_test
 
 - name: Run HDMI recovery config
   ansible.builtin.raw: |
@@ -298,13 +457,13 @@
     log="{{ batocera_crt_log_dir }}/batocera-crt-test.log"
     {
       echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
-      echo "mode={{ batocera_crt_apply_mode }}"
+      echo "mode=hybrid_test_prepare"
       echo "connector={{ batocera_crt_connector_xrandr | default('') }}"
-      echo "test_mode={{ batocera_crt_test_mode }}"
-      DISPLAY={{ batocera_crt_test_display }} xrandr --output "{{ batocera_crt_connector_xrandr | default('') }}" --mode "{{ batocera_crt_test_mode }}"
-      rc=$?
-      echo "rc=$rc"
-      exit $rc
+      echo "recovery_connector={{ batocera_crt_recovery_connector_xrandr | default('') }}"
+      echo "hdmi_safe_resolution={{ batocera_crt_hdmi_safe_resolution }}"
+      echo "note=reboot_or_restart_x_before_using_DISPLAY={{ batocera_crt_test_display }} xrandr -q"
+      DISPLAY={{ batocera_crt_test_display }} xrandr -q || true
+      exit 0
     } >> "$log" 2>&1
   register: batocera_crt_test_run
   changed_when: false
