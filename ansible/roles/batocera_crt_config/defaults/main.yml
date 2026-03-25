@@ -7,6 +7,7 @@ batocera_crt_connector_candidates:
 batocera_crt_monitor_profile: arcade_15
 batocera_crt_monitor_profile_fallback: generic_15
 batocera_crt_ui_base_res: 768x576
+batocera_crt_output_mode: hybrid
 batocera_crt_switchres_super_width: 1920
 batocera_crt_switchres_dotclock_min: "0"
 batocera_crt_test_mode: 640x480

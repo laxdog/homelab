@@ -3,6 +3,7 @@
   ansible.builtin.assert:
     that:
       - batocera_crt_apply_mode in ['stage', 'finalize']
+      - batocera_crt_output_mode in ['hybrid', 'crt_only']
     fail_msg: "batocera_crt_apply_mode must be 'stage' or 'finalize'."
   tags:
     - batocera_crt
@@ -90,23 +91,44 @@
 - name: Select HDMI recovery output
   ansible.builtin.set_fact:
     batocera_crt_recovery_connector_short: "{{ (batocera_crt_connector_status_map.keys() | list | select('match', '^card[0-9]+-HDMI-A-[0-9]+$') | list | first | default('')) | regex_replace('^card[0-9]+-', '') }}"
-  when: "'batocera_crt_recovery' in ansible_run_tags"
+  when: "'batocera_crt' in ansible_run_tags or 'batocera_crt_recovery' in ansible_run_tags or 'all' in ansible_run_tags"
   tags:
     - batocera_crt_recovery
 
 - name: Derive HDMI recovery XRandR alias
   ansible.builtin.set_fact:
     batocera_crt_recovery_connector_xrandr: "{{ batocera_crt_recovery_connector_short | regex_replace('^HDMI-A-', 'HDMI-') }}"
-  when: "'batocera_crt_recovery' in ansible_run_tags"
+  when: "'batocera_crt' in ansible_run_tags or 'batocera_crt_recovery' in ansible_run_tags or 'all' in ansible_run_tags"
   tags:
     - batocera_crt_recovery
 
 - name: Build alternate recovery outputs list
   ansible.builtin.set_fact:
     batocera_crt_recovery_other_outputs: "{{ (batocera_crt_xrandr_output_map.keys() | list) | difference([batocera_crt_recovery_connector_xrandr]) | sort }}"
-  when: "'batocera_crt_recovery' in ansible_run_tags"
+  when: "'batocera_crt' in ansible_run_tags or 'batocera_crt_recovery' in ansible_run_tags or 'all' in ansible_run_tags"
   tags:
     - batocera_crt_recovery
+
+- name: Build finalize enabled outputs list
+  ansible.builtin.set_fact:
+    batocera_crt_finalize_enabled_outputs: >-
+      {%- set ns = namespace(outputs=[batocera_crt_connector_xrandr]) -%}
+      {%- if batocera_crt_output_mode == 'hybrid'
+            and (batocera_crt_recovery_connector_xrandr | default('') | length > 0)
+            and batocera_crt_recovery_connector_xrandr not in ns.outputs -%}
+        {%- set ns.outputs = ns.outputs + [batocera_crt_recovery_connector_xrandr] -%}
+      {%- endif -%}
+      {{ ns.outputs }}
+  when: "'batocera_crt' in ansible_run_tags or 'all' in ansible_run_tags"
+  tags:
+    - batocera_crt
+
+- name: Build finalize ignored outputs list
+  ansible.builtin.set_fact:
+    batocera_crt_finalize_ignored_outputs: "{{ (batocera_crt_xrandr_output_map.keys() | list) | difference(batocera_crt_finalize_enabled_outputs) | sort }}"
+  when: "'batocera_crt' in ansible_run_tags or 'all' in ansible_run_tags"
+  tags:
+    - batocera_crt
 
 - name: Write staged CRT plan log
   ansible.builtin.raw: |
@@ -119,7 +141,9 @@
     monitor_profile={{ batocera_crt_monitor_profile }}
     fallback_profile={{ batocera_crt_monitor_profile_fallback }}
     ui_base_res={{ batocera_crt_ui_base_res }}
+    output_mode={{ batocera_crt_output_mode }}
     recovery_connector={{ batocera_crt_recovery_connector_short | default('') }}
+    finalize_enabled_outputs={{ batocera_crt_finalize_enabled_outputs | default([]) | join(',') }}
     EOF
   changed_when: false
   when: "'batocera_crt' in ansible_run_tags or 'all' in ansible_run_tags"
@@ -188,11 +212,13 @@
     set -eu
     tmp=$(mktemp)
     : > "$tmp"
-    printf '%s\n' '# Managed by homelab Ansible for Batocera CRT' >> "$tmp"
-    {% for output in batocera_crt_other_xrandr_outputs %}
+    printf '%s\n' '# Managed by homelab Ansible for Batocera CRT' '# output_mode={{ batocera_crt_output_mode }}' >> "$tmp"
+    {% for output in batocera_crt_finalize_ignored_outputs %}
     printf '%s\n' 'Section "Monitor"' '    Identifier "{{ output }}"' '    Option "Ignore" "true"' 'EndSection' '' >> "$tmp"
     {% endfor %}
-    printf '%s\n' 'Section "Monitor"' '    Identifier "{{ batocera_crt_connector_xrandr }}"' 'EndSection' >> "$tmp"
+    {% for output in batocera_crt_finalize_enabled_outputs %}
+    printf '%s\n' 'Section "Monitor"' '    Identifier "{{ output }}"' 'EndSection' '' >> "$tmp"
+    {% endfor %}
     mkdir -p /etc/X11/xorg.conf.d
     if [ -f /etc/X11/xorg.conf.d/10-monitor.conf ] && cmp -s "$tmp" /etc/X11/xorg.conf.d/10-monitor.conf; then
       rm -f "$tmp"
