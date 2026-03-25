@@ -33,6 +33,8 @@ Apply commands:
   - `ansible-playbook ansible/playbooks/batocera.yml --limit batocera-crt1 --tags batocera_baseline`
 - install CRT script + stage config without switching away from HDMI:
   - `ansible-playbook ansible/playbooks/batocera.yml --limit batocera-crt1 --tags batocera_crt`
+- run the full Batocera playbook through the repo runner:
+  - `python3 scripts/run.py batocera`
 - finalize CRT connector selection after the VGA -> UMSA -> SCART chain is connected:
   - `ansible-playbook ansible/playbooks/batocera.yml --limit batocera-crt1 --tags batocera_crt -e batocera_crt_apply_mode=finalize`
 - run the test task:

@@ -98,6 +98,18 @@ def write_inventory(cfg: dict) -> Path:
             inventory.setdefault(group, {"hosts": {}})
             inventory[group]["hosts"][name] = host_entry
 
+    for name, meta in cfg.get("batocera", {}).get("nodes", {}).items():
+        host_entry = {
+            "ansible_host": meta["ip"],
+            "ansible_ssh_user": meta.get("ssh_user", cfg.get("batocera", {}).get("defaults", {}).get("ssh_user", "root")),
+            "ansible_ssh_private_key_file": meta.get(
+                "ssh_private_key_path",
+                cfg.get("batocera", {}).get("defaults", {}).get("ssh_private_key_path", proxmox["ssh_private_key_path"]),
+            ),
+        }
+        inventory.setdefault("batocera_hosts", {"hosts": {}})
+        inventory["batocera_hosts"]["hosts"][name] = host_entry
+
     inventory_path.parent.mkdir(parents=True, exist_ok=True)
     with inventory_path.open("w", encoding="utf-8") as fh:
         yaml.safe_dump(inventory, fh, sort_keys=True)
@@ -234,6 +246,12 @@ def cmd_remote_nodes() -> None:
     ansible_playbook("remote-nodes.yml")
 
 
+def cmd_batocera() -> None:
+    cfg = load_config()
+    write_inventory(cfg)
+    ansible_playbook("batocera.yml")
+
+
 def cmd_validate(mode: str) -> None:
     cfg = load_config()
     inventory_path = write_inventory(cfg)
@@ -250,6 +268,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("host")
     sub.add_parser("guests")
     sub.add_parser("remote-nodes")
+    sub.add_parser("batocera")
     sub.add_parser("metadata")
     validate_parser = sub.add_parser("validate")
     validate_parser.add_argument(
@@ -273,6 +292,8 @@ def main() -> None:
         cmd_guests()
     elif args.command == "remote-nodes":
         cmd_remote_nodes()
+    elif args.command == "batocera":
+        cmd_batocera()
     elif args.command == "metadata":
         proxmox_metadata_sync(check=False)
     elif args.command == "validate":
