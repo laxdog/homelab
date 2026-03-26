@@ -7,6 +7,9 @@
     - role: batocera_baseline
       tags:
         - batocera_baseline
+    - role: batocera_vga_safe
+      tags:
+        - batocera_vga_safe
     - role: batocera_crt_script
       tags:
         - batocera_crt

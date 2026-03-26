@@ -1,0 +1,1 @@
+2900 emulationstation --exit-on-reboot-required --windowed

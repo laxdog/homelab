@@ -1,0 +1,11 @@
+mode=finalize
+connector_selected=card0-DP-1
+connector_short=DP-1
+connector_xrandr=DP-1
+monitor_profile=arcade_15
+fallback_profile=generic_15
+ui_base_res=768x576
+output_mode=hybrid
+hdmi_safe_resolution=max-1920x1080
+recovery_connector=HDMI-A-1
+finalize_enabled_outputs=DP-1,HDMI-1

@@ -1,0 +1,23 @@
+Splash: Preferred display is DP-1
+Splash: Display Type = DP
+Splash: Display Type DP has a connection at /sys/class/drm/card0/card0-DP-1/status
+Splash: Selected DRM connector: DP-1
+Splash: DRM connected card path: /dev/dri/card0
+Only one GPU detected in the system
+Language set to en_US.UTF-8
+Default video outputs: DP-1, , 
+set user output: DP-1 as primary
+Updated video outputs: DP-1, , 
+Rotation for output DP-1: 
+setMode: 640x480
+setMode: Output: DP-1 Mode: 640x480
+Resolution set to 640x480
+Language set to en_US.UTF-8
+Default video outputs: DP-1, , 
+Invalid output: DP-1
+First video output defaulted to: 
+set  as primary
+Updated video outputs: , , 
+setMode: 640x480
+No connected output detected
+Resolution set to 640x480

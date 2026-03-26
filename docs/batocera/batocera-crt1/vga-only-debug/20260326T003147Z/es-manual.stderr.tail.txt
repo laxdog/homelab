@@ -1,0 +1,25 @@
+nohup: ignoring input
+Can't open display :0
+Can't open display :0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Can't open display :0.0
+Cannot open display ":0.0"
+Unable to connect to X server
+Can't open display :0.0
+dbus[2896]: Unable to set up transient service directory: XDG_RUNTIME_DIR "/var/run" can be written by others (mode 041777)
+xcb_connection_has_error() returned true

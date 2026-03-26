@@ -1,0 +1,200 @@
+[   0.027][d][demux] Trying demuxer: rawvideo (force-level: normal)
+[   0.027][d][demux] Trying demuxer: mkv (force-level: normal)
+[   0.027][d][demux] Trying demuxer: libarchive (force-level: normal)
+[   0.034][d][demux] Trying demuxer: lavf (force-level: normal)
+[   0.053][v][lavf] Found 'mov,mp4,m4a,3gp,3g2,mj2' at score=100 size=2048.
+[   0.056][v][file] stream level seek from 131072 to 5354040
+[   0.059][v][file] stream level seek from 5363134 to 48
+[   0.059][v][file] stream level seek from 131120 to 5363134
+[   0.061][v][demux] Detected file format: mov,mp4,m4a,3gp,3g2,mj2 (libavformat)
+[   0.061][v][cplayer] Opening done: /usr/share/batocera/splash/splash.mp4
+[   0.064][v][find_files] Loading external files in /usr/share/batocera/splash/
+[   0.064][v][bdmv/bluray] Opening /usr/share/batocera/splash/splash.srt
+[   0.064][v][file] Opening /usr/share/batocera/splash/splash.srt
+[   0.064][d][file] resize stream to 131072 bytes, drop 0 bytes
+[   0.064][d][file] Stream opened successfully.
+[   0.064][v][demux] Trying demuxers for level=normal.
+[   0.064][d][demux] Trying demuxer: directory (force-level: normal)
+[   0.065][d][demux] Trying demuxer: disc (force-level: normal)
+[   0.065][d][demux] Trying demuxer: edl (force-level: normal)
+[   0.065][d][demux] Trying demuxer: cue (force-level: normal)
+[   0.065][d][demux] Trying demuxer: rawaudio (force-level: normal)
+[   0.065][d][demux] Trying demuxer: rawvideo (force-level: normal)
+[   0.065][d][demux] Trying demuxer: mkv (force-level: normal)
+[   0.065][d][demux] Trying demuxer: libarchive (force-level: normal)
+[   0.065][d][demux] Trying demuxer: lavf (force-level: normal)
+[   0.071][v][lavf] Found 'srt' at score=100 size=46.
+[   0.085][v][lavf] avformat_find_stream_info() finished after 46 bytes.
+[   0.085][v][lavf] demuxer read all data; closing stream
+[   0.085][v][demux] Detected file format: srt (libavformat)
+[   0.086][v][lavf] select track 0
+[   0.086][v][lavf] select track 1
+[   0.086][v][lavf] select track 0
+[   0.086][v][lavf] refresh track 0 (sub)
+[   0.086][v][lavf] refresh seek to -10.000000
+[   0.086][i][cplayer] ● Video  --vid=1  --vlang=eng  (h264 1920x1080 30 fps) [default]
+[   0.086][i][cplayer] ● Audio  --aid=1  --alang=eng  (aac 2ch 48000 Hz 317 kbps) [default]
+[   0.086][i][cplayer] ● Subs   --sid=1               'srt' (subrip) [external]
+[   0.086][e][vo/drm/drm] Can't open TTY for VT control: No such device or address
+[   0.086][w][vo/drm/drm] Failed to set up VT switcher. Terminal switching will be unavailable.
+[   0.086][v][vo/drm/drm] Driver: amdgpu 3.63.0 (0)
+[   0.087][v][vo/drm/drm] Connector 59 currently connected to encoder 58
+[   0.087][v][vo/drm/drm] Selected Encoder 58 with CRTC 51
+[   0.087][v][vo/drm/drm] Selected mode: 640x480 (640x480@59.94Hz)
+[   0.087][v][vo/drm/drm] Unable to get EDID blob from connector.
+[   0.087][v][vo/drm/drm] DRM Atomic support found
+[   0.088][v][vo/drm/drm] Using primary plane 46 as draw plane
+[   0.088][v][vo/drm/drm] Failed to find drmprime plane with idx=-2. drmprime-overlay hwdec interop will not work
+[   0.091][v][vo/drm/drm] crtc is not VRR capable
+[   0.094][v][vo/drm/drm] Monitor pixel aspect: 1
+[   0.094][v][vo/drm] Assuming 59.940476 FPS for display sync.
+[   0.094][v][vd] Container reported FPS: 30.000000
+[   0.094][v][vd] Codec list:
+[   0.094][v][vd]     h264 - H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+[   0.094][v][vd]     h264_v4l2m2m (h264) - V4L2 mem2mem H.264 decoder wrapper
+[   0.094][v][vd]     h264_qsv (h264) - H264 video (Intel Quick Sync Video acceleration)
+[   0.094][v][vd]     libopenh264 (h264) - OpenH264 H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+[   0.094][v][vd]     h264_cuvid (h264) - Nvidia CUVID H264 decoder
+[   0.095][v][vd] Opening decoder h264
+[   0.096][v][vd] Looking at hwdec h264-nvdec...
+[   0.096][v][vd] Could not create device.
+[   0.096][v][vd] Looking at hwdec h264-vaapi...
+[   0.096][v][vd] Could not create device.
+[   0.096][v][vd] Looking at hwdec h264-vulkan...
+[   0.096][v][vd] Could not create device.
+[   0.096][v][vd] Looking at hwdec h264-nvdec-copy...
+[   0.145][e][ffmpeg] AVHWDeviceContext: cu->cuInit(0) failed -> CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+[   0.145][v][vd] Could not create device.
+[   0.145][v][vd] Looking at hwdec h264-vaapi-copy...
+[   0.145][v][vaapi] libva: VA-API version 1.22.0
+[   0.145][v][vaapi] libva: Trying to open /usr/lib/va/radeonsi_drv_video.so
+[   0.323][v][vaapi] libva: Found init function __vaDriverInit_1_22
+[   0.394][v][vaapi] libva: va_openDriver() returns 0
+[   0.394][v][vaapi] Initialized VAAPI: version 1.22
+[   0.394][d][ffmpeg] AVHWDeviceContext: VAAPI driver: Mesa Gallium driver 25.1.9 for AMD Radeon R7 Graphics (radeonsi, carrizo, ACO, DRM 3.63, 6.15.11).
+[   0.394][d][ffmpeg] AVHWDeviceContext: Driver not found in known nonstandard list, using standard behaviour.
+[   0.394][v][vd] Trying hardware decoding via h264-vaapi-copy.
+[   0.399][v][vd] Selected decoder: h264 - H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+[   0.402][d][ffmpeg] filter: w:640 h:480 flags:'' interl:0
+[   0.402][v][vf] User filter list:
+[   0.402][v][vf]   scale (scale.00)
+[   0.402][v][ad] Codec list:
+[   0.402][v][ad]     aac - AAC (Advanced Audio Coding)
+[   0.402][v][ad]     aac_fixed (aac) - AAC (Advanced Audio Coding)
+[   0.403][v][ad] Opening decoder aac
+[   0.403][v][ad] Requesting 1 threads for decoding.
+[   0.406][v][ad] Selected decoder: aac - AAC (Advanced Audio Coding)
+[   0.406][v][af] User filter list:
+[   0.406][v][af]   (empty)
+[   0.406][d][sub/ass] ASS library version: 0x1703000 (runtime 0x1703000)
+[   0.406][v][sub/ass] libass API version: 0x1703000
+[   0.406][v][sub/ass] libass source: tarball: 0.17.3
+[   0.411][v][sub/ass] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 10.0.1 (COMPLEX)
+[   0.411][v][sub/ass] Setting up fonts...
+[   0.830][v][sub/ass] Using font provider fontconfig
+[   0.830][v][sub/ass] Done.
+[   0.830][v][cplayer] Starting playback...
+[   0.830][v][file] stream level seek from 5363134 to 52
+[   0.830][v][lavf] queuing seek to 0.000000 (cascade)
+[   0.830][v][lavf] execute seek (to 0.000000 flags 0)
+[   0.830][v][lavf] seek done
+[   0.834][v][lavf] EOF reached.
+[   0.836][v][af] [in] 48000Hz stereo 2ch floatp
+[   0.836][v][af] [userspeed] 48000Hz stereo 2ch floatp
+[   0.836][v][af] [userspeed] (disabled)
+[   0.836][v][af] [convert] 48000Hz stereo 2ch floatp
+[   0.836][v][vd] Pixel formats supported by decoder: vdpau vulkan cuda vaapi yuv420p
+[   0.836][v][vd] Codec profile: High (0x64)
+[   0.836][v][vd] Requesting pixfmt 'vaapi' from decoder.
+[   0.838][d][ffmpeg/video] h264: Reinit context to 1920x1088, pix_fmt: vaapi
+[   0.934][i][vd] Using hardware decoding (vaapi-copy).
+[   0.934][v][vd] Decoder format: 1920x1080 nv12 auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=1920x1080+0+0
+[   0.934][v][vd] Using container aspect ratio.
+[   0.934][v][vf] [in] 1920x1080 nv12 bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=1920x1080+0+0
+[   0.934][v][vf] [userdeint] 1920x1080 nv12 bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=1920x1080+0+0
+[   0.934][v][vf] [userdeint] (disabled)
+[   0.934][v][vf] [scale] 1920x1080 nv12 bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=1920x1080+0+0
+[   0.934][d][ffmpeg] mpv_src_default_in: w:1920 h:1080 pixfmt:nv12 tb:1/1000000 fr:30/1 sar:1/1 csp:bt709 range:tv
+[   0.940][d][ffmpeg] filter: w:1920 h:1080 fmt:nv12 csp:bt709 range:tv sar:1/1 -> w:640 h:480 fmt:nv12 csp:bt709 range:tv sar:4/3 flags:0x00000004
+[   0.940][d][ffmpeg] framesync: Selected 1/1000000 time base
+[   0.940][d][ffmpeg] framesync: Sync level 1
+[   0.945][v][ao] Trying audio driver 'sdl'
+[   0.945][v][ao/sdl] requested format: 48000 Hz, stereo channels, floatp
+[   0.964][v][ao/sdl] Channel layouts:
+[   0.964][v][ao/sdl]  - mono
+[   0.964][v][ao/sdl]  - stereo
+[   0.964][v][ao/sdl]  - 2.1
+[   0.964][v][ao/sdl]  - 4.0
+[   0.964][v][ao/sdl]  - 5.0
+[   0.964][v][ao/sdl]  - 5.1
+[   0.964][v][ao/sdl]  - 6.1
+[   0.964][v][ao/sdl]  - 7.1
+[   0.964][v][ao/sdl]  - unknown9
+[   0.964][v][ao/sdl]  - unknown10
+[   0.964][v][ao/sdl]  - unknown11
+[   0.964][v][ao/sdl]  - unknown12
+[   0.964][v][ao/sdl]  - unknown13
+[   0.964][v][ao/sdl]  - unknown14
+[   0.964][v][ao/sdl]  - unknown15
+[   0.964][v][ao/sdl]  - unknown16
+[   0.964][v][ao/sdl]  - unknown17
+[   0.964][v][ao/sdl]  - unknown18
+[   0.964][v][ao/sdl]  - unknown19
+[   0.964][v][ao/sdl]  - unknown20
+[   0.964][v][ao/sdl] result: stereo
+[   0.964][v][ao/sdl] requested format: 48000 Hz, 2 channels, 8120, buffer size: 0 samples
+[   0.986][v][ao/sdl] obtained format: 48000 Hz, 2 channels, 8120, buffer size: 4096 samples
+[   0.986][v][ao/sdl] device buffer: 12288 samples.
+[   0.986][v][ao/sdl] using soft-buffer of 12288 samples.
+[   0.986][i][cplayer] AO: [sdl] 48000Hz stereo 2ch float
+[   0.986][v][cplayer] AO: Description: SDL Audio
+[   0.986][v][autoconvert] inserting resampler
+[   0.986][v][swresample] format change, reinitializing resampler
+[   0.986][v][swresample] 48000Hz stereo floatp -> 48000Hz stereo float
+[   0.986][v][af] [out] 48000Hz stereo 2ch float
+[   0.986][v][vf] [autorotate] 640x480 [4:3] nv12 bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=640x480+0+0
+[   0.986][v][vf] [autorotate] (disabled)
+[   0.986][v][vf] [convert] 640x480 [4:3] nv12 bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=640x480+0+0
+[   0.986][v][vf] [convert] (disabled)
+[   0.986][v][vf] [out] 640x480 [4:3] nv12 bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=640x480+0+0
+[   0.999][i][cplayer] VO: [drm] 640x480 => 853x480 nv12
+[   0.999][v][cplayer] VO: Description: Direct Rendering Manager (software scaling)
+[   0.999][v][vo/drm] reconfig to 640x480 [4:3] nv12 bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=640x480+0+0
+[   0.999][v][vo/drm] Window size: 640x480 (Borders: l=0 t=0 r=0 b=0)
+[   0.999][v][vo/drm] Video source: 640x480 (4:3)
+[   0.999][v][vo/drm] Video display: (0, 0) 640x480 -> (0, 60) 640x360
+[   0.999][v][vo/drm] Video scale: 1.000000/0.750000
+[   0.999][v][vo/drm] OSD borders: l=0 t=60 r=0 b=60
+[   0.999][v][vo/drm] Video borders: l=0 t=60 r=0 b=60
+[   1.000][d][ffmpeg] SwScaler: reducing / aligning filtersize 1 -> 4
+[   1.000][d][ffmpeg] SwScaler: reducing / aligning filtersize 7 -> 8
+[   1.000][d][ffmpeg] SwScaler: reducing / aligning filtersize 9 -> 8
+[   1.000][d][ffmpeg] SwScaler: reducing / aligning filtersize 7 -> 6
+[   1.000][v][ffmpeg] swscaler: Lanczos scaler, from nv12 to bgra using MMXEXT
+[   1.000][d][ffmpeg] swscaler: 640x480 -> 640x360
+[   1.010][v][sub/ass] fontselect: (sans-serif, 400, 0) -> /usr/share/fonts/dejavu/DejaVuSans.ttf, 0, DejaVuSans
+[   1.014][d][osd] Spent 7.120 ms in osd_render (slow!)
+[   1.016][v][cplayer] first video frame after restart shown
+[   1.019][v][cplayer] audio ready
+[   1.019][d][cplayer] starting video playback
+[   1.019][v][cplayer] delaying audio start 0.000000 vs. 0.000000, diff=0.000000
+[   1.019][v][cplayer] playback restart complete @ 0.000000, audio=ready, video=playing
+[   1.029][v][cplayer] starting audio playback
+[   1.029][v][vo/drm] unaligned libswscale parameter; using slow copy.
+[   6.749][v][lavf] EOF reached.
+[   7.773][v][af] filter input EOF
+[   7.773][v][af] filter output EOF
+[   7.773][v][cplayer] audio filter EOF
+[   7.773][v][cplayer] audio draining
+[   7.773][v][cplayer] audio EOF reached
+[   8.017][v][vf] filter input EOF
+[   8.017][d][ffmpeg] framesync: Sync level 0
+[   8.017][v][vf] filter output EOF
+[   8.051][v][cplayer] EOF code: 1  
+[   8.051][d][ad] Uninit decoder.
+[   8.051][d][vd] Uninit decoder.
+[   8.067][d][cplayer] Terminating demuxers...
+[   8.067][d][cplayer] Done terminating demuxers.
+[   8.067][v][cplayer] finished playback, success (reason 0)
+[   8.067][i][cplayer] Exiting... (End of file)
+[   8.555][v][vo/drm/drm] Failed to commit atomic request: Error number 22 occurred

@@ -1,0 +1,2 @@
+/usr/bin/xrandr
+/usr/bin/batocera-backglass

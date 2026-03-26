@@ -1,0 +1,5 @@
+242:#global.videomode=CEA 4 HDMI
+246:#global.videooutput=""
+250:#es.resolution=""
+387:global.videooutput=DP-1
+388:es.resolution=640x480

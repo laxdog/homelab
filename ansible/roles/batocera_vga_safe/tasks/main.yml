@@ -1,0 +1,91 @@
+---
+- name: Remove legacy Batocera display forcing from batocera.conf
+  ansible.builtin.raw: |
+    set -eu
+    cfg=/userdata/system/batocera.conf
+    tmp=$(mktemp)
+    awk '
+      BEGIN { skip=0 }
+      /^## BEGIN HOMELAB BATOCERA CRT HYBRID$/ { skip=1; next }
+      /^## END HOMELAB BATOCERA CRT HYBRID$/ { skip=0; next }
+      skip == 0 && $0 !~ /^global\.videooutput=/ && $0 !~ /^es\.resolution=/ { print }
+    ' "$cfg" > "$tmp"
+    if cmp -s "$tmp" "$cfg"; then
+      rm -f "$tmp"
+      echo unchanged
+    else
+      cp "$tmp" "$cfg"
+      rm -f "$tmp"
+      echo changed
+    fi
+  register: batocera_vga_safe_userdata_cfg
+  changed_when: batocera_vga_safe_userdata_cfg.stdout | trim == 'changed'
+  tags:
+    - batocera_vga_safe
+
+- name: Remove boot-time ES resolution forcing
+  ansible.builtin.raw: |
+    set -eu
+    cfg=/boot/batocera-boot.conf
+    mount -o remount,rw /boot
+    tmp=$(mktemp)
+    awk '$0 !~ /^es\.resolution=/ { print }' "$cfg" > "$tmp"
+    if cmp -s "$tmp" "$cfg"; then
+      rm -f "$tmp"
+      echo unchanged
+    else
+      cp "$tmp" "$cfg"
+      rm -f "$tmp"
+      echo changed
+    fi
+  register: batocera_vga_safe_boot_cfg
+  changed_when: batocera_vga_safe_boot_cfg.stdout | trim == 'changed'
+  tags:
+    - batocera_vga_safe
+
+- name: Remove active display override files
+  ansible.builtin.raw: |
+    changed=0
+    for path in \
+      /etc/X11/xorg.conf.d/10-monitor.conf \
+      /etc/switchres.ini \
+      /userdata/system/videomodes.conf \
+      /userdata/system/videomodes.conf.bak \
+      /userdata/system/custom-es-config \
+      /userdata/system/custom.sh
+    do
+      if [ -e "$path" ]; then
+        rm -f "$path"
+        changed=1
+      fi
+    done
+    if [ "$changed" -eq 1 ]; then
+      echo changed
+    else
+      echo unchanged
+    fi
+  register: batocera_vga_safe_override_cleanup
+  changed_when: batocera_vga_safe_override_cleanup.stdout | trim == 'changed'
+  tags:
+    - batocera_vga_safe
+
+- name: Write VGA-safe cleanup summary log
+  ansible.builtin.raw: |
+    mkdir -p /userdata/system/logs
+    cat > /userdata/system/logs/homelab-batocera-vga-safe.log <<'EOF'
+    userdata_cfg_changed={{ 'yes' if batocera_vga_safe_userdata_cfg.changed else 'no' }}
+    boot_cfg_changed={{ 'yes' if batocera_vga_safe_boot_cfg.changed else 'no' }}
+    override_cleanup_changed={{ 'yes' if batocera_vga_safe_override_cleanup.changed else 'no' }}
+    expected_state=no forced global.videooutput, no forced es.resolution, no active monitor override, no global CRT timing files
+    EOF
+  changed_when: false
+  tags:
+    - batocera_vga_safe
+
+- name: Persist overlay-backed VGA-safe changes
+  ansible.builtin.raw: batocera-save-overlay
+  register: batocera_vga_safe_save_overlay
+  changed_when: batocera_vga_safe_userdata_cfg.changed or batocera_vga_safe_override_cleanup.changed
+  when: batocera_vga_safe_userdata_cfg.changed or batocera_vga_safe_override_cleanup.changed
+  tags:
+    - batocera_vga_safe

@@ -1,0 +1,1 @@
+xset:  unable to open display ":0.0"
