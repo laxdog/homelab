@@ -102,3 +102,19 @@ Visual-proxy findings from 2026-03-26:
   - Batocera is launching EmulationStation on the correct VGA/X session, but the ES scene being presented to X is black.
   - This is no longer a pure output-selection problem.
   - The remaining likely fault domain is ES/SDL/OpenGL rendering behavior on this VGA-only path, or a Batocera session-launch quirk specific to this hardware/output combination.
+
+Simple-X-client findings from 2026-03-26:
+- A temporary `x11vnc` server was started against `DISPLAY=:0` using the bundled binary from the pinned CRT-script tree.
+- A simple `xterm` client was launched on `DISPLAY=:0` and verified as a real X11 client with mapped X11 libraries.
+- The live VNC capture showed the terminal prompt rendered correctly on the same `:0` session:
+  - `docs/batocera/batocera-crt1/vga-only-debug/20260326T0636Z-vnc-proxy/vnc-current.png`
+- This proves the basic X/render path is functional on VGA. The machine can draw visible X client content on `:0`.
+- Therefore EmulationStation is the black component, or the Batocera ES/openbox/session wrapper around it is the black component. The fault is no longer at the generic X/VGA framebuffer layer.
+- Additional probe artifacts are archived under:
+  - `docs/batocera/batocera-crt1/vga-only-debug/20260326T0629Z-simple-x-probe/`
+  - `docs/batocera/batocera-crt1/vga-only-debug/20260326T0634Z-xterm-visible-probe/`
+  - `docs/batocera/batocera-crt1/vga-only-debug/20260326T0636Z-vnc-proxy/`
+- Best next debugging target:
+  - isolate EmulationStation startup from the stock wrapper
+  - capture direct ES stdout/stderr on a working `:0`
+  - test SDL/GL software-render or renderer-selection changes one at a time
