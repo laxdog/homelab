@@ -86,3 +86,19 @@ VGA-only findings from 2026-03-26:
 - Post-reset debug artifacts are archived under:
   - `docs/batocera/batocera-crt1/vga-only-debug/20260326T003745Z-pre-minimal-reset/`
   - `docs/batocera/batocera-crt1/vga-only-debug/20260326T0141Z-post-minimal-reset/`
+
+Visual-proxy findings from 2026-03-26:
+- A direct X screenshot was captured from `DISPLAY=:0` with `ffmpeg -f x11grab` and archived at:
+  - `docs/batocera/batocera-crt1/vga-only-debug/20260326T015347Z-visual-proxy/frame0.png`
+- That screenshot shows a fully black frame with only the mouse cursor visible.
+- Additional captures before and after killing the visible `emulationstation` PID remained visually identical:
+  - `docs/batocera/batocera-crt1/vga-only-debug/20260326T015347Z-visual-proxy/compare/before.png`
+  - `docs/batocera/batocera-crt1/vga-only-debug/20260326T015347Z-visual-proxy/compare/after_kill.png`
+- This proves the X session is not rendering the Batocera UI to the captured `:0` framebuffer. The visible output from X at capture time was black, not a hidden but healthy UI.
+- The running `emulationstation` process still had SDL2, Mesa/GL, and image/theme libraries mapped, but its `es_log.txt` remained empty.
+- A temporary stock-wrapper experiment removing `--windowed` from `/usr/bin/emulationstation-standalone` did not produce a usable session and triggered a bad restart path instead. That experiment was reverted. Logs are archived under:
+  - `docs/batocera/batocera-crt1/vga-only-debug/20260326T015347Z-visual-proxy/wrapper-test/`
+- Strongest current hypothesis:
+  - Batocera is launching EmulationStation on the correct VGA/X session, but the ES scene being presented to X is black.
+  - This is no longer a pure output-selection problem.
+  - The remaining likely fault domain is ES/SDL/OpenGL rendering behavior on this VGA-only path, or a Batocera session-launch quirk specific to this hardware/output combination.
