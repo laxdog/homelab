@@ -1,0 +1,1 @@
+BOOT_IMAGE=/boot/linux label=BATOCERA console=tty3 quiet loglevel=0 vt.global_cursor_default=0 amdgpu.dc=0 initrd=/boot/initrd.gz

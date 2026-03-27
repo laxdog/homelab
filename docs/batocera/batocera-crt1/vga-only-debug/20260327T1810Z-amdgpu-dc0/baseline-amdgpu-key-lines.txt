@@ -1,0 +1,15 @@
+871:[   10.305422] snd_hda_intel 0000:00:01.1: bound 0000:00:01.0 (ops amdgpu_dm_audio_component_bind_ops [amdgpu])
+905:[   33.879151] amdgpu 0000:00:01.0: [drm] *ERROR* [CRTC:51:crtc-0] flip_done timed out
+906:[   43.910877] amdgpu 0000:00:01.0: [drm] *ERROR* flip_done timed out
+907:[   43.910903] amdgpu 0000:00:01.0: [drm] *ERROR* [CRTC:51:crtc-0] commit wait timed out
+909:[   55.223207] amdgpu 0000:00:01.0: [drm] *ERROR* flip_done timed out
+910:[   55.223241] amdgpu 0000:00:01.0: [drm] *ERROR* [CONNECTOR:59:DP-1] commit wait timed out
+911:[   65.254853] amdgpu 0000:00:01.0: [drm] *ERROR* flip_done timed out
+912:[   65.254891] amdgpu 0000:00:01.0: [drm] *ERROR* [PLANE:46:plane-2] commit wait timed out
+914:[   65.255134] WARNING: CPU: 1 PID: 1840 at drivers/gpu/drm/amd/amdgpu/../display/amdgpu_dm/amdgpu_dm.c:9441 amdgpu_dm_atomic_commit_tail+0x3d52/0x3e70 [amdgpu]
+918:[   65.257782] RIP: 0010:amdgpu_dm_atomic_commit_tail+0x3d52/0x3e70 [amdgpu]
+956:[   65.262835] WARNING: CPU: 1 PID: 1840 at drivers/gpu/drm/amd/amdgpu/../display/amdgpu_dm/amdgpu_dm.c:8827 amdgpu_dm_atomic_commit_tail+0x3d83/0x3e70 [amdgpu]
+961:[   65.265506] RIP: 0010:amdgpu_dm_atomic_commit_tail+0x3d83/0x3e70 [amdgpu]
+998:[   75.286521] amdgpu 0000:00:01.0: [drm] *ERROR* [CRTC:51:crtc-0] flip_done timed out
+999:[  414.936872] amdgpu 0000:00:01.0: [drm] *ERROR* flip_done timed out
+1000:[  414.936898] amdgpu 0000:00:01.0: [drm] *ERROR* [CRTC:51:crtc-0] commit wait timed out

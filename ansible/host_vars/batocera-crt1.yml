@@ -3,3 +3,5 @@ batocera_crt_connector_candidates:
   - card0-DP-2
 batocera_crt_monitor_profile: arcade_15
 batocera_crt_ui_base_res: 768x576
+batocera_vga_safe_kernel_args_present:
+  - amdgpu.dc=0

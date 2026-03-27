@@ -1,0 +1,190 @@
+UID        PID  PPID  C STIME TTY          TIME CMD
+root         1     0  0 18:09 ?        00:00:00 init [3]
+root         2     0  0 18:09 ?        00:00:00 [kthreadd]
+root         3     2  0 18:09 ?        00:00:00 [pool_workqueue_release]
+root         4     2  0 18:09 ?        00:00:00 [kworker/R-rcu_gp]
+root         5     2  0 18:09 ?        00:00:00 [kworker/R-sync_wq]
+root         6     2  0 18:09 ?        00:00:00 [kworker/R-kvfree_rcu_reclaim]
+root         7     2  0 18:09 ?        00:00:00 [kworker/R-slub_flushwq]
+root         8     2  0 18:09 ?        00:00:00 [kworker/R-netns]
+root         9     2  0 18:09 ?        00:00:00 [kworker/0:0-events]
+root        10     2  0 18:09 ?        00:00:00 [kworker/0:1-events]
+root        11     2  0 18:09 ?        00:00:00 [kworker/0:0H-events_highpri]
+root        12     2  0 18:09 ?        00:00:00 [kworker/u16:0-loop0]
+root        13     2  0 18:09 ?        00:00:00 [kworker/R-mm_percpu_wq]
+root        14     2  0 18:09 ?        00:00:00 [ksoftirqd/0]
+root        15     2  0 18:09 ?        00:00:00 [rcu_preempt]
+root        16     2  0 18:09 ?        00:00:00 [rcu_exp_par_gp_kthread_worker/0]
+root        17     2  0 18:09 ?        00:00:00 [rcu_exp_gp_kthread_worker]
+root        18     2  0 18:09 ?        00:00:00 [migration/0]
+root        19     2  0 18:09 ?        00:00:00 [idle_inject/0]
+root        20     2  0 18:09 ?        00:00:00 [cpuhp/0]
+root        21     2  0 18:09 ?        00:00:00 [cpuhp/1]
+root        22     2  0 18:09 ?        00:00:00 [idle_inject/1]
+root        23     2  0 18:09 ?        00:00:00 [migration/1]
+root        24     2  0 18:09 ?        00:00:00 [ksoftirqd/1]
+root        25     2  0 18:09 ?        00:00:00 [kworker/1:0-events]
+root        26     2  0 18:09 ?        00:00:00 [kworker/1:0H-events_highpri]
+root        27     2  0 18:09 ?        00:00:00 [cpuhp/2]
+root        28     2  0 18:09 ?        00:00:00 [idle_inject/2]
+root        29     2  0 18:09 ?        00:00:00 [migration/2]
+root        30     2  0 18:09 ?        00:00:00 [ksoftirqd/2]
+root        31     2  0 18:09 ?        00:00:00 [kworker/2:0-slub_flushwq]
+root        32     2  0 18:09 ?        00:00:00 [kworker/2:0H-kblockd]
+root        33     2  0 18:09 ?        00:00:00 [cpuhp/3]
+root        34     2  0 18:09 ?        00:00:00 [idle_inject/3]
+root        35     2  0 18:09 ?        00:00:00 [migration/3]
+root        36     2  0 18:09 ?        00:00:00 [ksoftirqd/3]
+root        37     2  0 18:09 ?        00:00:00 [kworker/3:0-events]
+root        38     2  0 18:09 ?        00:00:00 [kworker/3:0H-kblockd]
+root        39     2  0 18:09 ?        00:00:00 [kdevtmpfs]
+root        40     2  0 18:09 ?        00:00:00 [kworker/R-inet_frag_wq]
+root        41     2  0 18:09 ?        00:00:00 [rcu_tasks_kthread]
+root        42     2  0 18:09 ?        00:00:00 [rcu_tasks_rude_kthread]
+root        43     2  0 18:09 ?        00:00:00 [rcu_tasks_trace_kthread]
+root        44     2  0 18:09 ?        00:00:00 [kauditd]
+root        45     2  0 18:09 ?        00:00:00 [oom_reaper]
+root        46     2  0 18:09 ?        00:00:00 [kworker/u16:1-gfx]
+root        47     2  0 18:09 ?        00:00:00 [kworker/R-writeback]
+root        48     2  0 18:09 ?        00:00:00 [kworker/u16:2-sdma0]
+root        49     2  0 18:09 ?        00:00:00 [kcompactd0]
+root        50     2  0 18:09 ?        00:00:00 [ksmd]
+root        51     2  0 18:09 ?        00:00:00 [khugepaged]
+root        52     2  0 18:09 ?        00:00:00 [kworker/R-kblockd]
+root        53     2  0 18:09 ?        00:00:00 [kworker/R-blkcg_punt_bio]
+root        54     2  0 18:09 ?        00:00:00 [kworker/R-kintegrityd]
+root        55     2  0 18:09 ?        00:00:00 [irq/9-acpi]
+root        56     2  0 18:09 ?        00:00:00 [kworker/1:1-mm_percpu_wq]
+root        57     2  0 18:09 ?        00:00:00 [kworker/2:1-mm_percpu_wq]
+root        58     2  0 18:09 ?        00:00:00 [kworker/R-tpm_dev_wq]
+root        59     2  0 18:09 ?        00:00:00 [kworker/R-tifm]
+root        60     2  0 18:09 ?        00:00:00 [kworker/R-ata_sff]
+root        61     2  0 18:09 ?        00:00:00 [kworker/R-md]
+root        62     2  0 18:09 ?        00:00:00 [kworker/R-md_bitmap]
+root        63     2  0 18:09 ?        00:00:00 [kworker/R-edac-poller]
+root        64     2  0 18:09 ?        00:00:00 [kworker/R-devfreq_wq]
+root        65     2  0 18:09 ?        00:00:00 [watchdogd]
+root        66     2  0 18:09 ?        00:00:00 [kworker/0:1H-kblockd]
+root        67     2  0 18:09 ?        00:00:00 [kworker/R-cfg80211]
+root        68     2  0 18:09 ?        00:00:00 [irq/24-AMD-Vi]
+root        69     2  0 18:09 ?        00:00:00 [kswapd0]
+root        70     2  0 18:09 ?        00:00:00 [ecryptfs-kthread]
+root        71     2  0 18:09 ?        00:00:00 [kworker/R-kthrotld]
+root        72     2  0 18:09 ?        00:00:00 [kworker/R-acpi_thermal_pm]
+root        73     2  0 18:09 ?        00:00:00 [kworker/R-nvme-wq]
+root        74     2  0 18:09 ?        00:00:00 [kworker/R-nvme-reset-wq]
+root        75     2  0 18:09 ?        00:00:00 [kworker/R-nvme-delete-wq]
+root        76     2  0 18:09 ?        00:00:00 [scsi_eh_0]
+root        77     2  0 18:09 ?        00:00:00 [kworker/R-scsi_tmf_0]
+root        80     2  0 18:09 ?        00:00:00 [kworker/u16:3-events_power_efficient]
+root        81     2  0 18:09 ?        00:00:00 [kworker/u16:4-async]
+root        82     2  0 18:09 ?        00:00:00 [kworker/u16:5]
+root        85     2  0 18:09 ?        00:00:00 [kworker/1:1H-kblockd]
+root        86     2  0 18:09 ?        00:00:00 [kworker/R-uas]
+root        87     2  0 18:09 ?        00:00:00 [kworker/R-kvub300c]
+root        88     2  0 18:09 ?        00:00:00 [kworker/R-kvub300p]
+root        89     2  0 18:09 ?        00:00:00 [kworker/R-kvub300d]
+root        90     2  0 18:09 ?        00:00:00 [kworker/R-kmemstick]
+root        91     2  0 18:09 ?        00:00:00 [kworker/R-mld]
+root        92     2  0 18:09 ?        00:00:00 [kworker/R-ipv6_addrconf]
+root        94     2  0 18:09 ?        00:00:00 [kworker/u17:0-ttm]
+root       105     2  0 18:09 ?        00:00:00 [kworker/R-charger_manager]
+root       113     2  0 18:09 ?        00:00:00 [kworker/3:1-mm_percpu_wq]
+root       122     2  0 18:09 ?        00:00:00 [kworker/3:2-events]
+root       123     2  0 18:09 ?        00:00:00 [kworker/3:3-mm_percpu_wq]
+root       135     2  0 18:09 ?        00:00:00 [kworker/1:2-events]
+root       149     2  0 18:09 ?        00:00:00 [kworker/3:1H-kblockd]
+root       163     2  0 18:09 ?        00:00:00 [kworker/2:1H-kblockd]
+dbus       165     1  0 18:09 ?        00:00:00 dbus-daemon --system
+root       171     1  0 18:09 ?        00:00:00 supervising syslog-ng
+root       172   171  0 18:09 ?        00:00:00 /usr/sbin/syslog-ng
+root       429     1  0 18:09 ?        00:00:00 /sbin/udevd -d
+root       450     2  0 18:09 ?        00:00:00 [kworker/0:2-events]
+root       462     2  0 18:09 ?        00:00:00 [ptp0]
+root       463     2  0 18:09 ?        00:00:00 [kworker/1:3-events]
+root       472     2  0 18:09 ?        00:00:00 [kworker/2:2-events]
+root       479     2  0 18:09 ?        00:00:00 [kworker/R-cryptd]
+root       851     2  0 18:10 ?        00:00:00 [kworker/R-amdgpu-reset-dev]
+root       852     2  0 18:10 ?        00:00:00 [kworker/R-ttm]
+root       853     2  0 18:10 ?        00:00:00 [card0-crtc0]
+root       854     2  0 18:10 ?        00:00:00 [card0-crtc1]
+root       855     2  0 18:10 ?        00:00:00 [card0-crtc2]
+root       856     2  0 18:10 ?        00:00:00 [kworker/R-gfx]
+root       857     2  0 18:10 ?        00:00:00 [kworker/R-comp_1.0.0]
+root       858     2  0 18:10 ?        00:00:00 [kworker/R-comp_1.1.0]
+root       859     2  0 18:10 ?        00:00:00 [kworker/R-comp_1.2.0]
+root       860     2  0 18:10 ?        00:00:00 [kworker/R-comp_1.3.0]
+root       861     2  0 18:10 ?        00:00:00 [kworker/R-comp_1.0.1]
+root       862     2  0 18:10 ?        00:00:00 [kworker/R-comp_1.1.1]
+root       863     2  0 18:10 ?        00:00:00 [kworker/R-comp_1.2.1]
+root       864     2  0 18:10 ?        00:00:00 [kworker/R-comp_1.3.1]
+root       865     2  0 18:10 ?        00:00:00 [kworker/R-sdma0]
+root       866     2  0 18:10 ?        00:00:00 [kworker/R-sdma1]
+root       867     2  0 18:10 ?        00:00:00 [kworker/R-uvd]
+root       868     2  0 18:10 ?        00:00:00 [kworker/R-vce0]
+root       869     2  0 18:10 ?        00:00:00 [kworker/R-vce1]
+root       896     1  0 18:10 ?        00:00:00 /usr/bin/pipewire
+root       905     1  0 18:10 ?        00:00:00 /usr/bin/wireplumber
+root       907     1  0 18:10 ?        00:00:00 /usr/bin/pipewire -c pipewire-pulse.conf
+root       959     1  0 18:10 ?        00:00:00 /usr/sbin/connmand -n -r
+root       970     1  0 18:10 ?        00:00:00 /usr/sbin/wpa_supplicant -u
+root      1015     2  0 18:10 ?        00:00:00 [jbd2/nvme0n1p2-8]
+root      1016     2  0 18:10 ?        00:00:00 [kworker/R-ext4-rsv-conversion]
+root      1491     1  0 18:10 ?        00:00:00 /usr/sbin/irqbalance
+root      1514     1  0 18:10 ?        00:00:00 /usr/sbin/lircd -n --driver=default --device=/dev/lirc0 --output=/var/run/lirc/lircd --pidfile=/var/run/lirc/lircd-lirc0.pid /userdata/system/.config/lirc/lircd.conf
+root      1517  1514  0 18:10 ?        00:00:00 [uname] <defunct>
+root      1619     2  0 18:10 ?        00:00:00 [kworker/u17:1-ttm]
+root      1830     1  0 18:10 ?        00:00:00 /usr/sbin/rpcbind
+root      1879     2  0 18:10 ?        00:00:00 [kworker/u17:2-ttm]
+root      1880     2  0 18:10 ?        00:00:00 [kworker/u17:3-ttm]
+root      1881     2  0 18:10 ?        00:00:00 [kworker/u17:4-ttm]
+root      1882     2  0 18:10 ?        00:00:00 [kworker/u17:5-ttm]
+root      1883     2  0 18:10 ?        00:00:00 [kworker/u17:6-ttm]
+root      1884     2  0 18:10 ?        00:00:00 [kworker/u17:7-ttm]
+root      1885     2  0 18:10 ?        00:00:00 [kworker/u17:8-ttm]
+root      1886     2  0 18:10 ?        00:00:00 [kworker/u17:9]
+root      1897     1  0 18:10 ?        00:00:00 /bin/sh /usr/bin/startx
+root      1906  1897  0 18:10 ?        00:00:00 xinit /etc/X11/xinit/xinitrc -- /usr/bin/X :0
+root      1908  1906  4 18:10 tty2     00:00:01 /usr/bin/X :0
+root      1921     1  0 18:10 ?        00:00:00 /usr/libexec/bluetooth/bluetoothd --noplugin=sixaxispair
+root      1935     1 12 18:10 ?        00:00:04 /usr/sbin/rngd -O jitter:buffer_size:4000 -O jitter:refill_thresh:4000 -O jitter:thread_count:1
+root      1945     1  0 18:10 ?        00:00:00 /usr/sbin/osspd
+ntp       1996     1  0 18:10 ?        00:00:00 /usr/sbin/ntpd -u ntp:ntp -g -p /var/run/ntpd.pid
+avahi     2005     1  0 18:10 ?        00:00:00 avahi-daemon: running [BATOCERA.local]
+avahi     2007  2005  0 18:10 ?        00:00:00 avahi-daemon: chroot helper
+root      2016     1  0 18:10 ?        00:00:00 /usr/sbin/dropbear -W 204800 -R
+polkitd   2022     1  0 18:10 ?        00:00:00 /usr/lib/polkit-1/polkitd --no-debug
+root      2040     1  0 18:10 ?        00:00:00 /usr/sbin/thd --daemon --triggers /etc/triggerhappy/triggers.d/multimedia_keys.conf --socket /var/run/thd.socket --pidfile /var/run/thd.pid /dev/input/event0 /dev/input/event1 /dev/input/event10 /dev/input/event11 /dev/input/event12 /dev/input/event13 /dev/input/event2 /dev/input/event3 /dev/input/event4 /dev/input/event5 /dev/input/event6 /dev/input/event7 /dev/input/event8 /dev/input/event9
+root      2053     1  0 18:10 ?        00:00:00 rpc.statd
+root      2061  1906  0 18:10 ?        00:00:00 /bin/bash /etc/X11/xinit/xinitrc
+root      2063     2  0 18:10 ?        00:00:00 [kworker/R-rpciod]
+root      2064     2  0 18:10 ?        00:00:00 [kworker/R-xprtiod]
+root      2069     1  0 18:10 ?        00:00:00 unclutter --noevents -b
+root      2072  2061  0 18:10 ?        00:00:00 openbox --config-file /etc/openbox/rc.xml --startup emulationstation-standalone
+root      2075  2072  0 18:10 ?        00:00:00 /bin/bash /usr/bin/emulationstation-standalone
+root      2087     2  0 18:10 ?        00:00:00 [lockd]
+root      2221     1  0 18:10 ?        00:00:00 dbus-launch --sh-syntax --exit-with-session
+root      2222     1  0 18:10 ?        00:00:00 /usr/bin/dbus-daemon --syslog --fork --print-pid 5 --print-address 7 --session
+root      2224  2075 19 18:10 ?        00:00:06 emulationstation --exit-on-reboot-required --windowed
+root      2225     2  0 18:10 ?        00:00:00 [nfsd]
+root      2226     2  0 18:10 ?        00:00:00 [nfsd]
+root      2228     1  0 18:10 ?        00:00:00 rpc.mountd
+root      2379     1  1 18:10 ?        00:00:00 python3 /usr/bin/hotkeygen --permanent
+root      2423     1  0 18:10 ?        00:00:00 smbd -D --configfile=/etc/samba/smb.conf
+root      2426  2423  0 18:10 ?        00:00:00 smbd: notifyd
+root      2427  2423  0 18:10 ?        00:00:00 smbd: cleanupd
+root      2435     1  0 18:10 ?        00:00:00 nmbd -D --configfile=/etc/samba/smb.conf
+root      2465     1  1 18:10 ?        00:00:00 python3 /usr/bin/wsdd -w WORKGROUP
+root      2472     1  0 18:10 ?        00:00:00 /usr/bin/joycond
+root      2481     1  0 18:10 ?        00:00:00 login -- root
+root      2482     1  0 18:10 tty4     00:00:00 /bin/bash /usr/bin/batocera-mixer
+root      2483     1  0 18:10 tty5     00:00:00 /sbin/getty 38400 tty5
+root      2484  2482  0 18:10 tty4     00:00:00 /usr/bin/alsamixer -c0
+root      2487  2481  0 18:10 tty3     00:00:00 -bash
+root      2722  2016  0 18:10 ?        00:00:00 /usr/sbin/dropbear -W 204800 -R -2 9
+root      2724  2016  7 18:10 ?        00:00:00 /usr/sbin/dropbear -W 204800 -R -2 10
+root      2726  2722  0 18:10 ?        00:00:00 bash -c timeout 20 ffmpeg -y -f x11grab -video_size 640x480 -i :0.0 -frames:v 1 /userdata/system/logs/vga-pass-20260327T-amdgpu-dc0-after/frame-after-dc0.png >/tmp/ffgrab.dc0.after.log 2>&1; rc=$?; echo rc=$rc; tail -n 20 /tmp/ffgrab.dc0.after.log; echo ---; ls -l /userdata/system/logs/vga-pass-20260327T-amdgpu-dc0-after/frame-after-dc0.png 2>/dev/null || true
+root      2727  2726  0 18:10 ?        00:00:00 timeout 20 ffmpeg -y -f x11grab -video_size 640x480 -i :0.0 -frames:v 1 /userdata/system/logs/vga-pass-20260327T-amdgpu-dc0-after/frame-after-dc0.png
+root      2728  2727 99 18:10 ?        00:00:00 ffmpeg -y -f x11grab -video_size 640x480 -i :0.0 -frames:v 1 /userdata/system/logs/vga-pass-20260327T-amdgpu-dc0-after/frame-after-dc0.png
+root      2729  2724  0 18:10 ?        00:00:00 bash -c mkdir -p /userdata/system/logs/vga-pass-20260327T-amdgpu-dc0-after && dmesg > /userdata/system/logs/vga-pass-20260327T-amdgpu-dc0-after/dmesg.txt && cp /var/log/Xorg.0.log /userdata/system/logs/vga-pass-20260327T-amdgpu-dc0-after/Xorg.0.log && ps -ef > /userdata/system/logs/vga-pass-20260327T-amdgpu-dc0-after/processes.txt && cat /proc/cmdline > /userdata/system/logs/vga-pass-20260327T-amdgpu-dc0-after/proc-cmdline.txt && (grep -nE "Display Core initialized|amdgpu_dm_atomic_commit_tail|flip_done timed out|commit wait timed out|amdgpu_dm" /userdata/system/logs/vga-pass-20260327T-amdgpu-dc0-after/dmesg.txt || true) > /userdata/system/logs/vga-pass-20260327T-amdgpu-dc0-after/amdgpu-key-lines.txt && sed -n "1,240p" /userdata/system/logs/vga-pass-20260327T-amdgpu-dc0-after/amdgpu-key-lines.txt && printf "\n---\n" && grep -nE "Present-flip|Device or resource busy|Cannot allocate memory|flip_done|commit wait" /var/log/Xorg.0.log | tail -n 80
+root      2734  2729  0 18:10 ?        00:00:00 ps -ef

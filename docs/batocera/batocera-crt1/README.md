@@ -27,6 +27,7 @@ Current defaults:
 - UI base resolution target: `768x576`
 - finalize output mode: `hybrid`
 - hybrid HDMI-safe resolution target: `max-1920x1080`
+- VGA-only kernel workaround on this host: `amdgpu.dc=0`
 - connector candidates:
   - `card0-DP-1`
   - `card0-DP-2`
@@ -37,6 +38,7 @@ Apply commands:
 - reset the box to the proven minimal VGA-safe state:
   - `ansible-playbook ansible/playbooks/batocera.yml --limit batocera-crt1 --tags batocera_vga_safe`
   - removes forced `global.videooutput` and `es.resolution`
+  - ensures the default Batocera boot entry contains the host-scoped VGA workaround kernel arg `amdgpu.dc=0`
   - removes `/etc/X11/xorg.conf.d/10-monitor.conf`, `/etc/switchres.ini`, `/userdata/system/videomodes.conf`, `/userdata/system/custom-es-config`, and `/userdata/system/custom.sh`
   - reboot after applying it
 - install CRT script + stage config without switching away from HDMI:
@@ -118,3 +120,22 @@ Simple-X-client findings from 2026-03-26:
   - isolate EmulationStation startup from the stock wrapper
   - capture direct ES stdout/stderr on a working `:0`
   - test SDL/GL software-render or renderer-selection changes one at a time
+
+AMDGPU Display Core findings from 2026-03-27:
+- On the stock VGA-only install, full `dmesg` captured repeated AMDGPU display-pipeline failures while X was running:
+  - `flip_done timed out`
+  - `commit wait timed out`
+  - warnings in `amdgpu_dm_atomic_commit_tail`
+- A fresh stock Batocera live USB reproduced splash-then-black on the same hardware/VGA path, so this is not best explained as repo drift on the installed system.
+- A bounded kernel-argument test was run by adding `amdgpu.dc=0` to the default Batocera boot entry in `/boot/EFI/batocera/syslinux.cfg`.
+- With `amdgpu.dc=0` active:
+  - the stock wrapper-managed session still started
+  - `xrandr` responded cleanly on `DISPLAY=:0.0`
+  - the captured framebuffer changed from a cursor-only black image to a full non-black frame
+  - the sampled `dmesg` no longer contained the previous `amdgpu_dm_atomic_commit_tail`, `flip_done timed out`, or `commit wait timed out` lines
+  - the sampled Xorg log no longer contained the earlier `Present-flip ... Device or resource busy` warnings
+- Current strongest judgment:
+  - the failing boundary on this hardware/VGA path is AMDGPU Display Core / `amdgpu_dm`, not EmulationStation alone
+  - `amdgpu.dc=0` is the current minimal workaround for VGA-only use on this host
+- Debug artifacts for this pass are archived under:
+  - `docs/batocera/batocera-crt1/vga-only-debug/20260327T1810Z-amdgpu-dc0/`

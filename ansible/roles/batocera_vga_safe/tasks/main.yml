@@ -43,6 +43,53 @@
   tags:
     - batocera_vga_safe
 
+- name: Ensure requested kernel args are present on the default Batocera boot entry
+  ansible.builtin.raw: |
+    set -eu
+    cfg=/boot/EFI/batocera/syslinux.cfg
+    mount -o remount,rw /boot
+    tmp=$(mktemp)
+    awk '
+      BEGIN {
+        split(args, wanted, " ")
+        in_default=0
+      }
+      /^LABEL batocera$/ {
+        in_default=1
+        print
+        next
+      }
+      /^LABEL / && $2 != "batocera" {
+        in_default=0
+        print
+        next
+      }
+      in_default && /^\tAPPEND / {
+        line=$0
+        for (i in wanted) {
+          if (wanted[i] != "" && index(line, wanted[i]) == 0) {
+            line = line " " wanted[i]
+          }
+        }
+        print line
+        next
+      }
+      { print }
+    ' args='{{ batocera_vga_safe_kernel_args_present | join(" ") }}' "$cfg" > "$tmp"
+    if cmp -s "$tmp" "$cfg"; then
+      rm -f "$tmp"
+      echo unchanged
+    else
+      cp "$tmp" "$cfg"
+      rm -f "$tmp"
+      echo changed
+    fi
+    mount -o remount,ro /boot
+  register: batocera_vga_safe_syslinux_cfg
+  changed_when: batocera_vga_safe_syslinux_cfg.stdout | trim == 'changed'
+  tags:
+    - batocera_vga_safe
+
 - name: Remove active display override files
   ansible.builtin.raw: |
     changed=0
@@ -75,8 +122,10 @@
     cat > /userdata/system/logs/homelab-batocera-vga-safe.log <<'EOF'
     userdata_cfg_changed={{ 'yes' if batocera_vga_safe_userdata_cfg.changed else 'no' }}
     boot_cfg_changed={{ 'yes' if batocera_vga_safe_boot_cfg.changed else 'no' }}
+    syslinux_cfg_changed={{ 'yes' if batocera_vga_safe_syslinux_cfg.changed else 'no' }}
     override_cleanup_changed={{ 'yes' if batocera_vga_safe_override_cleanup.changed else 'no' }}
-    expected_state=no forced global.videooutput, no forced es.resolution, no active monitor override, no global CRT timing files
+    requested_kernel_args={{ batocera_vga_safe_kernel_args_present | join(' ') if batocera_vga_safe_kernel_args_present | length > 0 else 'none' }}
+    expected_state=no forced global.videooutput, no forced es.resolution, requested default-boot kernel args present, no active monitor override, no global CRT timing files
     EOF
   changed_when: false
   tags:
