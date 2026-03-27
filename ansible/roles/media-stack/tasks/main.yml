@@ -137,23 +137,47 @@
   args:
     chdir: "{{ media_stack_root }}/arr"
 
-- name: Set Servarr apps to external authentication mode
+- name: Set Servarr apps to forms authentication mode
   ansible.builtin.replace:
     path: "{{ config.media_stack.appdata_path }}/{{ item }}/config.xml"
     regexp: "<AuthenticationMethod>[^<]+</AuthenticationMethod>"
-    replace: "<AuthenticationMethod>External</AuthenticationMethod>"
+    replace: "<AuthenticationMethod>Forms</AuthenticationMethod>"
   loop:
     - prowlarr
     - sonarr
     - radarr
-  register: media_servarr_auth_mode
+  register: media_servarr_auth_method
+
+- name: Set Servarr apps to disable auth for local addresses
+  ansible.builtin.replace:
+    path: "{{ config.media_stack.appdata_path }}/{{ item }}/config.xml"
+    regexp: "<AuthenticationRequired>[^<]+</AuthenticationRequired>"
+    replace: "<AuthenticationRequired>DisabledForLocalAddresses</AuthenticationRequired>"
+  loop:
+    - prowlarr
+    - sonarr
+    - radarr
+  register: media_servarr_auth_required
+
+- name: Build Servarr restart list after auth changes
+  ansible.builtin.set_fact:
+    media_servarr_restart_targets: >-
+      {{
+        (
+          media_servarr_auth_method.results
+          + media_servarr_auth_required.results
+        )
+        | selectattr('changed')
+        | map(attribute='item')
+        | unique
+        | list
+      }}
 
 - name: Restart Servarr apps after auth mode change
-  ansible.builtin.command: docker compose up -d {{ item.item }}
+  ansible.builtin.command: docker compose up -d {{ item }}
   args:
     chdir: "{{ media_stack_root }}/arr"
-  loop: "{{ media_servarr_auth_mode.results }}"
-  when: item.changed
+  loop: "{{ media_servarr_restart_targets }}"
 
 - name: Attempt Cleanuparr deployment
   ansible.builtin.command: docker compose up -d cleanuparr

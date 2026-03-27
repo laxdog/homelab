@@ -236,11 +236,11 @@ Scope: VM `120` infra foundation plus day-1 app-layer deployment state.
   - internal `*.laxdog.uk` stays no-auth at the proxy
   - future external `*.lax.dog` is protected at the reverse proxy / Authentik layer
 - App-side auth changes applied on `2026-03-23`:
-  - `Sonarr` switched from `AuthenticationMethod=None` to `AuthenticationMethod=External`
-  - `Radarr` switched from `AuthenticationMethod=None` to `AuthenticationMethod=External`
-  - `Prowlarr` switched from `AuthenticationMethod=None` to `AuthenticationMethod=External`
-  - `AuthenticationRequired` remains `Enabled` for all three Servarr apps
-  - result: these three apps are now prepared for proxy-owned auth instead of app-owned auth
+  - `Sonarr` switched from `AuthenticationMethod=None` to `AuthenticationMethod=Forms`
+  - `Radarr` switched from `AuthenticationMethod=None` to `AuthenticationMethod=Forms`
+  - `Prowlarr` switched from `AuthenticationMethod=None` to `AuthenticationMethod=Forms`
+  - `AuthenticationRequired` is now `DisabledForLocalAddresses` for all three Servarr apps
+  - reason: direct local access should be no-auth, while future external protection stays upstream at NPM + Authentik
 - Services intentionally left alone in this pass:
   - `Cleanuparr`
     - no clear repo-managed external-auth mode was found in the live config layout
@@ -272,6 +272,16 @@ Scope: VM `120` infra foundation plus day-1 app-layer deployment state.
     - `Sonarr` on `8989`
     - `Radarr` on `7878`
     - `Cleanuparr` on `11011`
+- Runtime verification follow-up on `2026-03-23`:
+  - `Sonarr`, `Radarr`, and `Prowlarr` were explicitly restarted after the auth-mode change to ensure the containers reloaded their on-disk config
+  - direct unauthenticated UI requests to `/` still return `200` HTML for all three apps
+  - direct unauthenticated API requests still return `401` for all three apps:
+    - `Sonarr` -> `/api/v3/system/status`
+    - `Radarr` -> `/api/v3/system/status`
+    - `Prowlarr` -> `/api/v1/system/status`
+  - proxied internal `*.laxdog.uk` requests still return `401` through NPM for both the UI root and API status endpoints
+  - conclusion: `DisabledForLocalAddresses` works for direct local access, but the proxied internal path is not currently being treated as local by the apps
+  - practical implication: direct `IP:port` and localhost access are now local-bypass, but `*.laxdog.uk` still prompts until the homelab proxy path is adjusted to preserve a local client identity the apps accept
 
 ## Cleanuparr Investigation
 - Correct working image reference is `ghcr.io/cleanuparr/cleanuparr:latest`
