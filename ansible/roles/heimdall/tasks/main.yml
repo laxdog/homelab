@@ -52,11 +52,41 @@
   ansible.builtin.set_fact:
     heimdall_items: "{{ heimdall_items | default([]) + [item_entry] }}"
   vars:
+    icon_slug_map:
+      AdGuard Internal: adguard-home
+      NPM: nginx-proxy-manager
+      Proxmox: proxmox
+      Organizr: organizr
+      Heimdall: heimdall
+      FreshRSS: freshrss
+      NetAlertX: netalertx
+      Healthchecks: healthchecks
+      CouchDB: couchdb
+      Browser: browserless
+      Apt Cacher: linux
+      Static Sites Internal: nginx
+      Authentik Internal: authentik
+      Home Assistant: home-assistant
+      Nagios: nagios
+      Jellyfin: jellyfin
+      Router: router
+      Plex: plex
+      UniFi Primary: unifi
+      UniFi Secondary: unifi
+      Prowlarr: prowlarr
+      Sonarr: sonarr
+      Radarr: radarr
+      Cleanuparr: cleanuparr
+      SABnzbd: sabnzbd
+      qBittorrent: qbittorrent
+      Raffle Raptor Dev: docker
+    icon_slug: "{{ icon_slug_map.get(item.name, 'docker') }}"
     item_entry:
       title: "{{ item.name }}"
       domain: "{{ item.domain }}"
       url: "https://{{ item.domain }}"
       icon: "icons/{{ item.domain }}.png"
+      icon_url: "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/{{ icon_slug }}.png"
       sql_title: "{{ item.name | replace(\"'\", \"''\") }}"
       sql_url: "{{ ('https://' ~ item.domain) | replace(\"'\", \"''\") }}"
       sql_icon: "{{ ('icons/' ~ item.domain ~ '.png') | replace(\"'\", \"''\") }}"
@@ -75,8 +105,7 @@
 - name: Download Heimdall icons for generated items
   ansible.builtin.shell: >-
     docker exec heimdall sh -lc
-    "test -s /app/www/storage/app/public/{{ item.icon }}
-    || curl -sSL 'https://www.google.com/s2/favicons?sz=64&domain={{ item.domain }}'
+    "curl -fsSL '{{ item.icon_url }}'
     -o /app/www/storage/app/public/{{ item.icon }}"
   loop: "{{ heimdall_items | default([]) }}"
 
