@@ -126,3 +126,32 @@
   when:
     - (item.stdout | trim) != ""
     - (item.stdout | trim) != ('1|0|' ~ item.item.sql_icon)
+
+- name: Check Heimdall dashboard tag membership
+  ansible.builtin.command: >-
+    sqlite3 {{ heimdall_db_path }}
+    "SELECT COUNT(*)
+     FROM item_tag it
+     JOIN items i ON i.id = it.item_id
+     WHERE i.url='{{ item.sql_url }}'
+       AND i.deleted_at IS NULL
+       AND it.tag_id=0;"
+  register: heimdall_dash_membership
+  changed_when: false
+  loop: "{{ heimdall_items | default([]) }}"
+
+- name: Ensure generated Heimdall items are on dashboard tag
+  ansible.builtin.command: >-
+    sqlite3 {{ heimdall_db_path }}
+    "INSERT INTO item_tag (item_id, tag_id, created_at, updated_at)
+     SELECT i.id, 0, datetime('now'), datetime('now')
+     FROM items i
+     WHERE i.url='{{ item.item.sql_url }}'
+       AND i.deleted_at IS NULL
+       AND NOT EXISTS (
+         SELECT 1
+         FROM item_tag it
+         WHERE it.item_id=i.id AND it.tag_id=0
+       );"
+  loop: "{{ heimdall_dash_membership.results | default([]) }}"
+  when: (item.stdout | trim) != "1"
