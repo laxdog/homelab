@@ -4,9 +4,11 @@
     heimdall_config_dir: "/docker/docker-compose-{{ inventory_hostname }}/config"
     heimdall_db_path: "/docker/docker-compose-{{ inventory_hostname }}/config/www/app.sqlite"
 
-- name: Install SQLite for Heimdall automation
+- name: Install Heimdall automation dependencies
   ansible.builtin.apt:
-    name: sqlite3
+    name:
+      - sqlite3
+      - curl
     state: present
     update_cache: true
 
@@ -52,10 +54,31 @@
   vars:
     item_entry:
       title: "{{ item.name }}"
+      domain: "{{ item.domain }}"
       url: "https://{{ item.domain }}"
+      icon: "icons/{{ item.domain }}.png"
       sql_title: "{{ item.name | replace(\"'\", \"''\") }}"
       sql_url: "{{ ('https://' ~ item.domain) | replace(\"'\", \"''\") }}"
+      sql_icon: "{{ ('icons/' ~ item.domain ~ '.png') | replace(\"'\", \"''\") }}"
   loop: "{{ config.npm.proxy_hosts }}"
+
+- name: Ensure Heimdall icon directory exists
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - heimdall
+      - mkdir
+      - -p
+      - /app/www/storage/app/public/icons
+
+- name: Download Heimdall icons for generated items
+  ansible.builtin.shell: >-
+    docker exec heimdall sh -lc
+    "test -s /app/www/storage/app/public/{{ item.icon }}
+    || curl -sSL 'https://www.google.com/s2/favicons?sz=64&domain={{ item.domain }}'
+    -o /app/www/storage/app/public/{{ item.icon }}"
+  loop: "{{ heimdall_items | default([]) }}"
 
 - name: Check if Heimdall item exists
   ansible.builtin.command: >-
@@ -73,10 +96,10 @@
      (title, colour, icon, url, description, pinned, \"order\",
       created_at, updated_at, type, user_id)
      VALUES
-     ('{{ item.item.sql_title }}', '', 'fas fa-link',
+     ('{{ item.item.sql_title }}', '', '{{ item.item.sql_icon }}',
       '{{ item.item.sql_url }}', '',
       1, {{ item_index + 1 }},
-      datetime('now'), datetime('now'), 1, 1);"
+      datetime('now'), datetime('now'), 0, 1);"
   loop: "{{ heimdall_item_lookup.results | default([]) }}"
   loop_control:
     index_var: item_index
@@ -85,7 +108,7 @@
 - name: Check Heimdall item pin/type
   ansible.builtin.command: >-
     sqlite3 {{ heimdall_db_path }}
-    "SELECT pinned || '|' || type
+    "SELECT pinned || '|' || type || '|' || IFNULL(icon,'')
      FROM items
      WHERE url='{{ item.sql_url }}' AND deleted_at IS NULL
      LIMIT 1;"
@@ -93,13 +116,13 @@
   changed_when: false
   loop: "{{ heimdall_items | default([]) }}"
 
-- name: Ensure Heimdall items are pinned and app-type
+- name: Ensure Heimdall items are pinned, app-type, and have icons
   ansible.builtin.command: >-
     sqlite3 {{ heimdall_db_path }}
     "UPDATE items
-     SET pinned=1, type=1, updated_at=datetime('now')
+     SET pinned=1, type=0, icon='{{ item.item.sql_icon }}', updated_at=datetime('now')
      WHERE url='{{ item.item.sql_url }}' AND deleted_at IS NULL;"
   loop: "{{ heimdall_pin_check.results | default([]) }}"
   when:
     - (item.stdout | trim) != ""
-    - (item.stdout | trim) != "1|1"
+    - (item.stdout | trim) != ('1|0|' ~ item.item.sql_icon)
