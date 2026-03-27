@@ -744,7 +744,7 @@ npm:
       add_header Access-Control-Allow-Methods "GET, PUT, POST, HEAD, DELETE, OPTIONS" always;
       add_header Access-Control-Allow-Headers "Authorization, Content-Type, Origin, Accept, Referer" always;
       add_header Access-Control-Allow-Credentials "true" always;
-  - name: Browser
+  - name: Firefox
     domain: browser.laxdog.uk
     forward_host: 10.20.30.162
     forward_port: 5800
@@ -850,23 +850,21 @@ npm:
     certificate: laxdog-internal-le
   - name: Router
     domain: router.laxdog.uk
-    forward_scheme: https
+    forward_scheme: http
     forward_host: 10.20.30.1
-    forward_port: 443
+    forward_port: 80
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
-    authentik_protect: true
-  - name: UniFi Primary
+  - name: Liberty
     domain: unifi-primary.laxdog.uk
-    forward_scheme: https
+    forward_scheme: http
     forward_host: 10.20.30.50
-    forward_port: 443
+    forward_port: 80
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
-    authentik_protect: true
-  - name: UniFi Secondary
+  - name: Ellis
     domain: unifi-secondary.laxdog.uk
     forward_scheme: https
     forward_host: 10.20.30.51
@@ -874,7 +872,6 @@ npm:
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
-    authentik_protect: true
   - name: Raffle Raptor Dev
     domain: raffle-raptor-dev.laxdog.uk
     forward_host: 10.20.30.163
@@ -1610,6 +1607,26 @@ media_stack:
   data_device: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1
   data_filesystem: ext4
   data_mount_path: /srv/data
+  paths:
+    host:
+      appdata_base: /opt/media-stack/appdata
+      data_base: /srv/data
+      media_base: /srv/data/media
+      media_movies: /srv/data/media/movies
+      media_tv: /srv/data/media/tv
+      downloads_base: /srv/data/downloads
+      downloads_incomplete: /srv/data/downloads/incomplete
+      downloads_usenet: /srv/data/downloads/usenet
+      downloads_torrents: /srv/data/downloads/torrents
+    container:
+      data_base: /data
+      media_base: /data/media
+      media_movies: /data/media/movies
+      media_tv: /data/media/tv
+      downloads_base: /data/downloads
+      downloads_incomplete: /data/downloads/incomplete
+      downloads_usenet: /data/downloads/usenet
+      downloads_torrents: /data/downloads/torrents
   data_layout:
   - downloads/incomplete
   - downloads/usenet

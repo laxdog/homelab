@@ -48,6 +48,13 @@
     path: "{{ heimdall_db_path }}"
     timeout: 60
 
+- name: Define Heimdall excluded domains
+  ansible.builtin.set_fact:
+    heimdall_excluded_domains:
+      - heimdall.laxdog.uk
+      - couchdb.laxdog.uk
+      - sites.laxdog.uk
+
 - name: Build Heimdall item list from proxy hosts
   ansible.builtin.set_fact:
     heimdall_items: "{{ heimdall_items | default([]) + [item_entry] }}"
@@ -57,22 +64,19 @@
       NPM: nginx-proxy-manager
       Proxmox: proxmox
       Organizr: organizr
-      Heimdall: heimdall
       FreshRSS: freshrss
       NetAlertX: netalertx
       Healthchecks: healthchecks
-      CouchDB: couchdb
-      Browser: browserless
+      Firefox: firefox
       Apt Cacher: linux
-      Static Sites Internal: nginx
       Authentik Internal: authentik
       Home Assistant: home-assistant
       Nagios: nagios
       Jellyfin: jellyfin
-      Router: router
+      Router: asus-router
       Plex: plex
-      UniFi Primary: unifi
-      UniFi Secondary: unifi
+      Liberty: unifi
+      Ellis: unifi
       Prowlarr: prowlarr
       Sonarr: sonarr
       Radarr: radarr
@@ -91,6 +95,7 @@
       sql_url: "{{ ('https://' ~ item.domain) | replace(\"'\", \"''\") }}"
       sql_icon: "{{ ('icons/' ~ item.domain ~ '.png') | replace(\"'\", \"''\") }}"
   loop: "{{ config.npm.proxy_hosts }}"
+  when: item.domain not in heimdall_excluded_domains
 
 - name: Ensure Heimdall icon directory exists
   ansible.builtin.command:
@@ -137,7 +142,7 @@
 - name: Check Heimdall item pin/type
   ansible.builtin.command: >-
     sqlite3 {{ heimdall_db_path }}
-    "SELECT pinned || '|' || type || '|' || IFNULL(icon,'')
+    "SELECT IFNULL(title,'') || '|' || pinned || '|' || type || '|' || IFNULL(icon,'')
      FROM items
      WHERE url='{{ item.sql_url }}' AND deleted_at IS NULL
      LIMIT 1;"
@@ -149,12 +154,12 @@
   ansible.builtin.command: >-
     sqlite3 {{ heimdall_db_path }}
     "UPDATE items
-     SET pinned=1, type=0, icon='{{ item.item.sql_icon }}', updated_at=datetime('now')
+     SET title='{{ item.item.sql_title }}', pinned=1, type=0, icon='{{ item.item.sql_icon }}', updated_at=datetime('now')
      WHERE url='{{ item.item.sql_url }}' AND deleted_at IS NULL;"
   loop: "{{ heimdall_pin_check.results | default([]) }}"
   when:
     - (item.stdout | trim) != ""
-    - (item.stdout | trim) != ('1|0|' ~ item.item.sql_icon)
+    - (item.stdout | trim) != (item.item.sql_title ~ '|1|0|' ~ item.item.sql_icon)
 
 - name: Check Heimdall dashboard tag membership
   ansible.builtin.command: >-
@@ -184,3 +189,25 @@
        );"
   loop: "{{ heimdall_dash_membership.results | default([]) }}"
   when: (item.stdout | trim) != "1"
+
+- name: Remove excluded items from Heimdall dashboard pin view
+  ansible.builtin.command: >-
+    sqlite3 {{ heimdall_db_path }}
+    "UPDATE items
+     SET pinned=0, updated_at=datetime('now')
+     WHERE url='https://{{ item }}'
+       AND deleted_at IS NULL;"
+  loop: "{{ heimdall_excluded_domains }}"
+
+- name: Remove excluded items from Heimdall dashboard tag
+  ansible.builtin.command: >-
+    sqlite3 {{ heimdall_db_path }}
+    "DELETE FROM item_tag
+     WHERE tag_id=0
+       AND item_id IN (
+         SELECT id
+         FROM items
+         WHERE url='https://{{ item }}'
+           AND deleted_at IS NULL
+       );"
+  loop: "{{ heimdall_excluded_domains }}"

@@ -111,3 +111,4 @@ Internal (`laxdog.uk`):
   - advertises exit-node capability for optional/on-demand client use
   - does not force DNS override on clients in phase 1
   - see `docs/tailscale.md` for manual join/approval/split-DNS steps
+- Follow-up backlog: audit all Debian/Ubuntu containers to confirm apt traffic is using `apt-cacher-ng`.
