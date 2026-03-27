@@ -19,6 +19,7 @@ Historical items retained in the repo:
 Historical Batocera automation retained but no longer active in the main playbook:
 - `ansible/roles/batocera_crt_script`
 - `ansible/roles/batocera_crt_config`
+- old CRT-centric investigative logic and debug-only mutations
 
 Those CRT-related roles are intentionally not part of the current minimal VGA baseline.
 If CRT/UMSA work resumes later, it should restart from the clean baseline and re-validate any reused logic first.
