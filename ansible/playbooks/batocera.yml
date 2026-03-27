@@ -1,4 +1,4 @@
-- name: Manage Batocera baseline and CRT staging
+- name: Manage Batocera VGA baseline
   hosts: batocera_hosts
   gather_facts: false
   vars:
@@ -10,11 +10,3 @@
     - role: batocera_vga_safe
       tags:
         - batocera_vga_safe
-    - role: batocera_crt_script
-      tags:
-        - batocera_crt
-    - role: batocera_crt_config
-      tags:
-        - batocera_crt
-        - batocera_crt_recovery
-        - batocera_crt_test
