@@ -57,6 +57,8 @@ Recommended: `ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass`
 - `media_stack_indexer_nzbgeek_api_key`
 - `media_stack_indexer_nzbfinder_api_key`
 - `media_stack_indexer_nzbplanet_api_key`
+- `media_stack_tvchaosuk_username`
+- `media_stack_tvchaosuk_password`
 - `media_stack_indexer_jackett_api_key`
 - `media_stack_transmission_rpc_username`
 - `media_stack_transmission_rpc_password`

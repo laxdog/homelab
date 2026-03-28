@@ -2,6 +2,27 @@
 - name: Define media stack paths
   ansible.builtin.set_fact:
     media_stack_root: "{{ config.media_stack.stack_root }}"
+    media_stack_paths: "{{ config.media_stack.paths }}"
+    media_stack_prowlarr_public_torrent_indexers:
+      - Knaben
+      - TorrentDownload
+      - LimeTorrents
+    media_stack_bazarr_enabled_providers:
+      - podnapisi
+      - tvsubtitles
+      - yifysubtitles
+    media_stack_bazarr_libraries:
+      - type: series
+        path: "{{ config.media_stack.paths.container.media_tv }}"
+      - type: movies
+        path: "{{ config.media_stack.paths.container.media_movies }}"
+    media_stack_jellyfin_libraries:
+      - name: TV
+        collection_type: tvshows
+        path: /media/tv
+      - name: Movies
+        collection_type: movies
+        path: /media/movies
     media_stack_projects:
       - name: core
         compose_template: core-compose.yaml.j2
@@ -60,14 +81,14 @@
     mode: "0755"
   loop:
     - "{{ media_stack_root }}"
-    - "{{ config.media_stack.appdata_path }}"
+    - "{{ media_stack_paths.host.appdata_base }}"
     - "{{ media_stack_root }}/core"
     - "{{ media_stack_root }}/arr"
     - "{{ media_stack_root }}/downloaders"
 
 - name: Create media stack appdata directories
   ansible.builtin.file:
-    path: "{{ config.media_stack.appdata_path }}/{{ item }}"
+    path: "{{ media_stack_paths.host.appdata_base }}/{{ item }}"
     state: directory
     owner: "{{ config.media_stack.shared_ids.uid }}"
     group: "{{ config.media_stack.shared_ids.gid }}"
@@ -78,11 +99,28 @@
     - prowlarr
     - sonarr
     - radarr
+    - bazarr
     - cleanuparr
     - gluetun
     - sabnzbd
     - nzbget
     - qbittorrent
+
+- name: Normalize qBittorrent download paths
+  ansible.builtin.replace:
+    path: "{{ media_stack_paths.host.appdata_base }}/qbittorrent/qBittorrent/qBittorrent.conf"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.replace }}"
+  loop:
+    - regexp: "^Session\\\\DefaultSavePath=.*$"
+      replace: "Session\\\\DefaultSavePath={{ media_stack_paths.container.downloads_torrents }}/"
+    - regexp: "^Session\\\\TempPath=.*$"
+      replace: "Session\\\\TempPath={{ media_stack_paths.container.downloads_incomplete }}/"
+    - regexp: "^Downloads\\\\SavePath=.*$"
+      replace: "Downloads\\\\SavePath={{ media_stack_paths.container.downloads_torrents }}/"
+    - regexp: "^Downloads\\\\TempPath=.*$"
+      replace: "Downloads\\\\TempPath={{ media_stack_paths.container.downloads_incomplete }}/"
+  register: media_qbittorrent_path_config
 
 - name: Install media stack compose files
   ansible.builtin.template:
@@ -105,7 +143,7 @@
 - name: Install SABnzbd configuration
   ansible.builtin.template:
     src: sabnzbd.ini.j2
-    dest: "{{ config.media_stack.appdata_path }}/sabnzbd/sabnzbd.ini"
+    dest: "{{ media_stack_paths.host.appdata_base }}/sabnzbd/sabnzbd.ini"
     owner: "{{ config.media_stack.shared_ids.uid }}"
     group: "{{ config.media_stack.shared_ids.gid }}"
     mode: "0664"
@@ -133,13 +171,13 @@
     chdir: "{{ media_stack_root }}/core"
 
 - name: Deploy media arr stack
-  ansible.builtin.command: docker compose up -d --remove-orphans prowlarr sonarr radarr
+  ansible.builtin.command: docker compose up -d --remove-orphans prowlarr sonarr radarr bazarr
   args:
     chdir: "{{ media_stack_root }}/arr"
 
 - name: Set Servarr apps to forms authentication mode
   ansible.builtin.replace:
-    path: "{{ config.media_stack.appdata_path }}/{{ item }}/config.xml"
+    path: "{{ media_stack_paths.host.appdata_base }}/{{ item }}/config.xml"
     regexp: "<AuthenticationMethod>[^<]+</AuthenticationMethod>"
     replace: "<AuthenticationMethod>Forms</AuthenticationMethod>"
   loop:
@@ -150,7 +188,7 @@
 
 - name: Set Servarr apps to disable auth for local addresses
   ansible.builtin.replace:
-    path: "{{ config.media_stack.appdata_path }}/{{ item }}/config.xml"
+    path: "{{ media_stack_paths.host.appdata_base }}/{{ item }}/config.xml"
     regexp: "<AuthenticationRequired>[^<]+</AuthenticationRequired>"
     replace: "<AuthenticationRequired>DisabledForLocalAddresses</AuthenticationRequired>"
   loop:
@@ -178,6 +216,14 @@
   args:
     chdir: "{{ media_stack_root }}/arr"
   loop: "{{ media_servarr_restart_targets }}"
+
+- name: Restart qBittorrent after path normalization
+  ansible.builtin.command: docker compose up -d qbittorrent
+  args:
+    chdir: "{{ media_stack_root }}/downloaders"
+  when:
+    - media_downloaders_ready
+    - media_qbittorrent_path_config.results | selectattr('changed') | list | length > 0
 
 - name: Attempt Cleanuparr deployment
   ansible.builtin.command: docker compose up -d cleanuparr
@@ -227,6 +273,105 @@
   delay: 5
   until: prowlarr_http.status in [200, 302, 401]
 
+- name: Read Prowlarr configuration
+  ansible.builtin.slurp:
+    src: "{{ media_stack_paths.host.appdata_base }}/prowlarr/config.xml"
+  register: prowlarr_config_xml
+
+- name: Extract Prowlarr API key
+  ansible.builtin.set_fact:
+    media_prowlarr_api_key: "{{ (prowlarr_config_xml.content | b64decode | regex_search('<ApiKey>([^<]+)</ApiKey>', '\\1')) | first }}"
+
+- name: Read Prowlarr indexers
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.prowlarr.port }}/api/v1/indexer"
+    method: GET
+    headers:
+      X-Api-Key: "{{ media_prowlarr_api_key }}"
+    status_code: 200
+  register: prowlarr_indexers
+
+- name: Read Prowlarr indexer schema
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.prowlarr.port }}/api/v1/indexer/schema"
+    method: GET
+    headers:
+      X-Api-Key: "{{ media_prowlarr_api_key }}"
+    status_code: 200
+  register: prowlarr_indexer_schema
+
+- name: Create validated public torrent indexers in Prowlarr
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.prowlarr.port }}/api/v1/indexer"
+    method: POST
+    headers:
+      X-Api-Key: "{{ media_prowlarr_api_key }}"
+    body_format: json
+    body: >-
+      {{
+        (
+          prowlarr_indexer_schema.json
+          | selectattr('name', 'equalto', item)
+          | list
+          | first
+        )
+        | combine({'appProfileId': 1, 'enable': true, 'tags': []}, recursive=True)
+      }}
+    status_code: [200, 201]
+  loop: "{{ media_stack_prowlarr_public_torrent_indexers }}"
+  when: item not in (prowlarr_indexers.json | map(attribute='name') | list)
+
+- name: Create and validate TVChaosUK in Prowlarr when credentials are present
+  ansible.builtin.shell: |
+    python3 - <<'PY'
+    import json
+    import requests
+    import xml.etree.ElementTree as ET
+
+    api_key = ET.parse("{{ media_stack_paths.host.appdata_base }}/prowlarr/config.xml").getroot().findtext("ApiKey")
+    headers = {"X-Api-Key": api_key}
+    base = "http://127.0.0.1:{{ config.media_stack.apps.prowlarr.port }}"
+    username = {{ media_stack_tvchaosuk_username | trim | to_json }}
+    password = {{ media_stack_tvchaosuk_password | trim | to_json }}
+
+    indexers = requests.get(f"{base}/api/v1/indexer", headers=headers, timeout=30)
+    indexers.raise_for_status()
+    if any(x.get("name") == "TVChaosUK" for x in indexers.json()):
+        print("exists")
+        raise SystemExit(0)
+
+    schema = requests.get(f"{base}/api/v1/indexer/schema", headers=headers, timeout=30)
+    schema.raise_for_status()
+    payload = next(x for x in schema.json() if x.get("name") == "TVChaosUK")
+    payload["appProfileId"] = 1
+    payload["enable"] = True
+    payload["tags"] = []
+    for field in payload.get("fields", []):
+        if field.get("name") == "username":
+            field["value"] = username
+        elif field.get("name") == "password":
+            field["value"] = password
+        elif field.get("name") == "baseUrl" and not field.get("value"):
+            urls = payload.get("indexerUrls") or []
+            if urls:
+                field["value"] = urls[0]
+
+    test = requests.post(f"{base}/api/v1/indexer/test", headers=headers, json=payload, timeout=60)
+    if test.status_code >= 400:
+        raise SystemExit(f"TVChaosUK validation failed with {test.status_code}: {test.text}")
+    if test.text.strip() not in ("", "{}"):
+        raise SystemExit(f"TVChaosUK validation did not return a clean result: {test.text}")
+
+    create = requests.post(f"{base}/api/v1/indexer", headers=headers, json=payload, timeout=60)
+    create.raise_for_status()
+    print("created")
+    PY
+  args:
+    executable: /bin/bash
+  when:
+    - media_stack_tvchaosuk_username | default('') | length > 0
+    - media_stack_tvchaosuk_password | default('') | length > 0
+
 - name: Wait for Sonarr to answer locally
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ config.media_stack.apps.sonarr.port }}"
@@ -247,6 +392,232 @@
   delay: 5
   until: radarr_http.status in [200, 302, 401]
 
+- name: Wait for Bazarr to answer locally
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.bazarr.port }}"
+    method: GET
+    status_code: [200, 302, 401]
+  register: bazarr_http
+  retries: 12
+  delay: 5
+  until: bazarr_http.status in [200, 302, 401]
+
+- name: Bootstrap Bazarr settings, providers, and language profile
+  ansible.builtin.shell: |
+    python3 - <<'PY'
+    import json
+    import pathlib
+    import xml.etree.ElementTree as ET
+
+    import requests
+    import yaml
+
+    appdata = pathlib.Path("{{ media_stack_paths.host.appdata_base }}")
+    bazarr_cfg = yaml.safe_load((appdata / "bazarr" / "config" / "config.yaml").read_text())
+    bazarr_key = bazarr_cfg["auth"]["apikey"]
+    sonarr_key = ET.parse(appdata / "sonarr" / "config.xml").getroot().findtext("ApiKey")
+    radarr_key = ET.parse(appdata / "radarr" / "config.xml").getroot().findtext("ApiKey")
+
+    headers = {"X-API-KEY": bazarr_key}
+    base = "http://127.0.0.1:{{ config.media_stack.apps.bazarr.port }}"
+
+    desired_profile = [{
+        "profileId": 1,
+        "name": "English + French + German",
+        "cutoff": None,
+        "items": [
+            {"id": 1, "language": "en", "forced": "False", "hi": "False", "audio_exclude": "False", "audio_only_include": "False"},
+            {"id": 2, "language": "fr", "forced": "False", "hi": "False", "audio_exclude": "False", "audio_only_include": "False"},
+            {"id": 3, "language": "de", "forced": "False", "hi": "False", "audio_exclude": "False", "audio_only_include": "False"},
+        ],
+        "mustContain": [],
+        "mustNotContain": [],
+        "originalFormat": 0,
+        "tag": None,
+    }]
+    desired_languages = ["en", "fr", "de"]
+    desired_providers = {{ media_stack_bazarr_enabled_providers | to_json }}
+
+    settings = requests.get(f"{base}/api/system/settings", headers=headers, timeout=60)
+    settings.raise_for_status()
+    settings_json = settings.json()
+
+    languages = requests.get(f"{base}/api/system/languages", headers=headers, timeout=60)
+    languages.raise_for_status()
+    enabled_languages = sorted([x["code2"] for x in languages.json() if x.get("enabled")])
+
+    profiles = requests.get(f"{base}/api/system/languages/profiles", headers=headers, timeout=60)
+    profiles.raise_for_status()
+    profiles_json = profiles.json()
+
+    desired_providers_sorted = sorted(desired_providers)
+    current_providers_sorted = sorted(settings_json["general"]["enabled_providers"])
+
+    need_update = any([
+        settings_json["general"]["use_sonarr"] is not True,
+        settings_json["general"]["use_radarr"] is not True,
+        settings_json["general"]["serie_default_enabled"] is not True,
+        str(settings_json["general"]["serie_default_profile"]) != "1",
+        settings_json["general"]["movie_default_enabled"] is not True,
+        str(settings_json["general"]["movie_default_profile"]) != "1",
+        settings_json["sonarr"]["ip"] != "10.20.30.120",
+        str(settings_json["sonarr"]["port"]) != "8989",
+        settings_json["sonarr"]["base_url"] not in ("", "/"),
+        settings_json["sonarr"]["ssl"] is not False,
+        settings_json["sonarr"]["apikey"] != sonarr_key,
+        settings_json["radarr"]["ip"] != "10.20.30.120",
+        str(settings_json["radarr"]["port"]) != "7878",
+        settings_json["radarr"]["base_url"] not in ("", "/"),
+        settings_json["radarr"]["ssl"] is not False,
+        settings_json["radarr"]["apikey"] != radarr_key,
+        sorted(enabled_languages) != desired_languages,
+        current_providers_sorted != desired_providers_sorted,
+        profiles_json != desired_profile,
+    ])
+
+    if not need_update:
+        print("ok")
+        raise SystemExit(0)
+
+    form = [
+        ("settings-general-use_sonarr", "true"),
+        ("settings-sonarr-ip", "10.20.30.120"),
+        ("settings-sonarr-port", "8989"),
+        ("settings-sonarr-base_url", "/"),
+        ("settings-sonarr-ssl", "false"),
+        ("settings-sonarr-apikey", sonarr_key),
+        ("settings-general-use_radarr", "true"),
+        ("settings-radarr-ip", "10.20.30.120"),
+        ("settings-radarr-port", "7878"),
+        ("settings-radarr-base_url", "/"),
+        ("settings-radarr-ssl", "false"),
+        ("settings-radarr-apikey", radarr_key),
+        ("settings-general-serie_default_enabled", "true"),
+        ("settings-general-serie_default_profile", "1"),
+        ("settings-general-movie_default_enabled", "true"),
+        ("settings-general-movie_default_profile", "1"),
+        ("languages-profiles", json.dumps(desired_profile)),
+    ]
+    for lang in desired_languages:
+        form.append(("languages-enabled", lang))
+    for provider in desired_providers:
+        form.append(("settings-general-enabled_providers", provider))
+
+    response = requests.post(f"{base}/api/system/settings", headers=headers, data=form, timeout=60)
+    response.raise_for_status()
+    print("changed")
+    PY
+  args:
+    executable: /bin/bash
+  register: bazarr_bootstrap
+  changed_when: "'changed' in bazarr_bootstrap.stdout"
+
+- name: Read Sonarr configuration
+  ansible.builtin.slurp:
+    src: "{{ media_stack_paths.host.appdata_base }}/sonarr/config.xml"
+  register: sonarr_config_xml
+
+- name: Read Radarr configuration
+  ansible.builtin.slurp:
+    src: "{{ media_stack_paths.host.appdata_base }}/radarr/config.xml"
+  register: radarr_config_xml
+
+- name: Extract Sonarr API key
+  ansible.builtin.set_fact:
+    media_sonarr_api_key: "{{ (sonarr_config_xml.content | b64decode | regex_search('<ApiKey>([^<]+)</ApiKey>', '\\1')) | first }}"
+
+- name: Extract Radarr API key
+  ansible.builtin.set_fact:
+    media_radarr_api_key: "{{ (radarr_config_xml.content | b64decode | regex_search('<ApiKey>([^<]+)</ApiKey>', '\\1')) | first }}"
+
+- name: Read Sonarr root folders
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.sonarr.port }}/api/v3/rootfolder"
+    method: GET
+    headers:
+      X-Api-Key: "{{ media_sonarr_api_key }}"
+    status_code: 200
+  register: sonarr_rootfolders
+
+- name: Read Radarr root folders
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.radarr.port }}/api/v3/rootfolder"
+    method: GET
+    headers:
+      X-Api-Key: "{{ media_radarr_api_key }}"
+    status_code: 200
+  register: radarr_rootfolders
+
+- name: Read Sonarr delay profiles
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.sonarr.port }}/api/v3/delayprofile"
+    method: GET
+    headers:
+      X-Api-Key: "{{ media_sonarr_api_key }}"
+    status_code: 200
+  register: sonarr_delayprofiles
+
+- name: Read Radarr delay profiles
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.radarr.port }}/api/v3/delayprofile"
+    method: GET
+    headers:
+      X-Api-Key: "{{ media_radarr_api_key }}"
+    status_code: 200
+  register: radarr_delayprofiles
+
+- name: Prefer usenet for Sonarr default delay profiles
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.sonarr.port }}/api/v3/delayprofile/{{ item.id }}"
+    method: PUT
+    headers:
+      X-Api-Key: "{{ media_sonarr_api_key }}"
+    body_format: json
+    body: "{{ item | combine({'preferredProtocol': 'usenet', 'enableUsenet': true, 'enableTorrent': true}, recursive=True) }}"
+    status_code: [200, 202]
+  loop: "{{ sonarr_delayprofiles.json }}"
+  when:
+    - (item.tags | default([]) | length) == 0
+    - item.preferredProtocol != 'usenet' or (not item.enableUsenet) or (not item.enableTorrent)
+
+- name: Prefer usenet for Radarr default delay profiles
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.radarr.port }}/api/v3/delayprofile/{{ item.id }}"
+    method: PUT
+    headers:
+      X-Api-Key: "{{ media_radarr_api_key }}"
+    body_format: json
+    body: "{{ item | combine({'preferredProtocol': 'usenet', 'enableUsenet': true, 'enableTorrent': true}, recursive=True) }}"
+    status_code: [200, 202]
+  loop: "{{ radarr_delayprofiles.json }}"
+  when:
+    - (item.tags | default([]) | length) == 0
+    - item.preferredProtocol != 'usenet' or (not item.enableUsenet) or (not item.enableTorrent)
+
+- name: Ensure Sonarr root folder exists
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.sonarr.port }}/api/v3/rootfolder"
+    method: POST
+    headers:
+      X-Api-Key: "{{ media_sonarr_api_key }}"
+    body_format: json
+    body:
+      path: "{{ media_stack_paths.container.media_tv }}"
+    status_code: [200, 201]
+  when: media_stack_paths.container.media_tv not in (sonarr_rootfolders.json | map(attribute='path') | list)
+
+- name: Ensure Radarr root folder exists
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.radarr.port }}/api/v3/rootfolder"
+    method: POST
+    headers:
+      X-Api-Key: "{{ media_radarr_api_key }}"
+    body_format: json
+    body:
+      path: "{{ media_stack_paths.container.media_movies }}"
+    status_code: [200, 201]
+  when: media_stack_paths.container.media_movies not in (radarr_rootfolders.json | map(attribute='path') | list)
+
 - name: Wait for Cleanuparr to answer locally
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ config.media_stack.apps.cleanuparr.port }}/health"
@@ -260,12 +631,12 @@
 
 - name: Read Jellyfin system configuration
   ansible.builtin.slurp:
-    src: "{{ config.media_stack.appdata_path }}/jellyfin/config/system.xml"
+    src: "{{ media_stack_paths.host.appdata_base }}/jellyfin/config/system.xml"
   register: jellyfin_system_xml
 
 - name: Set Jellyfin server name
   ansible.builtin.replace:
-    path: "{{ config.media_stack.appdata_path }}/jellyfin/config/system.xml"
+    path: "{{ media_stack_paths.host.appdata_base }}/jellyfin/config/system.xml"
     regexp: "<ServerName>.*</ServerName>"
     replace: "<ServerName>{{ config.jellyfin.server_name }}</ServerName>"
   when: config.jellyfin.server_name | length > 0
@@ -323,3 +694,48 @@
     method: POST
     status_code: [200, 204]
   when: not jellyfin_wizard_complete
+
+- name: Authenticate to Jellyfin admin API
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.jellyfin.port }}/Users/AuthenticateByName"
+    method: POST
+    headers:
+      Authorization: 'MediaBrowser Client="Ansible", Device="Ansible", DeviceId="media-stack", Version="1.0.0"'
+    body_format: json
+    body:
+      Username: "{{ config.jellyfin.admin_user }}"
+      Pw: "{{ jellyfin_admin_password }}"
+    status_code: 200
+  register: jellyfin_auth
+  no_log: true
+
+- name: Read Jellyfin libraries
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.jellyfin.port }}/Library/VirtualFolders"
+    method: GET
+    headers:
+      X-Emby-Token: "{{ jellyfin_auth.json.AccessToken }}"
+    status_code: 200
+  register: jellyfin_libraries
+
+- name: Create Jellyfin libraries
+  ansible.builtin.uri:
+    url: >-
+      http://127.0.0.1:{{ config.media_stack.apps.jellyfin.port }}/Library/VirtualFolders
+      ?name={{ item.name | urlencode }}
+      &collectionType={{ item.collection_type | urlencode }}
+      &paths={{ item.path | urlencode }}
+    method: POST
+    headers:
+      X-Emby-Token: "{{ jellyfin_auth.json.AccessToken }}"
+    status_code: [200, 204]
+  loop: "{{ media_stack_jellyfin_libraries }}"
+  when: item.name not in (jellyfin_libraries.json | map(attribute='Name') | list)
+
+- name: Refresh Jellyfin libraries
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.jellyfin.port }}/Library/Refresh"
+    method: POST
+    headers:
+      X-Emby-Token: "{{ jellyfin_auth.json.AccessToken }}"
+    status_code: [200, 204]

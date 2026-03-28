@@ -84,10 +84,34 @@ Scope: VM `120` infra foundation plus day-1 app-layer deployment state.
 
 ## Day-1 Path Mapping
 - Shared UID/GID remains `1000:1000`
+- Repo-managed shared path source of truth now lives under `config.media_stack.paths`
+- Host-visible path definitions:
+  - appdata base: `/opt/media-stack/appdata`
+  - bulk data base: `/srv/data`
+  - media base: `/srv/data/media`
+  - movies root: `/srv/data/media/movies`
+  - tv root: `/srv/data/media/tv`
+  - downloads base: `/srv/data/downloads`
+  - incomplete downloads: `/srv/data/downloads/incomplete`
+  - usenet downloads: `/srv/data/downloads/usenet`
+  - torrent downloads: `/srv/data/downloads/torrents`
+- Container-visible path definitions:
+  - data base: `/data`
+  - media base: `/data/media`
+  - movies root: `/data/media/movies`
+  - tv root: `/data/media/tv`
+  - downloads base: `/data/downloads`
+  - incomplete downloads: `/data/downloads/incomplete`
+  - usenet downloads: `/data/downloads/usenet`
+  - torrent downloads: `/data/downloads/torrents`
 - Arr and downloader containers mount `/srv/data` at `/data`
 - Media servers mount `/srv/data/media` read-only at `/media`
 - Hardlink-friendly imports depend on using `/data/downloads/...` and `/data/media/...` consistently in Sonarr and Radarr
 - SABnzbd is configured for `/data/downloads/incomplete` -> `/data/downloads/usenet`
+- qBittorrent is configured for `/data/downloads/torrents` with temp files in `/data/downloads/incomplete`
+- Intended and now-seeded Servarr root folders:
+  - Sonarr: `/data/media/tv`
+  - Radarr: `/data/media/movies`
 - category mappings carried forward from legacy:
   - Radarr -> `movies`
   - Sonarr -> `tv`
@@ -227,9 +251,145 @@ Scope: VM `120` infra foundation plus day-1 app-layer deployment state.
     - `Resource temporarily unavailable (api.nzbplanet.net:443)`
   - a subsequent retry with the same key succeeded
   - `NzbPlanet` was then created successfully in Prowlarr as a `Newznab` indexer
+- Path normalization follow-up on `2026-03-27`:
+  - shared media-stack host/container paths were centralized under `config.media_stack.paths`
+  - compose templates now reuse those shared path definitions instead of repeating one-off literals
+  - SABnzbd bootstrap now consumes the shared container download paths from the centralized path model
+  - qBittorrent config normalization is repo-managed in the media-stack role and now sets:
+    - `DefaultSavePath=/data/downloads/torrents/`
+    - `TempPath=/data/downloads/incomplete/`
+  - Sonarr root folders are now seeded repo-managed via API and currently contain:
+    - `/data/media/tv` (`accessible: true`)
+  - Radarr root folders are now seeded repo-managed via API and currently contain:
+    - `/data/media/movies` (`accessible: true`)
+  - live path validation on VM `120` confirmed:
+    - qBittorrent config uses `/data/downloads/torrents/` and `/data/downloads/incomplete/`
+    - SABnzbd uses `/data/downloads/incomplete` -> `/data/downloads/usenet`
+    - Sonarr and Radarr both report the intended root folders as accessible
+- Prowlarr torrent indexer follow-up on `2026-03-28`:
+  - no private torrent-tracker credentials were found in repo-managed secrets or the earlier legacy extraction set
+  - a small public/general torrent shortlist was evaluated from the live Prowlarr schema:
+    - `Knaben`
+    - `TorrentDownload`
+    - `LimeTorrents`
+    - `YTS`
+    - `EZTV`
+  - validated and added as managed public torrent indexers:
+    - `Knaben`
+    - `TorrentDownload`
+    - `LimeTorrents`
+  - `BitSearch` was explicitly not added after failing Prowlarr validation with `Name does not resolve`
+  - `TorrentGalaxyClone` was explicitly not added after Prowlarr validation redirected to `https://torrentgalaxy.info/get-posts/`
+  - `YTS` and `EZTV` were intentionally left out because live validation did not complete cleanly enough to justify leaving unstable public entries behind
+  - `TVChaosUK` is directly supported by the live Prowlarr schema as a private `Cardigann` torrent indexer, but it requires:
+    - `username`
+    - `password`
+  - `TVChaosUK` was not added because no repo-managed or previously extracted credential source currently provides those values
+  - current Prowlarr indexer state is now:
+    - `Knaben` working (`torrent`)
+    - `TorrentDownload` working (`torrent`)
+    - `LimeTorrents` working (`torrent`)
+    - `NZBFinder` working (`usenet`)
+    - `NZBgeek` working (`usenet`)
+    - `NzbPlanet` working (`usenet`)
+  - existing Prowlarr app links remained intact:
+    - `Sonarr` full sync
+    - `Radarr` full sync
+  - post-add verification confirmed the synced torrent set appears in downstream apps:
+    - Sonarr indexers
+    - Radarr indexers
+    - Sonarr currently shows:
+      - `Knaben (Prowlarr)`
+      - `LimeTorrents (Prowlarr)`
+      - `TorrentDownload (Prowlarr)`
+    - Radarr currently shows:
+      - `Knaben (Prowlarr)`
+      - `TorrentDownload (Prowlarr)`
+- Torrent and subtitle follow-up on `2026-03-28`:
+  - `TVChaosUK` credentials are now stored repo-managed in:
+    - `ansible/secrets.yml` -> `media_stack_tvchaosuk_username`
+    - `ansible/secrets.yml` -> `media_stack_tvchaosuk_password`
+  - `TVChaosUK` is a direct native `Cardigann` indexer in the live Prowlarr schema and is now created from those vaulted credentials by the media-stack role
+  - live validation now confirms:
+    - `TVChaosUK` exists in Prowlarr as an enabled torrent indexer
+    - direct `indexer/test` against the live Prowlarr API returns `200 {}`
+    - downstream sync is active:
+      - `Sonarr` now shows `TVChaosUK (Prowlarr)`
+      - `Radarr` now shows `TVChaosUK (Prowlarr)`
+  - `LimeTorrents` still does not sync into `Radarr` even though it syncs into `Sonarr`
+  - the live reason is Prowlarr-side, not downloader-side:
+    - Prowlarr logs report `No Results in configured categories. See FAQ Entry: Prowlarr will not sync X Indexer to App`
+    - Sonarr receives `LimeTorrents (Prowlarr)` as a TV-only indexer with categories `[5000]`
+    - Radarr does not receive it because the movie-category validation path did not produce results cleanly enough for Prowlarr to sync it
+  - current intended torrent set is therefore:
+    - `Knaben`
+    - `TorrentDownload`
+    - `LimeTorrents`
+    - `TVChaosUK`
+- Torrent fallback / usenet preference follow-up on `2026-03-28`:
+  - Sonarr default delay profile already had the correct live settings and is now explicitly preserved by the repo-managed role:
+    - `enableUsenet: true`
+    - `enableTorrent: true`
+    - `preferredProtocol: usenet`
+  - Radarr default delay profile already had the correct live settings and is now explicitly preserved by the repo-managed role:
+    - `enableUsenet: true`
+    - `enableTorrent: true`
+    - `preferredProtocol: usenet`
+  - practical effect:
+    - normal automated release handling prefers usenet first
+    - torrents remain enabled as fallback when usenet is not available
+  - caveat:
+    - manual searches do not necessarily reflect the same protocol preference behavior as normal automated processing
+- Jellyfin library follow-up on `2026-03-28`:
+  - the existing repo-managed Jellyfin bootstrap was extended to authenticate with the vaulted admin account and seed libraries via the Jellyfin API
+  - current managed Jellyfin libraries are:
+    - `TV` -> `/media/tv`
+    - `Movies` -> `/media/movies`
+  - a library refresh is now triggered by the media-stack role after ensuring the libraries exist
+  - validation confirmed:
+    - Jellyfin reports both libraries through `/Library/VirtualFolders`
+    - the library paths are the expected container-visible media mount paths
+    - a post-refresh item query returned `TotalRecordCount=1`, so at least one media item is already being detected
+- Bazarr follow-up on `2026-03-28`:
+  - Bazarr is now part of the repo-managed `arr` stack on `10.20.30.120:6767`
+  - appdata path:
+    - `/opt/media-stack/appdata/bazarr`
+  - shared container-visible media path model is reused unchanged:
+    - TV content under `/data/media/tv`
+    - Movies content under `/data/media/movies`
+  - Bazarr is configured repo-managed against the local Servarr apps:
+    - Sonarr at `10.20.30.120:8989`
+    - Radarr at `10.20.30.120:7878`
+  - Bazarr now uses one default language profile for both series and movies:
+    - `English + French + German`
+    - desired languages:
+      - English
+      - French
+      - German
+  - current subtitle providers enabled without extra credentials:
+    - `podnapisi`
+    - `tvsubtitles`
+    - `yifysubtitles`
+  - subtitle preference caveat:
+    - Bazarr can express the desired language set cleanly, but it does not provide a clean repo-managed way to make SDH / CC a strict soft-preference without risking over-filtering
+    - current configuration therefore keeps normal English/French/German subtitle preference in place and relies on Bazarr's existing hearing-impaired scoring/provider behavior where available
+    - SDH / CC is preferred only as far as the provider result set and Bazarr's built-in scoring allow; it is not guaranteed
+  - current live validation after bootstrap:
+    - `Bazarr` answers on `10.20.30.120:6767`
+    - `/api/system/status` reports live `Sonarr` and `Radarr` versions, confirming both app connections are active
+    - `/api/system/health` is clean
+    - `/api/system/languages/profiles` contains the managed `English + French + German` profile
+    - `/api/providers` reports:
+      - `podnapisi` good
+      - `tvsubtitles` good
+      - `yifysubtitles` good
+    - current synced Bazarr content state:
+      - series total: `1`
+      - movies total: `0`
 - Current blockers:
   - Plex claim remains optional and is still a manual/bootstrap follow-up if desired
-  - no indexer blocker remains for day-1 Prowlarr; current configured indexers are `NZBFinder`, `NZBgeek`, and `NzbPlanet`
+  - no blocker remains for the current working Prowlarr usenet set; configured indexers are `NZBFinder`, `NZBgeek`, and `NzbPlanet`
+  - no blocker remains for the current managed torrent set; configured indexers are `Knaben`, `TorrentDownload`, `LimeTorrents`, and `TVChaosUK`
 
 ## App Auth Mode Split Prep
 - Goal for later proxy work:

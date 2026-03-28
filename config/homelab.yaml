@@ -1689,6 +1689,9 @@ media_stack:
     radarr:
       image: lscr.io/linuxserver/radarr:latest
       port: 7878
+    bazarr:
+      image: lscr.io/linuxserver/bazarr:latest
+      port: 6767
     cleanuparr:
       image: ghcr.io/cleanuparr/cleanuparr:latest
       port: 11011

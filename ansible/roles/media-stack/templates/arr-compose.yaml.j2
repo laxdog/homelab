@@ -13,7 +13,7 @@ services:
     ports:
       - "{{ config.media_stack.apps.prowlarr.port }}:9696"
     volumes:
-      - "{{ config.media_stack.appdata_path }}/prowlarr:/config"
+      - "{{ config.media_stack.paths.host.appdata_base }}/prowlarr:/config"
 
   sonarr:
     image: "{{ config.media_stack.apps.sonarr.image }}"
@@ -26,8 +26,8 @@ services:
     ports:
       - "{{ config.media_stack.apps.sonarr.port }}:8989"
     volumes:
-      - "{{ config.media_stack.appdata_path }}/sonarr:/config"
-      - "{{ config.media_stack.data_mount_path }}:/data"
+      - "{{ config.media_stack.paths.host.appdata_base }}/sonarr:/config"
+      - "{{ config.media_stack.paths.host.data_base }}:{{ config.media_stack.paths.container.data_base }}"
 
   radarr:
     image: "{{ config.media_stack.apps.radarr.image }}"
@@ -40,8 +40,22 @@ services:
     ports:
       - "{{ config.media_stack.apps.radarr.port }}:7878"
     volumes:
-      - "{{ config.media_stack.appdata_path }}/radarr:/config"
-      - "{{ config.media_stack.data_mount_path }}:/data"
+      - "{{ config.media_stack.paths.host.appdata_base }}/radarr:/config"
+      - "{{ config.media_stack.paths.host.data_base }}:{{ config.media_stack.paths.container.data_base }}"
+
+  bazarr:
+    image: "{{ config.media_stack.apps.bazarr.image }}"
+    container_name: bazarr
+    restart: unless-stopped
+    environment:
+      TZ: "{{ config.homelab.timezone }}"
+      PUID: "{{ config.media_stack.shared_ids.uid }}"
+      PGID: "{{ config.media_stack.shared_ids.gid }}"
+    ports:
+      - "{{ config.media_stack.apps.bazarr.port }}:6767"
+    volumes:
+      - "{{ config.media_stack.paths.host.appdata_base }}/bazarr:/config"
+      - "{{ config.media_stack.paths.host.data_base }}:{{ config.media_stack.paths.container.data_base }}"
 
   cleanuparr:
     image: "{{ config.media_stack.apps.cleanuparr.image }}"
@@ -57,4 +71,4 @@ services:
     ports:
       - "{{ config.media_stack.apps.cleanuparr.port }}:{{ config.media_stack.apps.cleanuparr.port }}"
     volumes:
-      - "{{ config.media_stack.appdata_path }}/cleanuparr:/config"
+      - "{{ config.media_stack.paths.host.appdata_base }}/cleanuparr:/config"
