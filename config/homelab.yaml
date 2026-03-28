@@ -193,6 +193,8 @@ adguard:
     answer: 10.20.30.154
   - domain: radarr.laxdog.uk
     answer: 10.20.30.154
+  - domain: bazarr.laxdog.uk
+    answer: 10.20.30.154
   - domain: cleanuparr.laxdog.uk
     answer: 10.20.30.154
   - domain: sabnzbd.laxdog.uk
@@ -647,6 +649,7 @@ npm:
     - prowlarr.laxdog.uk
     - sonarr.laxdog.uk
     - radarr.laxdog.uk
+    - bazarr.laxdog.uk
     - cleanuparr.laxdog.uk
     - sabnzbd.laxdog.uk
     - qbittorrent.laxdog.uk
@@ -828,6 +831,13 @@ npm:
     domain: radarr.laxdog.uk
     forward_host: 10.20.30.120
     forward_port: 7878
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Bazarr
+    domain: bazarr.laxdog.uk
+    forward_host: 10.20.30.120
+    forward_port: 6767
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
