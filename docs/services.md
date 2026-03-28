@@ -30,6 +30,7 @@ Source of truth: `config/homelab.yaml`.
 ## NPM Hostnames
 External (`lax.dog`):
 - External access is enabled behind Authentik for admin services.
+- `lax.dog` -> Heimdall (Authentik-protected root landing page)
 - `auth.lax.dog` -> Authentik
 - `jellyfin.lax.dog` -> Jellyfin (native auth; no forward-auth)
 - `nagios.lax.dog` -> Nagios (Authentik SSO + TOTP)
@@ -40,6 +41,7 @@ External (`lax.dog`):
 - `raffle-raptor-dev.lax.dog` -> raffle-raptor-dev via NPM (`10.20.30.163:8081`)
 
 Internal (`laxdog.uk`):
+- `laxdog.uk` -> Heimdall (internal root landing page)
 - `dns.laxdog.uk` -> AdGuard UI
 - `npm.laxdog.uk` -> Nginx Proxy Manager UI
 - `proxmox.laxdog.uk` -> Proxmox UI
@@ -112,5 +114,4 @@ Internal (`laxdog.uk`):
   - advertises exit-node capability for optional/on-demand client use
   - does not force DNS override on clients in phase 1
   - see `docs/tailscale.md` for manual join/approval/split-DNS steps
-- Follow-up backlog: audit all Debian/Ubuntu containers to confirm apt traffic is using `apt-cacher-ng`.
-- Audit completed on `2026-03-28`: all Debian/Ubuntu LXCs on Proxmox `10.20.30.46` use `Acquire::http::Proxy "http://10.20.30.156:3142/"` except `apt-cacher-ng` itself (intentional exclusion).
+- Apt-cacher remediation status (`2026-03-28`): all Debian/Ubuntu LXCs on Proxmox `10.20.30.46` are configured with `Acquire::http::Proxy "http://10.20.30.156:3142/"` and `Acquire::https::Proxy "http://10.20.30.156:3142/"`; `apt-cacher-ng` itself remains intentionally excluded.

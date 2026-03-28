@@ -207,6 +207,8 @@ adguard:
     answer: 10.20.30.154
   - domain: raffle-raptor-dev.laxdog.uk
     answer: 10.20.30.154
+  - domain: laxdog.uk
+    answer: 10.20.30.154
   user_rules:
   - '@@||click.figma.com^$client=''10.20.30.201'''
   - '@@||analytics.google.com^$client=''10.20.30.201'''
@@ -624,6 +626,7 @@ npm:
     type: letsencrypt
     dns_provider: cloudflare
     domains:
+    - laxdog.uk
     - dns.laxdog.uk
     - npm.laxdog.uk
     - proxmox.laxdog.uk
@@ -655,6 +658,7 @@ npm:
     type: letsencrypt
     dns_provider: cloudflare
     domains:
+    - lax.dog
     - auth.lax.dog
     - nagios.lax.dog
     - proxmox.lax.dog
@@ -880,6 +884,13 @@ npm:
     ssl: true
     certificate: laxdog-internal-le
     monitor_http: false
+  - name: Heimdall Root
+    domain: laxdog.uk
+    forward_host: 10.20.30.166
+    forward_port: 80
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
   external_proxy_hosts:
   - name: Authentik External
     domain: auth.lax.dog
@@ -1012,6 +1023,14 @@ npm:
     ssl: true
     certificate: laxdog-external-le
     monitor_http: false
+  - name: Heimdall Root External
+    domain: lax.dog
+    forward_host: 10.20.30.166
+    forward_port: 80
+    access_list: External Public
+    ssl: true
+    certificate: laxdog-external-le
+    authentik_protect: true
 organizr:
   admin_user: admin
   admin_email: admin@laxdog.uk
@@ -1076,6 +1095,9 @@ authentik:
   - name: qBittorrent
     slug: qbittorrent
     external_host: https://qbittorrent.lax.dog
+  - name: Heimdall Root
+    slug: heimdall-root
+    external_host: https://lax.dog
 couchdb:
   admin_user: admin
   port: 5984
@@ -1694,6 +1716,10 @@ cloudflare:
   - rss.lax.dog
   - browser.lax.dog
   records:
+  - type: A
+    name: lax.dog
+    content: public_ip
+    proxied: true
   - type: A
     name: auth.lax.dog
     content: public_ip
