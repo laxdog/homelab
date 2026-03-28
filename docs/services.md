@@ -83,6 +83,7 @@ Internal (`laxdog.uk`):
   - `sabnzbd.laxdog.uk` -> `10.20.30.120:6789`
   - `qbittorrent.laxdog.uk` -> `10.20.30.120:8080`
 - Dashboard entries in both Organizr and Heimdall are generated from `config.npm.proxy_hosts`; adding a proxy host entry automatically adds a dashboard link.
+- Heimdall can also include non-NPM links via `config.heimdall.extra_items` (for example `Raffle Raptor Prod` at `https://raffle-raptor.lax.dog`).
 - `media-stack` now provides a real internal NFS baseline:
   - export path: `/srv/data`
   - allowed CIDR: `10.20.30.0/24`
@@ -112,3 +113,4 @@ Internal (`laxdog.uk`):
   - does not force DNS override on clients in phase 1
   - see `docs/tailscale.md` for manual join/approval/split-DNS steps
 - Follow-up backlog: audit all Debian/Ubuntu containers to confirm apt traffic is using `apt-cacher-ng`.
+- Audit completed on `2026-03-28`: all Debian/Ubuntu LXCs on Proxmox `10.20.30.46` use `Acquire::http::Proxy "http://10.20.30.156:3142/"` except `apt-cacher-ng` itself (intentional exclusion).

@@ -97,6 +97,25 @@
   loop: "{{ config.npm.proxy_hosts }}"
   when: item.domain not in heimdall_excluded_domains
 
+- name: Build Heimdall extra items from config
+  ansible.builtin.set_fact:
+    heimdall_items: "{{ heimdall_items | default([]) + [item_entry] }}"
+  vars:
+    item_domain: >-
+      {{ item.url
+         | regex_replace('^https?://', '')
+         | regex_replace('/.*$', '') }}
+    item_entry:
+      title: "{{ item.title }}"
+      domain: "{{ item_domain }}"
+      url: "{{ item.url }}"
+      icon: "icons/{{ item_domain }}.png"
+      icon_url: "{{ item.icon_url }}"
+      sql_title: "{{ item.title | replace(\"'\", \"''\") }}"
+      sql_url: "{{ item.url | replace(\"'\", \"''\") }}"
+      sql_icon: "{{ ('icons/' ~ item_domain ~ '.png') | replace(\"'\", \"''\") }}"
+  loop: "{{ config.heimdall.extra_items | default([]) }}"
+
 - name: Ensure Heimdall icon directory exists
   ansible.builtin.command:
     argv:

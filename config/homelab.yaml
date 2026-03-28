@@ -1018,6 +1018,11 @@ organizr:
   license: personal
   db_name: organizr.db
   db_path: /config/www/organizr/data/db/
+heimdall:
+  extra_items:
+  - title: Raffle Raptor Prod
+    url: https://raffle-raptor.lax.dog
+    icon_url: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/docker.png
 authentik:
   admin_email: admin@laxdog.uk
   admin_user: akadmin
