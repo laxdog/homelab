@@ -1048,10 +1048,16 @@ organizr:
   db_name: organizr.db
   db_path: /config/www/organizr/data/db/
 heimdall:
+  icon_slug_map:
+    Bazarr: bazarr
+  icon_overrides:
+    Raffle Raptor Dev:
+      icon_emoji: 🦖
+    Raffle Raptor Prod:
+      icon_emoji: 🦖
   extra_items:
   - title: Raffle Raptor Prod
     url: https://raffle-raptor.lax.dog
-    icon_url: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/docker.png
 authentik:
   admin_email: admin@laxdog.uk
   admin_user: akadmin

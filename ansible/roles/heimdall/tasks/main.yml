@@ -59,7 +59,7 @@
   ansible.builtin.set_fact:
     heimdall_items: "{{ heimdall_items | default([]) + [item_entry] }}"
   vars:
-    icon_slug_map:
+    default_icon_slug_map:
       AdGuard Internal: adguard-home
       NPM: nginx-proxy-manager
       Proxmox: proxmox
@@ -80,20 +80,27 @@
       Prowlarr: prowlarr
       Sonarr: sonarr
       Radarr: radarr
+      Bazarr: bazarr
       Cleanuparr: cleanuparr
       SABnzbd: sabnzbd
       qBittorrent: qbittorrent
       Raffle Raptor Dev: docker
-    icon_slug: "{{ icon_slug_map.get(item.name, 'docker') }}"
+    icon_slug_map: "{{ default_icon_slug_map | combine(config.heimdall.icon_slug_map | default({})) }}"
+    item_override: "{{ (config.heimdall.icon_overrides | default({})).get(item.name, (config.heimdall.icon_overrides | default({})).get(item.domain, {})) }}"
+    icon_slug: "{{ item_override.icon_slug | default(icon_slug_map.get(item.name, 'docker')) }}"
+    icon_emoji: "{{ item_override.icon_emoji | default('') }}"
+    icon_url: "{{ item_override.icon_url | default('https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/' ~ icon_slug ~ '.png') }}"
+    icon_ext: "{{ 'svg' if (icon_emoji | length > 0) else 'png' }}"
     item_entry:
       title: "{{ item.name }}"
       domain: "{{ item.domain }}"
       url: "https://{{ item.domain }}"
-      icon: "icons/{{ item.domain }}.png"
-      icon_url: "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/{{ icon_slug }}.png"
+      icon: "icons/{{ item.domain }}.{{ icon_ext }}"
+      icon_url: "{{ icon_url }}"
+      icon_emoji: "{{ icon_emoji }}"
       sql_title: "{{ item.name | replace(\"'\", \"''\") }}"
       sql_url: "{{ ('https://' ~ item.domain) | replace(\"'\", \"''\") }}"
-      sql_icon: "{{ ('icons/' ~ item.domain ~ '.png') | replace(\"'\", \"''\") }}"
+      sql_icon: "{{ ('icons/' ~ item.domain ~ '.' ~ icon_ext) | replace(\"'\", \"''\") }}"
   loop: "{{ config.npm.proxy_hosts }}"
   when: item.domain not in heimdall_excluded_domains
 
@@ -105,15 +112,20 @@
       {{ item.url
          | regex_replace('^https?://', '')
          | regex_replace('/.*$', '') }}
+    item_override: "{{ (config.heimdall.icon_overrides | default({})).get(item.title, (config.heimdall.icon_overrides | default({})).get(item_domain, {})) }}"
+    icon_emoji: "{{ item.icon_emoji | default(item_override.icon_emoji | default('')) }}"
+    icon_url: "{{ item.icon_url | default(item_override.icon_url | default('https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/docker.png')) }}"
+    icon_ext: "{{ 'svg' if (icon_emoji | length > 0) else 'png' }}"
     item_entry:
       title: "{{ item.title }}"
       domain: "{{ item_domain }}"
       url: "{{ item.url }}"
-      icon: "icons/{{ item_domain }}.png"
-      icon_url: "{{ item.icon_url }}"
+      icon: "icons/{{ item_domain }}.{{ icon_ext }}"
+      icon_url: "{{ icon_url }}"
+      icon_emoji: "{{ icon_emoji }}"
       sql_title: "{{ item.title | replace(\"'\", \"''\") }}"
       sql_url: "{{ item.url | replace(\"'\", \"''\") }}"
-      sql_icon: "{{ ('icons/' ~ item_domain ~ '.png') | replace(\"'\", \"''\") }}"
+      sql_icon: "{{ ('icons/' ~ item_domain ~ '.' ~ icon_ext) | replace(\"'\", \"''\") }}"
   loop: "{{ config.heimdall.extra_items | default([]) }}"
 
 - name: Ensure Heimdall icon directory exists
@@ -132,6 +144,20 @@
     "curl -fsSL '{{ item.icon_url }}'
     -o /app/www/storage/app/public/{{ item.icon }}"
   loop: "{{ heimdall_items | default([]) }}"
+  when: (item.icon_emoji | default('') | length) == 0
+
+- name: Generate Heimdall emoji icons for generated items
+  ansible.builtin.shell: |
+    docker exec heimdall sh -lc 'cat > /app/www/storage/app/public/{{ item.icon }} <<'"'"'SVG'"'"'
+    <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="96" fill="#f4f1e8"/>
+      <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle"
+            font-size="300"
+            font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif">{{ item.icon_emoji }}</text>
+    </svg>
+    SVG'
+  loop: "{{ heimdall_items | default([]) }}"
+  when: (item.icon_emoji | default('') | length) > 0
 
 - name: Check if Heimdall item exists
   ansible.builtin.command: >-
