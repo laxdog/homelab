@@ -8,8 +8,8 @@ services:
     ports:
       - "{{ config.media_stack.apps.jellyfin.port }}:8096"
     volumes:
-      - "{{ config.media_stack.appdata_path }}/jellyfin:/config"
-      - "{{ config.media_stack.data_mount_path }}/media:/media:ro"
+      - "{{ config.media_stack.paths.host.appdata_base }}/jellyfin:/config"
+      - "{{ config.media_stack.paths.host.media_base }}:/media:ro"
     devices:
       - /dev/dri:/dev/dri
 {% if media_device_group_ids | length > 0 %}
@@ -33,8 +33,8 @@ services:
     ports:
       - "{{ config.media_stack.apps.plex.port }}:32400"
     volumes:
-      - "{{ config.media_stack.appdata_path }}/plex:/config"
-      - "{{ config.media_stack.data_mount_path }}/media:/media:ro"
+      - "{{ config.media_stack.paths.host.appdata_base }}/plex:/config"
+      - "{{ config.media_stack.paths.host.media_base }}:/media:ro"
     devices:
       - /dev/dri:/dev/dri
 {% if media_device_group_ids | length > 0 %}

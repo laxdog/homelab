@@ -17,6 +17,10 @@ The media-stack role automates the initial wizard:
 - Applies language/metadata defaults.
 - Creates the admin user from vault (`jellyfin_admin_password`).
 - Marks the startup wizard as complete.
+- Ensures the default libraries exist:
+  - `TV` -> `/media/tv`
+  - `Movies` -> `/media/movies`
+- Triggers a library refresh after ensuring those libraries exist.
 
 ## Runtime Layout
 - Compose project: `/opt/media-stack/core/docker-compose.yaml`
