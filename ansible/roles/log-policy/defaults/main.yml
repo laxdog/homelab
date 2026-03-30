@@ -1,0 +1,9 @@
+---
+log_policy_defaults:
+  journald:
+    system_max_use: "100M"
+    system_keep_free: "500M"
+    max_retention_sec: "4weeks"
+  logrotate:
+    frequency: weekly
+    rotate: 4

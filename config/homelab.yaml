@@ -1,6 +1,14 @@
 homelab:
   name: homelab
   timezone: Europe/Dublin
+log_policy:
+  journald:
+    system_max_use: "100M"
+    system_keep_free: "500M"
+    max_retention_sec: "4weeks"
+  logrotate:
+    frequency: weekly
+    rotate: 4
 network:
   subnet: 10.20.30.0/24
   gateway: 10.20.30.1
@@ -454,6 +462,9 @@ services:
         allowed_tailscale_source: 100.88.35.124/32
         port: 5432
         sslmode: disable
+      log_policy:
+        journald:
+          system_max_use: "200M"
       users:
       - name: mrobinson
         groups:

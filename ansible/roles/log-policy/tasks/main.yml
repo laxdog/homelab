@@ -1,0 +1,47 @@
+---
+- name: Resolve effective log policy
+  ansible.builtin.set_fact:
+    effective_log_policy: >-
+      {{ log_policy_defaults
+         | combine(config.log_policy | default({}), recursive=true)
+         | combine((config.services.lxcs[inventory_hostname].log_policy | default({})), recursive=true) }}
+
+- name: Ensure journald drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy journald homelab config
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/50-homelab.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Journal]
+      SystemMaxUse={{ effective_log_policy.journald.system_max_use }}
+      SystemKeepFree={{ effective_log_policy.journald.system_keep_free }}
+      MaxRetentionSec={{ effective_log_policy.journald.max_retention_sec }}
+  notify:
+    - Restart journald
+    - Vacuum journal
+
+- name: Deploy logrotate catch-all config
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/99-homelab
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      /var/log/*.log /var/log/**/*.log {
+          {{ effective_log_policy.logrotate.frequency }}
+          rotate {{ effective_log_policy.logrotate.rotate }}
+          missingok
+          notifempty
+          compress
+          delaycompress
+          sharedscripts
+      }

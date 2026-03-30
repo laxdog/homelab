@@ -301,6 +301,15 @@
   roles:
     - nfs-server
 
+- name: Configure log policy
+  hosts: 'guests,!media-stack'
+  become: true
+  gather_facts: false
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - log-policy
+
 - name: Configure Nagios
   hosts: nagios_hosts
   become: true
