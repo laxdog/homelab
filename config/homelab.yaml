@@ -483,6 +483,19 @@ services:
       roles:
       - docker
       - heimdall
+    jellyfin-hw:
+      id: 167
+      ip: 10.20.30.167
+      cores: 4
+      memory_mb: 4096
+      disk_gb: 20
+      storage: tank-vmdata
+      roles:
+      - docker
+      - jellyfin
+      gpu_passthrough: true
+      mounts:
+      - /tank/media:/mnt/media:ro
     authentik:
       id: 170
       ip: 10.20.30.170
