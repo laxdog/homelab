@@ -159,6 +159,9 @@
     when a legacy runner script is already gone
 - Active repo-managed boosts now override repo-managed scheduled `off` events and hard-off windows
   for the boosted TRVs. Manual `script.heating_all_off` and `script.heating_lockout_enable` still win.
+- Downstairs/bedroom boost reconcile now relies on startup, timer-finished, helper-change, and
+  1-minute fallback triggers only. It no longer self-triggers on target TRV state changes, which
+  avoids restore loops when a stale helper collides with live TRV state.
 - Heating high-target visual alert from `home_assistant.heating_alerts`.
 - Boiler idle blue-flash alert is also generated from `home_assistant.heating_alerts`.
 - Group target sliders (`house`, `upstairs`, `downstairs`) used by heating automations/dashboard.

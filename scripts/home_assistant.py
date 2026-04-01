@@ -3354,7 +3354,6 @@ def cmd_sync_remote_heating_controls() -> None:
                 {"trigger": "homeassistant", "event": "start"},
                 {"trigger": "event", "event_type": "timer.finished", "event_data": {"entity_id": timer_entity}},
                 {"trigger": "time_pattern", "minutes": "/1"},
-                {"trigger": "state", "entity_id": targets},
                 {"trigger": "state", "entity_id": restore_state_entity},
             ],
             "conditions": [],

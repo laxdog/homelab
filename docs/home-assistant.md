@@ -396,7 +396,7 @@ Source of truth:
   - Reconciliation model:
     - `automation.reconcile_living_room_heating_boost`
     - `automation.reconcile_bedroom_heating_boost`
-    - these run on HA startup, timer-finished events, helper changes, target state changes, and a 1-minute periodic fallback
+    - these run on HA startup, timer-finished events, helper changes, and a 1-minute periodic fallback
     - on startup/reload:
       - if the timer is still active, reconcile re-applies the boost state
       - if the timer is inactive but the helper is populated, reconcile keeps trying to restore the saved pre-boost state until the targets actually match it, then clears the helper
