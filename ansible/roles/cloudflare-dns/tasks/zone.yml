@@ -1,0 +1,62 @@
+---
+- name: "{{ cf_zone.zone }} | Read Cloudflare zone"
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones?name={{ cf_zone.zone }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: application/json
+  register: cloudflare_zones
+
+- name: "{{ cf_zone.zone }} | Assert zone found"
+  ansible.builtin.assert:
+    that:
+      - cloudflare_zones.json.result | length > 0
+    fail_msg: "Cloudflare zone not found for {{ cf_zone.zone }}"
+
+- name: "{{ cf_zone.zone }} | Select zone ID"
+  ansible.builtin.set_fact:
+    cloudflare_zone_id: "{{ cloudflare_zones.json.result[0].id }}"
+
+- name: "{{ cf_zone.zone }} | Check if public IP lookup is required"
+  ansible.builtin.set_fact:
+    cloudflare_public_ip_required: "{{ (cf_zone.records | default([]) | selectattr('content', 'equalto', 'public_ip') | list | length) > 0 }}"
+
+- name: "{{ cf_zone.zone }} | Fetch public IP"
+  ansible.builtin.uri:
+    url: https://api.ipify.org?format=json
+    method: GET
+  register: cloudflare_public_ip
+  when: cloudflare_public_ip_required | bool
+
+- name: "{{ cf_zone.zone }} | Set public IP fact"
+  ansible.builtin.set_fact:
+    cloudflare_public_ip_value: "{{ cloudflare_public_ip.json.ip }}"
+  when: cloudflare_public_ip_required | bool
+
+- name: "{{ cf_zone.zone }} | Look up records to remove"
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ item }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: application/json
+  register: cloudflare_remove_lookup
+  loop: "{{ cf_zone.remove_records | default([]) }}"
+
+- name: "{{ cf_zone.zone }} | Remove DNS records when present"
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records/{{ item.id }}"
+    method: DELETE
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: application/json
+    status_code: [200, 204]
+  loop: "{{ cloudflare_remove_lookup.results | map(attribute='json') | map(attribute='result') | list | flatten(levels=1) }}"
+  when: cf_zone.remove_records | default([]) | length > 0
+
+- name: "{{ cf_zone.zone }} | Ensure DNS records exist"
+  ansible.builtin.include_tasks: record.yml
+  loop: "{{ cf_zone.records }}"
+  loop_control:
+    loop_var: record

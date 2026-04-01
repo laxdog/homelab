@@ -33,7 +33,7 @@
   tasks:
     - name: Determine if public IP lookup is required
       ansible.builtin.set_fact:
-        cloudflare_public_ip_required: "{{ (config.cloudflare.records | default([]) | selectattr('content', 'equalto', 'public_ip') | list | length) > 0 }}"
+        cloudflare_public_ip_required: "{{ (config.cloudflare.zones | map(attribute='records', default=[]) | flatten | selectattr('content', 'equalto', 'public_ip') | list | length) > 0 }}"
 
     - name: Fetch public IP for Cloudflare validation
       ansible.builtin.uri:
@@ -740,30 +740,12 @@
       no_log: true
       when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
   tasks:
-    - name: Read Cloudflare zones
-      ansible.builtin.uri:
-        url: "https://api.cloudflare.com/client/v4/zones?name={{ config.cloudflare.zone }}"
-        method: GET
-        headers:
-          Authorization: "Bearer {{ cloudflare_api_token }}"
-          Content-Type: application/json
-      register: cloudflare_zones
-
-    - name: Assert Cloudflare zone found
-      ansible.builtin.assert:
-        that:
-          - cloudflare_zones.json.result | length > 0
-        fail_msg: "Cloudflare zone not found for {{ config.cloudflare.zone }}"
-
-    - name: Select Cloudflare zone ID
-      ansible.builtin.set_fact:
-        cloudflare_zone_id: "{{ cloudflare_zones.json.result[0].id }}"
-
     - name: Determine if public IP lookup is required for Cloudflare validation
       ansible.builtin.set_fact:
         cloudflare_public_ip_required: >-
           {{
-            (config.cloudflare.records | default([]) | selectattr('content', 'equalto', 'public_ip') | list | length) > 0
+            (config.cloudflare.zones | map(attribute='records', default=[]) | flatten
+             | selectattr('content', 'equalto', 'public_ip') | list | length) > 0
           }}
 
     - name: Fetch public IP for Cloudflare validation
@@ -778,63 +760,11 @@
         cloudflare_public_ip_value: "{{ cloudflare_public_ip.json.ip }}"
       when: cloudflare_public_ip_required | bool
 
-    - name: Validate Cloudflare DNS records
-      ansible.builtin.uri:
-        url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?type={{ item.type }}&name={{ item.name }}"
-        method: GET
-        headers:
-          Authorization: "Bearer {{ cloudflare_api_token }}"
-          Content-Type: application/json
-      register: cloudflare_record_lookup
-      loop: "{{ config.cloudflare.records }}"
-
-    - name: Assert Cloudflare DNS records match expected content
-      ansible.builtin.assert:
-        that:
-          - item.json.result | length > 0
-          - item.json.result[0].content == (cloudflare_public_ip_value if item.item.content == 'public_ip' else item.item.content)
-        fail_msg: "Cloudflare DNS record mismatch for {{ item.item.name }}"
-      loop: "{{ cloudflare_record_lookup.results }}"
+    - name: Validate each Cloudflare zone
+      ansible.builtin.include_tasks: validate_cloudflare_zone.yml
+      loop: "{{ config.cloudflare.zones }}"
       loop_control:
-        label: "{{ item.item.name }}"
-
-    - name: Resolve external DNS records via public resolver
-      ansible.builtin.command: "dig +short @1.1.1.1 {{ item.name }}"
-      register: external_dns_queries
-      changed_when: false
-      loop: "{{ config.cloudflare.records | rejectattr('proxied', 'equalto', True) | list }}"
-
-    - name: Assert external DNS records resolve to expected content
-      ansible.builtin.assert:
-        that:
-          - item.item.content in (item.stdout_lines | default([]))
-        fail_msg: "Expected {{ item.item.name }} to resolve to {{ item.item.content }} via public DNS"
-      loop: "{{ external_dns_queries.results | default([]) }}"
-      loop_control:
-        label: "{{ item.item.name }}"
-
-    - name: Look up Cloudflare records that should be removed
-      ansible.builtin.uri:
-        url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ item }}"
-        method: GET
-        headers:
-          Authorization: "Bearer {{ cloudflare_api_token }}"
-          Content-Type: application/json
-        timeout: 60
-      register: cloudflare_remove_lookup
-      retries: 3
-      delay: 5
-      until: cloudflare_remove_lookup is succeeded
-      loop: "{{ config.cloudflare.remove_records | default([]) }}"
-
-    - name: Assert Cloudflare removed records are absent
-      ansible.builtin.assert:
-        that:
-          - item.json.result | length == 0
-        fail_msg: "Cloudflare DNS record still present for {{ item.item }}"
-      loop: "{{ cloudflare_remove_lookup.results | default([]) }}"
-      loop_control:
-        label: "{{ item.item }}"
+        loop_var: cf_zone
 
 - name: Validate Organizr
   hosts: organizr_hosts

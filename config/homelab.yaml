@@ -1741,52 +1741,166 @@ media_stack:
       image: lscr.io/linuxserver/qbittorrent:latest
       port: 8080
 cloudflare:
-  zone: lax.dog
-  public_ip: auto
-  remove_records:
-  - dns.lax.dog
-  - sites.lax.dog
-  - organizr.lax.dog
-  - heimdall.lax.dog
-  - rss.lax.dog
-  - browser.lax.dog
-  records:
-  - type: A
-    name: lax.dog
-    content: public_ip
-    proxied: true
-  - type: A
-    name: auth.lax.dog
-    content: public_ip
-    proxied: true
-  - type: A
-    name: nagios.lax.dog
-    content: public_ip
-    proxied: true
-  - type: A
-    name: proxmox.lax.dog
-    content: public_ip
-    proxied: true
-  - type: A
-    name: jellyfin.lax.dog
-    content: public_ip
-    proxied: true
-  - type: A
-    name: netalertx.lax.dog
-    content: public_ip
-    proxied: true
-  - type: A
-    name: ha.lax.dog
-    content: public_ip
-    proxied: true
-  - type: A
-    name: couchdb.lax.dog
-    content: public_ip
-    proxied: true
-  - type: A
-    name: raffle-raptor-dev.lax.dog
-    content: public_ip
-    proxied: true
+  zones:
+  - zone: lax.dog
+    remove_records:
+    - dns.lax.dog
+    - sites.lax.dog
+    - organizr.lax.dog
+    - heimdall.lax.dog
+    - rss.lax.dog
+    - browser.lax.dog
+    records:
+    - type: A
+      name: lax.dog
+      content: public_ip
+      proxied: true
+    - type: A
+      name: auth.lax.dog
+      content: public_ip
+      proxied: true
+    - type: A
+      name: nagios.lax.dog
+      content: public_ip
+      proxied: true
+    - type: A
+      name: proxmox.lax.dog
+      content: public_ip
+      proxied: true
+    - type: A
+      name: jellyfin.lax.dog
+      content: public_ip
+      proxied: true
+    - type: A
+      name: netalertx.lax.dog
+      content: public_ip
+      proxied: true
+    - type: A
+      name: ha.lax.dog
+      content: public_ip
+      proxied: true
+    - type: A
+      name: couchdb.lax.dog
+      content: public_ip
+      proxied: true
+    - type: A
+      name: raffle-raptor-dev.lax.dog
+      content: public_ip
+      proxied: true
+  - zone: laxdog.uk
+    records:
+    - type: A
+      name: dns.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: npm.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: proxmox.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: organizr.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: heimdall.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: rss.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: netalertx.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: health.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: couchdb.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: browser.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: apt.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: sites.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: auth.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: ha.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: nagios.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: jellyfin.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: plex.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: prowlarr.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: sonarr.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: radarr.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: bazarr.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: cleanuparr.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: sabnzbd.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: qbittorrent.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: router.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: unifi-primary.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: unifi-secondary.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
+    - type: A
+      name: raffle-raptor-dev.laxdog.uk
+      content: 10.20.30.154
+      proxied: false
 validation:
   require_router_dns_consistency: false
   tailscale_require_joined: true
