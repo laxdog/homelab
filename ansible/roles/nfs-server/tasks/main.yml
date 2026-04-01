@@ -5,9 +5,19 @@
     state: present
     update_cache: true
 
-- name: Assert media data mount exists before export
-  ansible.builtin.command: "mountpoint -q {{ config.media_stack.nfs.export_path }}"
-  changed_when: false
+- name: Assert media data path is populated before export
+  ansible.builtin.stat:
+    path: "{{ config.media_stack.nfs.export_path }}"
+  register: nfs_export_path
+
+- name: Fail when media data path is missing
+  ansible.builtin.assert:
+    that:
+      - nfs_export_path.stat.exists
+      - nfs_export_path.stat.isdir
+    fail_msg: >-
+      NFS export path {{ config.media_stack.nfs.export_path }} does not exist.
+      Verify virtiofs mounts are configured for VM120.
 
 - name: Ensure exports directory exists
   ansible.builtin.file:

@@ -12,10 +12,10 @@ Scope: VM `120` infra foundation plus day-1 app-layer deployment state.
 - Root disk (`local-lvm`): `40G`
   - use for OS + appdata only
   - appdata path: `/opt/media-stack/appdata`
-- Bulk data disk (ZFS-backed via Proxmox storage `tank-vmdata`): `scsi1`
-  - in-guest mount path: `/srv/data`
-  - filesystem: `ext4`
-  - source device path (config-driven): `/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1`
+- Bulk data via virtiofs from Proxmox host:
+  - `tank-media` → `/srv/data/media` (virtiofs)
+  - `tank-downloads` → `/srv/data/downloads` (virtiofs)
+  - No VM-attached scsi1 disk — the old block-device model was replaced
 
 ## Bulk Data Layout
 - `/srv/data/downloads/incomplete`

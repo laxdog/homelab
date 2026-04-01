@@ -1658,9 +1658,14 @@ nagios:
 media_stack:
   stack_root: /opt/media-stack
   appdata_path: /opt/media-stack/appdata
-  data_device: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1
-  data_filesystem: ext4
   data_mount_path: /srv/data
+  data_mounts:
+    - tag: tank-media
+      mountpoint: /srv/data/media
+      fstype: virtiofs
+    - tag: tank-downloads
+      mountpoint: /srv/data/downloads
+      fstype: virtiofs
   paths:
     host:
       appdata_base: /opt/media-stack/appdata

@@ -21,53 +21,31 @@
     state: directory
     mode: "0755"
 
-- name: Check media data device exists
-  ansible.builtin.stat:
-    path: "{{ config.media_stack.data_device }}"
-  register: media_data_device
+- name: Ensure data mount root exists
+  ansible.builtin.file:
+    path: "{{ config.media_stack.data_mount_path }}"
+    state: directory
+    mode: "0755"
 
-- name: Resolve media data device symlink to block device path
-  ansible.builtin.command: "readlink -f {{ config.media_stack.data_device }}"
-  register: media_data_device_real
-  changed_when: false
-
-- name: Check resolved media data device is block device
-  ansible.builtin.stat:
-    path: "{{ media_data_device_real.stdout | trim }}"
-  register: media_data_device_real_stat
-
-- name: Fail when media data device is missing
-  ansible.builtin.assert:
-    that:
-      - media_data_device.stat.exists
-      - media_data_device_real_stat.stat.exists
-      - media_data_device_real_stat.stat.isblk | default(false)
-    fail_msg: >-
-      Media data device {{ config.media_stack.data_device }} is missing.
-      Confirm VM 120 scsi1 disk attachment before running media foundation.
-
-- name: Check filesystem type on media data device
-  ansible.builtin.command: "blkid -o value -s TYPE {{ media_data_device_real.stdout | trim }}"
-  register: media_data_fs_type
+- name: Verify virtiofs data mounts are active
+  ansible.builtin.command: "findmnt -n -o FSTYPE {{ item.mountpoint }}"
+  register: media_data_mounts
   changed_when: false
   failed_when: false
+  loop: "{{ config.media_stack.data_mounts }}"
 
-- name: Create filesystem on media data device when missing
-  ansible.builtin.command: "mkfs.{{ config.media_stack.data_filesystem }} -F {{ media_data_device_real.stdout | trim }}"
-  when: media_data_fs_type.rc != 0 or media_data_fs_type.stdout | trim == ""
-
-- name: Read UUID of media data device
-  ansible.builtin.command: "blkid -o value -s UUID {{ media_data_device_real.stdout | trim }}"
-  register: media_data_uuid
-  changed_when: false
-
-- name: Mount media data filesystem persistently
-  ansible.posix.mount:
-    path: "{{ config.media_stack.data_mount_path }}"
-    src: "UUID={{ media_data_uuid.stdout | trim }}"
-    fstype: "{{ config.media_stack.data_filesystem }}"
-    opts: defaults,nofail
-    state: mounted
+- name: Assert all virtiofs data mounts are present
+  ansible.builtin.assert:
+    that:
+      - item.rc == 0
+      - item.stdout | trim == 'virtiofs'
+    fail_msg: >-
+      Expected virtiofs mount at {{ item.item.mountpoint }}
+      (tag {{ item.item.tag }}) but found {{ item.stdout | default('nothing') | trim }}.
+      Verify Proxmox virtiofs share config for VM120.
+  loop: "{{ media_data_mounts.results }}"
+  loop_control:
+    label: "{{ item.item.mountpoint }}"
 
 - name: Ensure media data layout directories exist
   ansible.builtin.file:
