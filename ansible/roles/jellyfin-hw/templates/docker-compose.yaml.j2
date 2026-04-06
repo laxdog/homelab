@@ -1,0 +1,31 @@
+---
+# Jellyfin (hardware-accelerated) — managed by ansible/roles/jellyfin-hw
+#
+# Runs on CT167 (privileged LXC) at 10.20.30.167. Uses the host iGPU via
+# /dev/dri/renderD128 for QSV/VAAPI transcoding. Reads media from
+# /mnt/media which the LXC mp0 bind-mounts from /tank/media on the host.
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    # Privileged LXC + Docker requires the docker-default AppArmor profile
+    # to be loadable, which fails inside the LXC. unconfined is acceptable
+    # for a single-purpose LXC on a trusted home network.
+    security_opt:
+      - apparmor=unconfined
+    ports:
+      - "8097:8096"   # HTTP
+      - "8920:8920"   # HTTPS
+    volumes:
+      - /opt/jellyfin-hw/config:/config
+      - /opt/jellyfin-hw/cache:/cache
+      - /mnt/media:/media:ro
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+    group_add:
+      - "{{ jellyfin_hw_render_gid }}"   # render
+      - "{{ jellyfin_hw_video_gid }}"    # video
+    environment:
+      - TZ={{ config.homelab.timezone }}

@@ -1,0 +1,109 @@
+---
+# jellyfin-hw role
+#
+# Provisions the privileged LXC (CT167) created out-of-band by Terraform
+# import. Installs Intel VAAPI userspace, runs vainfo as a go/no-go gate,
+# then deploys Jellyfin via Docker Compose with QSV/VAAPI configured.
+#
+# This role assumes:
+#   - guest-baseline has already configured the apt-cacher proxy
+#   - docker-host has already installed Docker
+#   - /dev/dri/{card0,renderD128} are visible inside the LXC (set on the
+#     host via `pct set 167 -dev0 ... -dev1 ...`)
+#   - /mnt/media is bind-mounted from /tank/media on the host
+#
+# Run order in guests.yml: after guest-baseline + docker-host.
+
+- name: Install Intel VAAPI userspace and tools
+  ansible.builtin.apt:
+    name:
+      - intel-media-va-driver-non-free
+      - libva2
+      - libva-drm2
+      - vainfo
+      - linux-firmware
+    state: present
+    update_cache: true
+  register: vaapi_packages
+
+- name: Verify vainfo can open the iHD driver via /dev/dri/renderD128
+  ansible.builtin.command: vainfo --display drm --device /dev/dri/renderD128
+  changed_when: false
+  register: vainfo_check
+  failed_when:
+    - vainfo_check.rc != 0
+    - "'VAEntrypoint' not in vainfo_check.stdout"
+
+- name: Show vainfo entrypoint summary
+  ansible.builtin.debug:
+    msg: "{{ vainfo_check.stdout_lines | select('search', 'VAEntrypoint|Driver version') | list }}"
+
+- name: Look up render group GID
+  ansible.builtin.command: getent group render
+  register: render_group
+  changed_when: false
+
+- name: Look up video group GID
+  ansible.builtin.command: getent group video
+  register: video_group
+  changed_when: false
+
+- name: Set host group GID facts
+  ansible.builtin.set_fact:
+    jellyfin_hw_render_gid: "{{ render_group.stdout.split(':')[2] }}"
+    jellyfin_hw_video_gid: "{{ video_group.stdout.split(':')[2] }}"
+
+- name: Create Jellyfin appdata directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - /opt/jellyfin-hw
+    - /opt/jellyfin-hw/config
+    - /opt/jellyfin-hw/cache
+
+- name: Deploy Jellyfin docker-compose
+  ansible.builtin.template:
+    src: docker-compose.yaml.j2
+    dest: /opt/jellyfin-hw/docker-compose.yaml
+    owner: root
+    group: root
+    mode: '0644'
+  register: compose_deployed
+
+- name: Pull Jellyfin image
+  ansible.builtin.command: docker compose pull
+  args:
+    chdir: /opt/jellyfin-hw
+  changed_when: false
+  register: jellyfin_pull
+
+- name: Start Jellyfin container
+  ansible.builtin.command: docker compose up -d
+  args:
+    chdir: /opt/jellyfin-hw
+  register: jellyfin_up
+  changed_when: "'Started' in jellyfin_up.stderr or 'Created' in jellyfin_up.stderr or 'Recreated' in jellyfin_up.stderr"
+
+- name: Wait for Jellyfin /health to return Healthy on port 8097
+  ansible.builtin.uri:
+    url: http://localhost:8097/health
+    return_content: true
+  register: jellyfin_health
+  retries: 30
+  delay: 2
+  until: jellyfin_health.status == 200 and 'Healthy' in jellyfin_health.content
+
+- name: Verify vainfo works inside the Jellyfin container
+  ansible.builtin.command: >
+    docker exec jellyfin /usr/lib/jellyfin-ffmpeg/vainfo
+    --display drm --device /dev/dri/renderD128
+  changed_when: false
+  register: container_vainfo
+
+- name: Show container vainfo summary (driver + a few HW encode entrypoints)
+  ansible.builtin.debug:
+    msg: "{{ container_vainfo.stdout_lines | select('search', 'VAEntrypointEncSliceLP|Driver version') | list }}"

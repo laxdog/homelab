@@ -57,31 +57,31 @@ docker_hosts:
       ansible_host: 10.20.30.166
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
-    jellyfin-hw: &id020
+    jellyfin-hw: &id010
       ansible_host: 10.20.30.167
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
-    media-stack: &id010
+    media-stack: &id011
       ansible_host: 10.20.30.120
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: ubuntu
-    netalertx: &id011
+    netalertx: &id012
       ansible_host: 10.20.30.158
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
-    nginx-proxy-manager: &id012
+    nginx-proxy-manager: &id013
       ansible_host: 10.20.30.154
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
-    organizr: &id013
+    organizr: &id014
       ansible_host: 10.20.30.164
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
-    raffle-raptor-dev: &id014
+    raffle-raptor-dev: &id015
       ansible_host: 10.20.30.163
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
-    static-sites: &id015
+    static-sites: &id016
       ansible_host: 10.20.30.161
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
@@ -99,18 +99,18 @@ guests:
     freshrss: *id004
     healthchecks: *id008
     heimdall: *id009
-    jellyfin-hw: *id020
-    media-stack: *id010
-    nagios: &id016
+    jellyfin-hw: *id010
+    media-stack: *id011
+    nagios: &id017
       ansible_host: 10.20.30.133
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: ubuntu
-    netalertx: *id011
-    nginx-proxy-manager: *id012
-    organizr: *id013
-    raffle-raptor-dev: *id014
-    static-sites: *id015
-    tailscale-gateway: &id019
+    netalertx: *id012
+    nginx-proxy-manager: *id013
+    organizr: *id014
+    raffle-raptor-dev: *id015
+    static-sites: *id016
+    tailscale-gateway: &id020
       ansible_host: 10.20.30.171
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: ubuntu
@@ -120,6 +120,9 @@ healthchecks_hosts:
 heimdall_hosts:
   hosts:
     heimdall: *id009
+jellyfin_hosts:
+  hosts:
+    jellyfin-hw: *id010
 lxcs:
   hosts:
     adguard: *id005
@@ -131,30 +134,30 @@ lxcs:
     freshrss: *id004
     healthchecks: *id008
     heimdall: *id009
-    jellyfin-hw: *id020
-    netalertx: *id011
-    nginx-proxy-manager: *id012
-    organizr: *id013
-    raffle-raptor-dev: *id014
-    static-sites: *id015
+    jellyfin-hw: *id010
+    netalertx: *id012
+    nginx-proxy-manager: *id013
+    organizr: *id014
+    raffle-raptor-dev: *id015
+    static-sites: *id016
 media_hosts:
   hosts:
-    media-stack: *id010
+    media-stack: *id011
 nagios_hosts:
   hosts:
-    nagios: *id016
+    nagios: *id017
 netalertx_hosts:
   hosts:
-    netalertx: *id011
+    netalertx: *id012
 nfs_hosts:
   hosts:
-    media-stack: *id010
+    media-stack: *id011
 nginx_proxy_manager_hosts:
   hosts:
-    nginx-proxy-manager: *id012
+    nginx-proxy-manager: *id013
 organizr_hosts:
   hosts:
-    organizr: *id013
+    organizr: *id014
 proxmox_hosts:
   hosts:
     proxmox:
@@ -163,32 +166,32 @@ proxmox_hosts:
       ansible_ssh_user: root
 python_bot_hosts:
   hosts:
-    raffle-raptor-dev: *id014
+    raffle-raptor-dev: *id015
 remote_node_baseline_hosts:
   hosts:
-    mums-house-mbp: &id017
+    mums-house-mbp: &id018
       ansible_host: 10.20.30.75
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
-    raptor-node-staging: &id018
+    raptor-node-staging: &id019
       ansible_host: 10.20.30.153
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
 remote_nodes_hosts:
   hosts:
-    mums-house-mbp: *id017
-    raptor-node-staging: *id018
+    mums-house-mbp: *id018
+    raptor-node-staging: *id019
 static_sites_hosts:
   hosts:
-    static-sites: *id015
+    static-sites: *id016
 tailscale_router_hosts:
   hosts:
-    mums-house-mbp: *id017
-    raffle-raptor-dev: *id014
-    raptor-node-staging: *id018
-    tailscale-gateway: *id019
+    mums-house-mbp: *id018
+    raffle-raptor-dev: *id015
+    raptor-node-staging: *id019
+    tailscale-gateway: *id020
 vms:
   hosts:
-    media-stack: *id010
-    nagios: *id016
-    tailscale-gateway: *id019
+    media-stack: *id011
+    nagios: *id017
+    tailscale-gateway: *id020
