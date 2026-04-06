@@ -357,12 +357,18 @@ services:
       mounts:
       - /tank/media:/mnt/media
       - /tank/downloads:/mnt/downloads
+      virtiofs:
+      - mapping: tank-media
+        cache: metadata
+      - mapping: tank-downloads
+        cache: metadata
     home-assistant:
       id: 122
       ip: 10.20.30.134
       roles:
       - haos
       os: haos
+      disk_gb: 48
     nagios:
       id: 133
       ip: 10.20.30.133
@@ -372,6 +378,7 @@ services:
       cores: 2
       memory_mb: 2048
       disk_gb: 16
+      storage: tank-vmdata
     tailscale-gateway:
       id: 171
       ip: 10.20.30.171
@@ -390,6 +397,7 @@ services:
     nginx-proxy-manager:
       id: 154
       ip: 10.20.30.154
+      disk_gb: 16
       roles:
       - docker
       - nginx_proxy_manager
@@ -444,6 +452,7 @@ services:
       ip: 10.20.30.163
       disk_gb: 40
       memory_mb: 4096
+      storage: tank-vmdata
       tun_required: true
       roles:
       - docker

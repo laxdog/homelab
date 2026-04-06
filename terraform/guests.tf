@@ -4,7 +4,7 @@ locals {
 }
 
 resource "proxmox_virtual_environment_container" "lxcs" {
-  for_each = local.lxcs
+  for_each = local.lxcs_generic
 
   node_name = local.node
   vm_id     = each.value.id
@@ -38,7 +38,7 @@ resource "proxmox_virtual_environment_container" "lxcs" {
   }
 
   disk {
-    datastore_id = local.storage.vm_disk
+    datastore_id = try(each.value.storage, local.storage.vm_disk)
     size         = try(each.value.disk_gb, local.defaults.lxc.disk_gb)
   }
 
@@ -91,7 +91,7 @@ resource "proxmox_virtual_environment_vm" "vms" {
   }
 
   disk {
-    datastore_id = local.storage.vm_disk
+    datastore_id = try(each.value.storage, local.storage.vm_disk)
     import_from  = "${local.storage.templates_dir}:import/${local.config.proxmox.templates.vm.file_name}"
     interface    = "scsi0"
     size         = try(each.value.disk_gb, local.defaults.vm.disk_gb)
@@ -116,6 +116,16 @@ resource "proxmox_virtual_environment_vm" "vms" {
     user_account {
       username = "ubuntu"
       keys     = [trimspace(file(local.config.proxmox.ssh_public_key_path))]
+    }
+  }
+
+  # Optional virtiofs shares (Proxmox directory mappings). Per-VM list under
+  # `services.vms.<name>.virtiofs` in homelab.yaml.
+  dynamic "virtiofs" {
+    for_each = try(each.value.virtiofs, [])
+    content {
+      mapping = virtiofs.value.mapping
+      cache   = try(virtiofs.value.cache, null)
     }
   }
 
