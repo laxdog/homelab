@@ -510,6 +510,7 @@ services:
       ip: 10.20.30.170
       cores: 2
       memory_mb: 3072
+      storage: tank-vmdata
       roles:
       - docker
       - authentik
