@@ -1389,6 +1389,71 @@ home_assistant:
     - 255
     flash_count: 1
     flash_seconds: 1
+  status_lights:
+    title: Status Lights
+    dashboard_url_path: status-lights
+    view_path: overview
+    icon: mdi:led-strip-variant
+    snooze_timer_entity: timer.status_light_snooze
+    snooze_until_next_day_time: "07:00:00"
+    baseline:
+      state: on
+      brightness_pct: 2
+      rgb_color:
+      - 255
+      - 180
+      - 120
+      color_temp_kelvin: 3000
+      transition: 0
+    targets:
+    - name: Living Room Status Bulb
+      entity_id: light.philips_lct015
+      capability: rgb
+    events:
+      boost_extend:
+        label: Boost Extend
+        flashes: 2
+        on_seconds: 0.35
+        off_seconds: 0.25
+        brightness_pct: 100
+        rgb_color:
+        - 255
+        - 0
+        - 0
+        color_temp_kelvin: 2200
+      boost_end:
+        label: Boost End
+        flashes: 1
+        on_seconds: 0.6
+        off_seconds: 0.25
+        brightness_pct: 100
+        rgb_color:
+        - 170
+        - 0
+        - 255
+        color_temp_kelvin: 2600
+      high_target:
+        label: High Target
+        flashes: 1
+        on_seconds: 0.8
+        off_seconds: 0.25
+        brightness_pct: 100
+        rgb_color:
+        - 255
+        - 0
+        - 0
+        color_temp_kelvin: 2200
+      boiler_off:
+        label: Boiler Off
+        flashes: 1
+        on_seconds: 0.8
+        off_seconds: 0.25
+        brightness_pct: 100
+        rgb_color:
+        - 0
+        - 102
+        - 255
+        color_temp_kelvin: 5000
   heating_dashboard:
     title: Heating
     dashboard_url_path: heating-overview

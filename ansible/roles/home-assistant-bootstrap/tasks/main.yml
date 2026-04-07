@@ -157,6 +157,7 @@
     use_xff = os.environ["HA_USE_XFF"].lower() == "true"
     trusted_proxies = json.loads(os.environ["HA_TRUSTED_PROXIES_JSON"])
     remote_heating_controls = json.loads(os.environ.get("HA_REMOTE_HEATING_CONTROLS_JSON", "[]"))
+    status_lights_cfg = json.loads(os.environ.get("HA_STATUS_LIGHTS_JSON", "{}"))
 
     data = {}
     if cfg_path.exists():
@@ -223,6 +224,18 @@
         input_text_cfg[restore_id] = desired_restore_input
         changed = True
 
+    status_snooze_timer = str(status_lights_cfg.get("snooze_timer_entity", "")).strip()
+    if status_snooze_timer.startswith("timer."):
+      timer_id = status_snooze_timer.split(".", 1)[1]
+      desired_timer = {
+        "name": f"{status_lights_cfg.get('title', 'Status Lights')} Snooze",
+        "duration": "00:30:00",
+        "restore": True,
+      }
+      if timer_cfg.get(timer_id) != desired_timer:
+        timer_cfg[timer_id] = desired_timer
+        changed = True
+
     if timer_cfg:
       data["timer"] = timer_cfg
     if input_text_cfg:
@@ -264,16 +277,17 @@
     HA_USE_XFF: "{{ 'true' if ha_use_x_forwarded_for else 'false' }}"
     HA_TRUSTED_PROXIES_JSON: "{{ ha_trusted_proxies | to_json }}"
     HA_REMOTE_HEATING_CONTROLS_JSON: "{{ config.home_assistant.remote_heating_controls | default([]) | to_json }}"
+    HA_STATUS_LIGHTS_JSON: "{{ config.home_assistant.status_lights | default({}) | to_json }}"
   register: ha_proxy_trust_update
   changed_when: "'CHANGED=1' in ha_proxy_trust_update.stdout or 'CARD_CHANGED=1' in ha_proxy_trust_update.stdout"
-  when: ha_proxy_trust_update_required or (config.home_assistant.remote_heating_controls | default([]) | length > 0)
+  when: ha_proxy_trust_update_required or (config.home_assistant.remote_heating_controls | default([]) | length > 0) or (config.home_assistant.status_lights | default({}) | length > 0)
 
 - name: Wait for Home Assistant API after configuration.yaml update
   ansible.builtin.wait_for:
     host: "{{ config.services.vms['home-assistant'].ip }}"
     port: 8123
     timeout: 180
-  when: ha_proxy_trust_update_required or (config.home_assistant.remote_heating_controls | default([]) | length > 0)
+  when: ha_proxy_trust_update_required or (config.home_assistant.remote_heating_controls | default([]) | length > 0) or (config.home_assistant.status_lights | default({}) | length > 0)
 
 - name: Read Home Assistant onboarding state
   ansible.builtin.uri:

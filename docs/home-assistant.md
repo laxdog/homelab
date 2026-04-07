@@ -10,6 +10,7 @@ Source of truth:
   - HA core config applied by repo helpers
   - device naming/areas from `device_overrides`
   - generated heating automations/scripts/dashboard
+  - generated status-light scripts/automation/dashboard
   - generated light routines, Hue scene cycling, and repo-managed remote bindings
 - The repo does not by itself guarantee the full live HA runtime state.
 - Runtime state may also include:
@@ -39,6 +40,9 @@ Source of truth:
 - Shelly devices listed in `config.home_assistant.shelly_devices` are configured
   via Home Assistant config-entry flow during `scripts/run.py guests`.
   Re-runs are idempotent (`already_configured` is treated as no-change).
+- The same bootstrap path writes repo-managed helper sections into HAOS `configuration.yaml` for:
+  - heating boost timers / restore helpers
+  - status-light snooze timer
 - HACS is not installed by automation on HAOS; treat it as a one-time manual
   bootstrap step. After HACS + Mushroom are installed, dashboard layout is
   managed from repo via `scripts/home_assistant.py sync-heating-dashboard`.
@@ -60,6 +64,7 @@ Source of truth:
   - reverse-proxy trust in HAOS `configuration.yaml`
   - Shelly config-entry bootstrap
   - repo-managed timers / helpers for heating boosts
+  - repo-managed timer for status-light snooze
   - repo-managed device naming/areas
   - repo-managed automations/scripts/dashboards/light routines/remote bindings from `scripts/home_assistant.py`
 - Practical meaning:
@@ -133,6 +138,7 @@ Source of truth:
      - `python3 scripts/home_assistant.py sync-remote-heating-controls`
      - `python3 scripts/home_assistant.py sync-heating-alerts`
      - `python3 scripts/home_assistant.py sync-heating-dashboard`
+     - `python3 scripts/home_assistant.py sync-status-lights`
      - `python3 scripts/home_assistant.py sync-hue-scenes`
   4. Manually confirm HACS/frontend-card availability if dashboards depend on them.
 - If no usable native HA backup exists:
@@ -217,6 +223,21 @@ Source of truth:
 - `python3 scripts/home_assistant.py sync-devices`
   - Applies `config.home_assistant.device_overrides` (device names and areas).
   - Shelly entries also apply entity naming conventions (switch/sensor/update/button labels).
+- `python3 scripts/home_assistant.py sync-status-lights`
+  - Creates/updates the repo-managed status-light API foundation from
+    `config.home_assistant.status_lights`.
+  - Creates/updates:
+    - `script.status_light_apply_baseline`
+    - `script.status_light_apply_quiet`
+    - `script.status_light_event`
+    - `script.status_light_snooze_30m`
+    - `script.status_light_snooze_60m`
+    - `script.status_light_snooze_120m`
+    - `script.status_light_snooze_until_next_day`
+    - `script.status_light_unsnooze`
+    - test scripts
+    - `automation.status_light_reconcile`
+    - dedicated Lovelace dashboard at `/status-lights/overview`
 - `python3 scripts/home_assistant.py add-tplink`
   - Attempts TP-Link integration for `config.home_assistant.tplink.hubs`.
   - Requires vault vars referenced by `config.home_assistant.tplink.username_var` and `config.home_assistant.tplink.password_var`.
@@ -483,6 +504,104 @@ Source of truth:
     - when the boiler actually transitions from `on` to `off`, the living room Hue bulb flashes
       blue once and the prior relay/light state is restored afterward
 
+## Status Light API
+- Status-light foundation is code-defined in `config.home_assistant.status_lights`.
+- Current intent:
+  - provide a generic repo-managed API that other HA producers can call later
+  - keep baseline state, temporary semantic effects, and snooze policy in one place
+  - avoid dragging the old Shelly-assisted heating-indicator pattern into the new model
+- Current temporary target:
+  - `light.philips_lct015`
+  - this is only the first test target; the API is designed for multiple future bulbs
+
+### API shape
+- Main entrypoints:
+  - `script.status_light_event`
+    - field: `event_key`
+    - allowed values currently configured in repo:
+      - `boost_extend`
+      - `boost_end`
+      - `high_target`
+      - `boiler_off`
+  - `script.status_light_apply_baseline`
+  - `script.status_light_snooze_30m`
+  - `script.status_light_snooze_60m`
+  - `script.status_light_snooze_120m`
+  - `script.status_light_snooze_until_next_day`
+  - `script.status_light_unsnooze`
+- Operator test entrypoints:
+  - `script.status_light_test_boost_extend`
+  - `script.status_light_test_boiler_off`
+- API rule:
+  - callers request semantic events or baseline/snooze operations
+  - callers do not directly choose arbitrary raw bulb payloads
+
+### Baseline model
+- Baseline is repo-owned desired state for the configured target bulbs.
+- Current baseline:
+  - `state: on`
+  - `brightness_pct: 2`
+  - warm neutral color on RGB-capable bulbs (`rgb_color: [255, 180, 120]`)
+- Current behavior:
+  - unsnoozed baseline means the status bulb sits on at minimal brightness
+  - snoozed state means the status bulb is driven quiet/off
+  - unsnooze restores baseline immediately
+
+### Semantics and capability handling
+- Semantic events are configured in `config.home_assistant.status_lights.events`.
+- First-layer capability model:
+  - `rgb`
+  - `color_temp`
+  - `brightness`
+- Generator behavior:
+  - RGB targets use `rgb_color` payloads when available
+  - color-temperature targets use `color_temp_kelvin` payloads when available
+  - brightness-only targets fall back to brightness-based flashing
+- This is intentionally a simple first abstraction:
+  - enough to support future non-Hue bulbs
+  - not a fake universal light-model layer
+
+### Multi-target behavior
+- Targets are listed in `config.home_assistant.status_lights.targets`.
+- Event fan-out is parallel across all configured targets.
+- Unavailable targets are skipped individually.
+- One unavailable target does not block the others.
+
+### Snooze model
+- Repo-managed helper:
+  - `timer.status_light_snooze`
+- Snooze durations:
+  - 30 minutes
+  - 60 minutes
+  - 120 minutes
+  - until next day (`07:00:00` in current config)
+- Reconciliation:
+  - `automation.status_light_reconcile`
+  - on HA startup and on snooze timer finish:
+    - if snooze is active, keep targets quiet/off
+    - otherwise restore baseline
+
+### Operator surface
+- Dedicated dashboard:
+  - `/status-lights/overview`
+- Current controls:
+  - Apply Baseline
+  - Test Boost Extend
+  - Test Boiler Off
+  - Snooze 30m / 60m / 120m / Until Next Day
+  - Unsnooze
+
+### Validation status
+- Validated against the current temporary target `light.philips_lct015`:
+  - baseline apply works
+  - semantic test event temporarily overrides baseline and returns to baseline afterward
+  - all snooze durations set the timer active and drive the bulb off
+  - unsnooze cancels snooze immediately and restores baseline
+  - the script path also behaves sanely when a target is unavailable
+- Current important non-goal:
+  - existing heating alert/boost indicator logic still exists separately
+  - it has not been migrated to the new status-light API yet
+
 ## Scheduling
 - Schedule is code-defined in `config.home_assistant.heating_control.schedule_events`.
 - Each event declares `time`, `weekdays`, `action` (`set_temp` or `"off"`), and `targets`.
@@ -536,7 +655,13 @@ Source of truth:
 - Repo-managed heating boosts now depend on HAOS `configuration.yaml` sections for `timer` and
   `input_text`; if those helpers drift or disappear, re-run `scripts/run.py guests` before re-syncing
   the HA automations/scripts.
+- Repo-managed status lights now depend on HAOS `configuration.yaml` containing
+  `timer.status_light_snooze`; if it drifts or disappears, re-run `scripts/run.py guests`
+  before re-syncing status-light scripts/automation.
 - Long-press dimming repeat behavior on the current Hue remote integration is limited; short-press dim steps are the stable path at present.
+- The new status-light subsystem intentionally has no Shelly dependency.
+  The current temporary test bulb may still require its existing power path to be on,
+  but that is an operational quirk of the temporary target, not part of the API design.
 
 ## Credential reference
 - Username: `config.home_assistant.admin_username` (currently `mrobinson`)

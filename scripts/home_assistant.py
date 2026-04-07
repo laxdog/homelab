@@ -195,6 +195,12 @@ def boost_restore_state_entity(control: dict) -> str:
     return f"input_text.{script_entity.split('.', 1)[1]}_restore_state"
 
 
+def ha_delay(seconds: float) -> str:
+    if float(seconds).is_integer():
+        return f"00:00:{int(seconds):02d}"
+    return f"00:00:{seconds:04.1f}"
+
+
 def cmd_apply_core() -> None:
     cfg, base, token = ha_auth_from_config()
     ha_cfg = cfg["home_assistant"]
@@ -1428,6 +1434,525 @@ def cmd_sync_heating_dashboard() -> None:
     ws_call(base, token, "lovelace/config/save", url_path=dashboard_url_path, config=lovelace_config)
     for action, saved_path in actions:
         print(f"{action} Heating dashboard view at /{dashboard_url_path}/{saved_path}")
+
+
+def cmd_sync_status_lights() -> None:
+    cfg, base, token = ha_auth_from_config()
+    status_cfg = cfg.get("home_assistant", {}).get("status_lights", {})
+    if not status_cfg:
+        print("No home_assistant.status_lights configured; nothing to do.")
+        return
+
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    title = str(status_cfg.get("title", "Status Lights")).strip()
+    dashboard_url_path = str(status_cfg.get("dashboard_url_path", "status-lights")).strip()
+    view_path = str(status_cfg.get("view_path", "overview")).strip()
+    icon = str(status_cfg.get("icon", "mdi:led-strip-variant")).strip()
+    snooze_timer_entity = str(status_cfg.get("snooze_timer_entity", "timer.status_light_snooze")).strip()
+    if not snooze_timer_entity.startswith("timer."):
+        raise RuntimeError("home_assistant.status_lights.snooze_timer_entity must be a timer.* entity")
+
+    baseline_cfg = status_cfg.get("baseline", {}) or {}
+    targets = status_cfg.get("targets", []) or []
+    events = status_cfg.get("events", {}) or {}
+    if not targets:
+        raise RuntimeError("home_assistant.status_lights.targets must contain at least one target")
+    if not events:
+        raise RuntimeError("home_assistant.status_lights.events must contain at least one semantic event")
+
+    def merged_baseline(target: dict) -> dict:
+        merged = dict(baseline_cfg)
+        target_baseline = target.get("baseline", {}) or {}
+        if isinstance(target_baseline, dict):
+            merged.update(target_baseline)
+        return merged
+
+    def target_payload(target: dict, source: dict) -> dict:
+        capability = str(target.get("capability", "rgb")).strip().lower()
+        data: Dict[str, Any] = {}
+        brightness_pct = source.get("brightness_pct")
+        if brightness_pct is not None:
+            data["brightness_pct"] = int(brightness_pct)
+        transition = source.get("transition")
+        if transition is not None:
+            data["transition"] = float(transition)
+        if capability == "rgb" and source.get("rgb_color") is not None:
+            data["rgb_color"] = [int(component) for component in source.get("rgb_color", [])]
+        elif capability in {"color_temp", "ct"} and source.get("color_temp_kelvin") is not None:
+            data["color_temp_kelvin"] = int(source.get("color_temp_kelvin"))
+        return data
+
+    def available_condition(entity_id: str) -> dict:
+        return {
+            "condition": "template",
+            "value_template": "{{ states('" + entity_id + "') not in ['unavailable', 'unknown'] }}",
+        }
+
+    def apply_baseline_sequence(target: dict) -> List[dict]:
+        entity_id = str(target.get("entity_id", "")).strip()
+        baseline = merged_baseline(target)
+        desired_state = str(baseline.get("state", "on")).strip().lower()
+        if desired_state == "off":
+            action = {
+                "action": "light.turn_off",
+                "target": {"entity_id": entity_id},
+            }
+        else:
+            payload = target_payload(target, baseline)
+            if not payload:
+                payload = {"brightness_pct": 1, "transition": 0}
+            action = {
+                "action": "light.turn_on",
+                "target": {"entity_id": entity_id},
+                "data": payload,
+            }
+        return [{"choose": [{"conditions": [available_condition(entity_id)], "sequence": [action]}]}]
+
+    def apply_quiet_sequence(target: dict) -> List[dict]:
+        entity_id = str(target.get("entity_id", "")).strip()
+        return [
+            {
+                "choose": [
+                    {
+                        "conditions": [available_condition(entity_id)],
+                        "sequence": [{"action": "light.turn_off", "target": {"entity_id": entity_id}}],
+                    }
+                ]
+            }
+        ]
+
+    def effect_sequence(target: dict, effect: dict) -> List[dict]:
+        entity_id = str(target.get("entity_id", "")).strip()
+        flashes = max(1, int(effect.get("flashes", 1)))
+        on_seconds = float(effect.get("on_seconds", 0.5))
+        off_seconds = float(effect.get("off_seconds", 0.25))
+        payload = target_payload(target, effect)
+        if "brightness_pct" not in payload:
+            payload["brightness_pct"] = 100
+        payload.setdefault("transition", 0)
+        return [
+            {
+                "choose": [
+                    {
+                        "conditions": [available_condition(entity_id)],
+                        "sequence": [
+                            {
+                                "repeat": {
+                                    "count": flashes,
+                                    "sequence": [
+                                        {
+                                            "action": "light.turn_on",
+                                            "target": {"entity_id": entity_id},
+                                            "data": payload,
+                                        },
+                                        {"delay": ha_delay(on_seconds)},
+                                        {
+                                            "action": "light.turn_off",
+                                            "target": {"entity_id": entity_id},
+                                        },
+                                        {"delay": ha_delay(off_seconds)},
+                                    ],
+                                }
+                            }
+                        ],
+                    }
+                ]
+            }
+        ]
+
+    baseline_parallel = {"parallel": [{"sequence": apply_baseline_sequence(target)} for target in targets]}
+    quiet_parallel = {"parallel": [{"sequence": apply_quiet_sequence(target)} for target in targets]}
+
+    baseline_script_entity = "script.status_light_apply_baseline"
+    quiet_script_entity = "script.status_light_apply_quiet"
+    event_script_entity = "script.status_light_event"
+    unsnooze_script_entity = "script.status_light_unsnooze"
+    reconcile_automation_entity = "automation.status_light_reconcile"
+
+    baseline_script_payload = {
+        "alias": "Status Light Apply Baseline",
+        "sequence": [baseline_parallel],
+        "mode": "restart",
+    }
+    quiet_script_payload = {
+        "alias": "Status Light Apply Quiet",
+        "sequence": [quiet_parallel],
+        "mode": "restart",
+    }
+
+    event_choices: List[dict] = []
+    event_options: List[str] = []
+    for event_key, event_cfg in events.items():
+        event_name = str(event_key).strip()
+        event_options.append(event_name)
+        parallel_effect = {"parallel": [{"sequence": effect_sequence(target, event_cfg)} for target in targets]}
+        event_choices.append(
+            {
+                "conditions": [{"condition": "template", "value_template": "{{ event_key == '" + event_name + "' }}"}],
+                "sequence": [
+                    parallel_effect,
+                    {
+                        "choose": [
+                            {
+                                "conditions": [
+                                    {
+                                        "condition": "template",
+                                        "value_template": "{{ not is_state('" + snooze_timer_entity + "', 'active') }}",
+                                    }
+                                ],
+                                "sequence": [
+                                    {
+                                        "action": "script.turn_on",
+                                        "target": {"entity_id": baseline_script_entity},
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                ],
+            }
+        )
+
+    event_script_payload = {
+        "alias": "Status Light Event",
+        "description": "Repo-managed semantic event entrypoint for status-light notifications.",
+        "fields": {
+            "event_key": {
+                "name": "Event key",
+                "description": "Semantic status-light event to emit.",
+                "required": True,
+                "selector": {"select": {"options": event_options}},
+            }
+        },
+        "sequence": [
+            {
+                "choose": [
+                    {
+                        "conditions": [
+                            {
+                                "condition": "template",
+                                "value_template": "{{ is_state('" + snooze_timer_entity + "', 'active') }}",
+                            }
+                        ],
+                        "sequence": [],
+                    }
+                ],
+                "default": [{"choose": event_choices}],
+            }
+        ],
+        "mode": "queued",
+        "max": 10,
+    }
+
+    test_script_specs = [
+        ("script.status_light_test_boost_extend", "Status Light Test Boost Extend", "boost_extend"),
+        ("script.status_light_test_boiler_off", "Status Light Test Boiler Off", "boiler_off"),
+    ]
+    snooze_script_specs = [
+        ("script.status_light_snooze_30m", "Status Light Snooze 30m", "00:30:00"),
+        ("script.status_light_snooze_60m", "Status Light Snooze 60m", "01:00:00"),
+        ("script.status_light_snooze_120m", "Status Light Snooze 120m", "02:00:00"),
+    ]
+    until_next_day_time = str(status_cfg.get("snooze_until_next_day_time", "07:00:00")).strip()
+    until_next_day_duration_template = (
+        "{% set target = today_at('"
+        + until_next_day_time
+        + "') + timedelta(days=1) %}"
+        + "{% set seconds = (as_timestamp(target) - as_timestamp(now())) | int(0) %}"
+        + "{{ '%02d:%02d:%02d' | format(seconds // 3600, (seconds % 3600) // 60, seconds % 60) }}"
+    )
+
+    script_payloads: List[Tuple[str, dict]] = [
+        (baseline_script_entity, baseline_script_payload),
+        (quiet_script_entity, quiet_script_payload),
+        (event_script_entity, event_script_payload),
+        (
+            unsnooze_script_entity,
+            {
+                "alias": "Status Light Unsnooze",
+                "sequence": [
+                    {
+                        "action": "timer.cancel",
+                        "target": {"entity_id": snooze_timer_entity},
+                    },
+                    {
+                        "action": "script.turn_on",
+                        "target": {"entity_id": baseline_script_entity},
+                    },
+                ],
+                "mode": "restart",
+            },
+        ),
+        (
+            "script.status_light_snooze_until_next_day",
+            {
+                "alias": "Status Light Snooze Until Next Day",
+                "sequence": [
+                    {
+                        "action": "timer.start",
+                        "target": {"entity_id": snooze_timer_entity},
+                        "data": {"duration": until_next_day_duration_template},
+                    },
+                    {
+                        "action": "script.turn_on",
+                        "target": {"entity_id": quiet_script_entity},
+                    },
+                ],
+                "mode": "restart",
+            },
+        ),
+    ]
+
+    for script_entity, alias, duration in snooze_script_specs:
+        script_payloads.append(
+            (
+                script_entity,
+                {
+                    "alias": alias,
+                    "sequence": [
+                        {
+                            "action": "timer.start",
+                            "target": {"entity_id": snooze_timer_entity},
+                            "data": {"duration": duration},
+                        },
+                        {
+                            "action": "script.turn_on",
+                            "target": {"entity_id": quiet_script_entity},
+                        },
+                    ],
+                    "mode": "restart",
+                },
+            )
+        )
+
+    for script_entity, alias, event_key in test_script_specs:
+        script_payloads.append(
+            (
+                script_entity,
+                {
+                    "alias": alias,
+                    "sequence": [
+                        {
+                            "action": "script.turn_on",
+                            "target": {"entity_id": event_script_entity},
+                            "data": {"variables": {"event_key": event_key}},
+                        }
+                    ],
+                    "mode": "restart",
+                },
+            )
+        )
+
+    for script_entity, payload in script_payloads:
+        script_id = script_entity.split(".", 1)[1]
+        resp = requests.post(
+            f"{base}/api/config/script/config/{script_id}",
+            headers=headers,
+            json=payload,
+            timeout=20,
+        )
+        resp.raise_for_status()
+        print(f"Synced {script_entity}")
+
+    reconcile_automation_id = reconcile_automation_entity.split(".", 1)[1]
+    reconcile_payload = {
+        "alias": "Status Light Reconcile",
+        "description": "Repo-managed reconciliation for status-light baseline vs snooze state.",
+        "mode": "restart",
+        "triggers": [
+            {"trigger": "homeassistant", "event": "start"},
+            {"trigger": "event", "event_type": "timer.finished", "event_data": {"entity_id": snooze_timer_entity}},
+        ],
+        "conditions": [],
+        "actions": [
+            {
+                "choose": [
+                    {
+                        "conditions": [
+                            {
+                                "condition": "template",
+                                "value_template": "{{ is_state('" + snooze_timer_entity + "', 'active') }}",
+                            }
+                        ],
+                        "sequence": [
+                            {
+                                "action": "script.turn_on",
+                                "target": {"entity_id": quiet_script_entity},
+                            }
+                        ],
+                    }
+                ],
+                "default": [
+                    {
+                        "action": "script.turn_on",
+                        "target": {"entity_id": baseline_script_entity},
+                    }
+                ],
+            }
+        ],
+    }
+    automation_resp = requests.post(
+        f"{base}/api/config/automation/config/{reconcile_automation_id}",
+        headers=headers,
+        json=reconcile_payload,
+        timeout=20,
+    )
+    automation_resp.raise_for_status()
+    print(f"Synced {reconcile_automation_entity}")
+
+    requests.post(f"{base}/api/services/script/reload", headers=headers, json={}, timeout=20).raise_for_status()
+    requests.post(f"{base}/api/services/automation/reload", headers=headers, json={}, timeout=20).raise_for_status()
+    print("Reloaded status-light scripts and automations")
+
+    resources = ws_call(base, token, "lovelace/resources")
+    mushroom_present = any(
+        isinstance(resource, dict) and "lovelace-mushroom" in str(resource.get("url", ""))
+        for resource in resources
+    )
+
+    def operator_card(name: str, secondary: str, icon_name: str, icon_color: str, entity_id: str) -> Dict[str, Any]:
+        if mushroom_present:
+            return {
+                "type": "custom:mushroom-template-card",
+                "primary": name,
+                "secondary": secondary,
+                "icon": icon_name,
+                "icon_color": icon_color,
+                "multiline_secondary": True,
+                "tap_action": {
+                    "action": "call-service",
+                    "service": "script.turn_on",
+                    "target": {"entity_id": entity_id},
+                },
+            }
+        return {
+            "type": "button",
+            "name": name,
+            "icon": icon_name,
+            "tap_action": {
+                "action": "call-service",
+                "service": "script.turn_on",
+                "target": {"entity_id": entity_id},
+            },
+        }
+
+    def target_card(entity_id: str, name: str) -> Dict[str, Any]:
+        if mushroom_present:
+            return {
+                "type": "custom:mushroom-light-card",
+                "entity": entity_id,
+                "name": name,
+                "show_brightness_control": False,
+                "use_light_color": True,
+                "collapsible_controls": False,
+            }
+        return {"type": "entities", "title": name, "entities": [entity_id]}
+
+    view_cards: List[Dict[str, Any]] = []
+    if mushroom_present:
+        view_cards.append(
+            {
+                "type": "custom:mushroom-chips-card",
+                "chips": [
+                    {
+                        "type": "template",
+                        "icon": "mdi:led-strip-variant",
+                        "icon_color": "{{ 'amber' if is_state('" + snooze_timer_entity + "', 'active') else 'green' }}",
+                        "content": "{{ 'Snoozed' if is_state('" + snooze_timer_entity + "', 'active') else 'Live' }}",
+                    },
+                    {
+                        "type": "template",
+                        "icon": "mdi:timer-outline",
+                        "content": "{% if is_state('"
+                        + snooze_timer_entity
+                        + "', 'active') %}Until {{ as_timestamp(state_attr('"
+                        + snooze_timer_entity
+                        + "', 'finishes_at')) | timestamp_custom('%H:%M') }}{% else %}No snooze{% endif %}",
+                    },
+                ],
+            }
+        )
+    view_cards.extend(
+        [
+            {
+                "type": "grid",
+                "title": "Targets",
+                "columns": 2,
+                "square": False,
+                "cards": [
+                    target_card(str(target.get("entity_id", "")).strip(), str(target.get("name", str(target.get("entity_id", "")).strip())).strip())
+                    for target in targets
+                ],
+            },
+            {
+                "type": "entities",
+                "title": "Status Light State",
+                "entities": [snooze_timer_entity],
+            },
+            {
+                "type": "grid",
+                "title": "Operator Controls",
+                "columns": 3,
+                "square": False,
+                "cards": [
+                    operator_card("Apply Baseline", "Restore live baseline", "mdi:lightbulb-auto", "green", baseline_script_entity),
+                    operator_card("Test Boost Extend", "Emit semantic test event", "mdi:fire", "red", "script.status_light_test_boost_extend"),
+                    operator_card("Test Boiler Off", "Emit semantic test event", "mdi:water-boiler-off", "blue", "script.status_light_test_boiler_off"),
+                    operator_card("Snooze 30m", "Suppress events for 30 minutes", "mdi:timer-outline", "amber", "script.status_light_snooze_30m"),
+                    operator_card("Snooze 60m", "Suppress events for 1 hour", "mdi:timer-sand", "amber", "script.status_light_snooze_60m"),
+                    operator_card("Snooze 120m", "Suppress events for 2 hours", "mdi:timer-sand-complete", "amber", "script.status_light_snooze_120m"),
+                    operator_card("Until Next Day", "Suppress until " + until_next_day_time, "mdi:weather-night", "amber", "script.status_light_snooze_until_next_day"),
+                    operator_card("Unsnooze", "Restore baseline immediately", "mdi:bell-ring", "green", unsnooze_script_entity),
+                ],
+            },
+        ]
+    )
+
+    dashboard_view = {
+        "title": title,
+        "path": view_path,
+        "icon": icon,
+        "cards": view_cards,
+        "badges": [],
+    }
+
+    dashboards = ws_call(base, token, "lovelace/dashboards/list")
+    if not any(d.get("url_path") == dashboard_url_path for d in dashboards):
+        ws_call(
+            base,
+            token,
+            "lovelace/dashboards/create",
+            url_path=dashboard_url_path,
+            title=title,
+            icon=icon,
+            show_in_sidebar=True,
+            require_admin=False,
+        )
+
+    try:
+        lovelace_config = ws_call(base, token, "lovelace/config", url_path=dashboard_url_path)
+    except RuntimeError as exc:
+        if "config_not_found" in str(exc):
+            lovelace_config = {"views": []}
+        else:
+            raise
+    if not isinstance(lovelace_config, dict):
+        lovelace_config = {"views": []}
+    views = lovelace_config.get("views", [])
+    if not isinstance(views, list):
+        views = []
+
+    replaced = False
+    for idx, view in enumerate(views):
+        if isinstance(view, dict) and view.get("path") == view_path:
+            views[idx] = dashboard_view
+            replaced = True
+            break
+    if not replaced:
+        views.append(dashboard_view)
+    lovelace_config["views"] = views
+    ws_call(base, token, "lovelace/config/save", url_path=dashboard_url_path, config=lovelace_config)
+    print(f"{'Updated' if replaced else 'Created'} Status Lights dashboard view at /{dashboard_url_path}/{view_path}")
 
 
 def build_heating_demand_template(
@@ -3756,6 +4281,7 @@ def main() -> None:
     sub.add_parser("sync-remote-light-controls")
     sub.add_parser("sync-remote-heating-controls")
     sub.add_parser("sync-heating-alerts")
+    sub.add_parser("sync-status-lights")
     sub.add_parser("summary")
     args = parser.parse_args()
 
@@ -3779,6 +4305,8 @@ def main() -> None:
         cmd_sync_remote_heating_controls()
     elif args.command == "sync-heating-alerts":
         cmd_sync_heating_alerts()
+    elif args.command == "sync-status-lights":
+        cmd_sync_status_lights()
     elif args.command == "summary":
         cmd_summary()
 

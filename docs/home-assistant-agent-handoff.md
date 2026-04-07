@@ -38,6 +38,8 @@
   - `python3 scripts/home_assistant.py sync-remote-heating-controls`
 - Heating alerts:
   - `python3 scripts/home_assistant.py sync-heating-alerts`
+- Status-light subsystem:
+  - `python3 scripts/home_assistant.py sync-status-lights`
 - Heating dashboard:
   - `python3 scripts/home_assistant.py sync-heating-dashboard`
 - Hue remote scene cycle automation:
@@ -51,6 +53,7 @@
   - reverse-proxy trust enforcement
   - repo-managed HA reconciliation commands
   - repo-managed boost timers/helpers written into HAOS `configuration.yaml`
+  - repo-managed status-light snooze timer written into HAOS `configuration.yaml`
 - Runtime-evidenced:
   - HA `backup` integration is loaded
   - HA exposes backup service `backup.create_automatic`
@@ -164,6 +167,46 @@
   avoids restore loops when a stale helper collides with live TRV state.
 - Heating high-target visual alert from `home_assistant.heating_alerts`.
 - Boiler idle blue-flash alert is also generated from `home_assistant.heating_alerts`.
+- Status-light API foundation from `home_assistant.status_lights`.
+  - baseline is repo-owned desired state for one or more configured status bulbs
+  - current temporary target is `light.philips_lct015`
+  - current API entrypoints:
+    - `script.status_light_event`
+    - `script.status_light_apply_baseline`
+    - `script.status_light_snooze_30m`
+    - `script.status_light_snooze_60m`
+    - `script.status_light_snooze_120m`
+    - `script.status_light_snooze_until_next_day`
+    - `script.status_light_unsnooze`
+  - current semantic events configured:
+    - `boost_extend`
+    - `boost_end`
+    - `high_target`
+    - `boiler_off`
+  - current baseline:
+    - on
+    - `2%` brightness
+    - warm neutral RGB color
+  - current snooze model:
+    - `timer.status_light_snooze` is the source of truth for quiet/suppressed output
+    - while snoozed, the target bulbs are driven off
+    - unsnooze restores baseline immediately
+  - current reconciliation:
+    - `automation.status_light_reconcile`
+    - on startup and snooze-finish, restore baseline if live or keep quiet if still snoozed
+  - multi-target/capability stance:
+    - targets fan out in parallel
+    - unavailable targets are skipped individually
+    - first supported capability profiles are `rgb`, `color_temp`, and `brightness`
+  - validation completed:
+    - baseline apply works on the temporary target
+    - semantic event test temporarily overrides the bulb and returns to baseline
+    - 30m / 60m / 120m / until-next-day snooze all work
+    - unsnooze works immediately
+    - unavailable targets do not break the script path
+  - not migrated yet:
+    - old heating light-indicator behavior still exists separately
+    - no existing heating alerts/boost flashes have been moved onto the new API yet
 - Group target sliders (`house`, `upstairs`, `downstairs`) used by heating automations/dashboard.
 - Shelly + TP-Link + selected ZHA device naming/area mapping through `sync-devices`.
 - Hue remote scene-cycle automation generated from `home_assistant.hue_scene_cycle`.
@@ -207,9 +250,16 @@
     - confirm `screen on` / `screen off`
     - confirm dashboard `load_url`
     - defer motion/screen-wake automation until the base integration is stable
+- Status-light subsystem:
+  - no Shelly dependency in the API design
+  - the temporary test bulb may still rely on its existing power path being on, but that is only a
+    temporary-target constraint, not part of the subsystem contract
 
 ## Guardrails for Future Changes
 - Make changes in `config/homelab.yaml` first, then regenerate via script commands above.
+- If status-light config changes:
+  - re-run `scripts/run.py guests` so HAOS `configuration.yaml` still contains `timer.status_light_snooze`
+  - then run `python3 scripts/home_assistant.py sync-status-lights`
 - If remote heating boost behavior changes, remember that `sync-remote-heating-controls` is only
   half of the rollout; the HAOS-side timer/input_text helpers are created from repo during
   `scripts/run.py guests`.
