@@ -348,15 +348,6 @@ services:
       cores: 4
       memory_mb: 8192
       disk_gb: 40
-      extra_disks:
-      - interface: scsi1
-        datastore_id: tank-vmdata
-        size_gb: 8000
-        backup: true
-        discard: "on"
-      mounts:
-      - /tank/media:/mnt/media
-      - /tank/downloads:/mnt/downloads
       virtiofs:
       - mapping: tank-media
         cache: metadata
@@ -641,6 +632,7 @@ npm:
   - heimdall.lax.dog
   - rss.lax.dog
   - browser.lax.dog
+  - adguard.lax.dog
   access_lists:
   - name: Internal Access
     auth: none
