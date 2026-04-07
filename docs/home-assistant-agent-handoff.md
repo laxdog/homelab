@@ -169,7 +169,9 @@
 - Boiler idle blue-flash alert is also generated from `home_assistant.heating_alerts`.
 - Status-light API foundation from `home_assistant.status_lights`.
   - baseline is repo-owned desired state for one or more configured status bulbs
-  - current temporary target is `light.philips_lct015`
+  - current configured targets are:
+    - `light.philips_lct015`
+    - `light.philips_lct012`
   - current API entrypoints:
     - `script.status_light_event`
     - `script.status_light_apply_baseline`
@@ -199,8 +201,8 @@
     - unavailable targets are skipped individually
     - first supported capability profiles are `rgb`, `color_temp`, and `brightness`
   - validation completed:
-    - baseline apply works on the temporary target
-    - semantic event test temporarily overrides the bulb and returns to baseline
+    - baseline apply works on both configured bulbs
+    - semantic event test temporarily overrides both bulbs and returns them to baseline
     - 30m / 60m / 120m / until-next-day snooze all work
     - unsnooze works immediately
     - unavailable targets do not break the script path

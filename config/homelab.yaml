@@ -1410,6 +1410,9 @@ home_assistant:
     - name: Living Room Status Bulb
       entity_id: light.philips_lct015
       capability: rgb
+    - name: Philips LCT012
+      entity_id: light.philips_lct012
+      capability: rgb
     events:
       boost_extend:
         label: Boost Extend

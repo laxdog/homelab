@@ -510,9 +510,10 @@ Source of truth:
   - provide a generic repo-managed API that other HA producers can call later
   - keep baseline state, temporary semantic effects, and snooze policy in one place
   - avoid dragging the old Shelly-assisted heating-indicator pattern into the new model
-- Current temporary target:
+- Current configured targets:
   - `light.philips_lct015`
-  - this is only the first test target; the API is designed for multiple future bulbs
+  - `light.philips_lct012`
+  - the API is designed for additional future bulbs beyond these two test targets
 
 ### API shape
 - Main entrypoints:
@@ -592,7 +593,9 @@ Source of truth:
   - Unsnooze
 
 ### Validation status
-- Validated against the current temporary target `light.philips_lct015`:
+- Validated live against the current configured targets:
+  - `light.philips_lct015`
+  - `light.philips_lct012`
   - baseline apply works
   - semantic test event temporarily overrides baseline and returns to baseline afterward
   - all snooze durations set the timer active and drive the bulb off
