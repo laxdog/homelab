@@ -389,6 +389,7 @@ services:
       id: 154
       ip: 10.20.30.154
       disk_gb: 16
+      storage: tank-vmdata
       roles:
       - docker
       - nginx_proxy_manager
