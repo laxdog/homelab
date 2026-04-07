@@ -373,6 +373,8 @@
          or (current_host.ssl_forced | default(false)) != desired_ssl_forced
          or (current_host.http2_support | default(false)) != desired_http2_support
          or (current_host.forward_scheme | default('http')) != desired_forward_scheme
+         or (current_host.forward_host | default('')) != item.forward_host
+         or (current_host.forward_port | default(0) | int) != (item.forward_port | int)
          or (current_host.advanced_config | default('')) != desired_advanced_config
          or (current_host.meta.nginx_online is defined and not current_host.meta.nginx_online)
          or (npm_certificates_changed | default(false)) }}

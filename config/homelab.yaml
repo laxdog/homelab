@@ -834,8 +834,8 @@ npm:
       }
   - name: Jellyfin
     domain: jellyfin.laxdog.uk
-    forward_host: 10.20.30.120
-    forward_port: 8096
+    forward_host: 10.20.30.167
+    forward_port: 8097
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
@@ -965,8 +965,8 @@ npm:
     authentik_protect: true
   - name: Jellyfin External
     domain: jellyfin.lax.dog
-    forward_host: 10.20.30.120
-    forward_port: 8096
+    forward_host: 10.20.30.167
+    forward_port: 8097
     access_list: External Public
     ssl: true
     certificate: laxdog-external-le
