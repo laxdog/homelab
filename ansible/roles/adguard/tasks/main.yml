@@ -93,6 +93,18 @@
   register: adguard_config_rendered
   notify: Restart AdGuardHome
 
+# The template render is intentionally a partial seed of AdGuardHome.yaml
+# (it does not contain persistent clients, user rules, or rewrites — those
+# are managed by API tasks below). The template render therefore wipes
+# those dynamic sections from disk on every run. We must restart AdGuardHome
+# *now* so that subsequent API tasks see the post-render empty state and
+# fully rebuild it via drift detection. Without this flush, the API tasks
+# would read the still-loaded in-memory state, find no drift, write nothing,
+# and the end-of-play restart would then load the stripped file and lose
+# all dynamic state.
+- name: Apply AdGuardHome restart immediately so API tasks see fresh state
+  ansible.builtin.meta: flush_handlers
+
 - name: Ensure AdGuardHome service is enabled and running
   ansible.builtin.service:
     name: AdGuardHome
@@ -112,6 +124,49 @@
   delay: 3
   until: adguard_status.status == 200
   when: (config.adguard.rewrites | default([]) | length > 0) or (config.adguard.user_rules | default([]) | length > 0)
+
+- name: Read current AdGuard DNS config
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/dns_info"
+    method: GET
+    user: "{{ config.adguard.admin_user }}"
+    password: "{{ adguard_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    status_code: 200
+  register: adguard_dns_info
+  when: >-
+    (config.adguard.dns.resolve_clients is defined)
+    or (config.adguard.dns.use_private_ptr_resolvers is defined)
+    or ((config.adguard.dns.local_ptr_upstreams | default([])) | length > 0)
+
+- name: Decide if AdGuard DNS config needs update
+  ansible.builtin.set_fact:
+    adguard_dns_config_need_update: >-
+      {{
+        ((adguard_dns_info.json.resolve_clients | default(false) | bool)
+          != (config.adguard.dns.resolve_clients | default(false) | bool))
+        or ((adguard_dns_info.json.use_private_ptr_resolvers | default(false) | bool)
+          != (config.adguard.dns.use_private_ptr_resolvers | default(false) | bool))
+        or ((adguard_dns_info.json.local_ptr_upstreams | default([]) | sort)
+          != ((config.adguard.dns.local_ptr_upstreams | default([])) | sort))
+      }}
+  when: adguard_dns_info.json is defined
+
+- name: Update AdGuard DNS config
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/dns_config"
+    method: POST
+    user: "{{ config.adguard.admin_user }}"
+    password: "{{ adguard_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      resolve_clients: "{{ config.adguard.dns.resolve_clients | default(false) | bool }}"
+      use_private_ptr_resolvers: "{{ config.adguard.dns.use_private_ptr_resolvers | default(false) | bool }}"
+      local_ptr_upstreams: "{{ config.adguard.dns.local_ptr_upstreams | default([]) }}"
+    status_code: 200
+  when: adguard_dns_config_need_update | default(false)
 
 - name: Read current AdGuard safe-search status
   ansible.builtin.uri:

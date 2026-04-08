@@ -23,6 +23,12 @@ dns:
     - {{ upstream }}
 {% endfor %}
   bootstrap_dns: "{{ config.adguard.dns.bootstrap_dns | first }}"
+  resolve_clients: {{ (config.adguard.dns.resolve_clients | default(false)) | bool | lower }}
+  use_private_ptr_resolvers: {{ (config.adguard.dns.use_private_ptr_resolvers | default(false)) | bool | lower }}
+  local_ptr_upstreams:
+{% for ptr in config.adguard.dns.local_ptr_upstreams | default([]) %}
+    - {{ ptr }}
+{% endfor %}
 
 filters:
 {% set all_filters = config.adguard.filters.blocklists + config.adguard.filters.allowlists %}
