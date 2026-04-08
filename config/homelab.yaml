@@ -127,6 +127,19 @@ adguard:
     - 149.112.112.10
     - 2620:fe::10
     - 2620:fe::fe:10
+    resolve_clients: true
+    use_private_ptr_resolvers: true
+    local_ptr_upstreams:
+    - 10.20.30.1:53
+  client_overrides:
+  - name: charlotte-mbp
+    ids:
+    - a0:9a:8e:35:e5:02
+    - 10.20.30.83
+  - name: nvidia-shield
+    ids:
+    - 48:b0:2d:58:da:2c
+    - 10.20.30.98
   tests:
     good_domain: iana.org
     bad_domain: doubleclick.net
@@ -220,31 +233,25 @@ adguard:
   - domain: laxdog.uk
     answer: 10.20.30.154
   user_rules:
-  - '@@||click.figma.com^$client=''10.20.30.201'''
-  - '@@||analytics.google.com^$client=''10.20.30.201'''
-  - '@@||amplitude.com^$client=''10.20.30.201'''
-  - '@@||amplitude.com^$client=''10.20.30.204'''
-  - '@@||click.figma.com^$client=''10.20.30.204'''
-  - '@@||www.googletagmanager.com^$client=''10.20.30.201'''
-  - '@@||analytics.google.com^$client=''10.20.30.204'''
-  - '@@||cfklr04.na1.hs-sales-engage.com^$client=''10.20.30.75'''
-  - '@@||api.mixpanel.com^$client=''10.20.30.75'''
-  - '@@||sentry.io^$client=''10.20.30.75'''
-  - '@@||api.eu.amplitude.com^$client=''10.20.30.208'''
-  - '@@||amplitude.com^$client=''10.20.30.208'''
-  - '@@||api.lab.amplitude.com^$client=''10.20.30.108'''
-  - '@@||hotjar.com^$client=''10.20.30.75'''
-  - '@@||region1.google-analytics.com^$client=''10.20.30.208'''
-  - '@@||amplitude.prismic.io^$client=''10.20.30.208'''
-  - '@@||region1.google-analytics.com^$client=''10.20.30.75'''
-  - '@@||region1.analytics.google.com^$client=''10.20.30.75'''
-  - '@@||youtube.com^$client=''10.20.30.98'''
-  - '@@||youtu.be^$client=''10.20.30.98'''
-  - '@@||youtubei.googleapis.com^$client=''10.20.30.98'''
-  - '@@||googlevideo.com^$client=''10.20.30.98'''
-  - '@@||ytimg.com^$client=''10.20.30.98'''
-  - '@@||ggpht.com^$client=''10.20.30.98'''
-  - '@@||amplitude.com^$client=''10.20.30.83'''
+  - '@@||amplitude.com^$client=''charlotte-mbp'''
+  - '@@||amplitude.prismic.io^$client=''charlotte-mbp'''
+  - '@@||analytics.google.com^$client=''charlotte-mbp'''
+  - '@@||api.eu.amplitude.com^$client=''charlotte-mbp'''
+  - '@@||api.lab.amplitude.com^$client=''charlotte-mbp'''
+  - '@@||api.mixpanel.com^$client=''charlotte-mbp'''
+  - '@@||cfklr04.na1.hs-sales-engage.com^$client=''charlotte-mbp'''
+  - '@@||click.figma.com^$client=''charlotte-mbp'''
+  - '@@||hotjar.com^$client=''charlotte-mbp'''
+  - '@@||region1.analytics.google.com^$client=''charlotte-mbp'''
+  - '@@||region1.google-analytics.com^$client=''charlotte-mbp'''
+  - '@@||sentry.io^$client=''charlotte-mbp'''
+  - '@@||www.googletagmanager.com^$client=''charlotte-mbp'''
+  - '@@||ggpht.com^$client=''nvidia-shield'''
+  - '@@||googlevideo.com^$client=''nvidia-shield'''
+  - '@@||youtu.be^$client=''nvidia-shield'''
+  - '@@||youtube.com^$client=''nvidia-shield'''
+  - '@@||youtubei.googleapis.com^$client=''nvidia-shield'''
+  - '@@||ytimg.com^$client=''nvidia-shield'''
 apt_cacher:
   enabled: true
   host: 10.20.30.156
