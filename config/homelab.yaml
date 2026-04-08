@@ -244,6 +244,7 @@ adguard:
   - '@@||googlevideo.com^$client=''10.20.30.98'''
   - '@@||ytimg.com^$client=''10.20.30.98'''
   - '@@||ggpht.com^$client=''10.20.30.98'''
+  - '@@||amplitude.com^$client=''10.20.30.83'''
 apt_cacher:
   enabled: true
   host: 10.20.30.156
