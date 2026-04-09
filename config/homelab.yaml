@@ -1390,6 +1390,7 @@ home_assistant:
     automation_entity: automation.heating_boiler_idle_alert
     alert_type: boiler_off
     boiler_entity: switch.shellyplus1_78ee4cc4b590
+    semantic_event_key: boiler_off
     relay_entity: switch.shelly1minig3_e4b32329d38c
     light_entity: light.philips_lct015
     flash_rgb_color:
@@ -1420,6 +1421,9 @@ home_assistant:
       capability: rgb
     - name: Philips LCT012
       entity_id: light.philips_lct012
+      capability: rgb
+    - name: Bedroom Hue Bulb
+      entity_id: light.philips_lct015_2
       capability: rgb
     events:
       boost_extend:

@@ -498,11 +498,13 @@ Source of truth:
 - `python3 scripts/home_assistant.py sync-heating-alerts`
   - Creates/updates repo-managed heating alert automations from
     `config.home_assistant.heating_alerts`.
-  - Current heating alert behavior:
-    - when any managed TRV target reaches `23C`, the living room Shelly relay is turned on if needed,
-      the living room Hue bulb flashes red once, and the prior relay/light state is restored afterward
-    - when the boiler actually transitions from `on` to `off`, the living room Hue bulb flashes
-      blue once and the prior relay/light state is restored afterward
+- Current heating alert behavior:
+  - when any managed TRV target reaches `23C`, the living room Shelly relay is turned on if needed,
+    the living room Hue bulb flashes red once, and the prior relay/light state is restored afterward
+  - when the boiler actually transitions from `on` to `off`, the alert is now routed through
+    `script.status_light_event` with semantic key `boiler_off`
+  - that migrated `boiler_off` path no longer uses the old Shelly-assisted wake-up behavior
+    for the living-room status bulb
 
 ## Status Light API
 - Status-light foundation is code-defined in `config.home_assistant.status_lights`.
@@ -513,7 +515,8 @@ Source of truth:
 - Current configured targets:
   - `light.philips_lct015`
   - `light.philips_lct012`
-  - the API is designed for additional future bulbs beyond these two test targets
+  - `light.philips_lct015_2`
+  - the API is designed for additional future bulbs beyond these current targets
 
 ### API shape
 - Main entrypoints:
@@ -596,14 +599,21 @@ Source of truth:
 - Validated live against the current configured targets:
   - `light.philips_lct015`
   - `light.philips_lct012`
+  - `light.philips_lct015_2`
   - baseline apply works
-  - semantic test event temporarily overrides baseline and returns to baseline afterward
+  - semantic test event temporarily overrides baseline and returns to baseline afterward on the
+    two responsive targets
   - all snooze durations set the timer active and drive the bulb off
   - unsnooze cancels snooze immediately and restores baseline
   - the script path also behaves sanely when a target is unavailable
-- Current important non-goal:
-  - existing heating alert/boost indicator logic still exists separately
-  - it has not been migrated to the new status-light API yet
+- Current runtime caveat:
+  - `light.philips_lct015_2` is configured as a target and is suitable on paper, but during this
+    migration slice it did not respond to `light.turn_on` from HA and remained `off`
+  - so live multi-target proof is currently strong on `light.philips_lct015` and `light.philips_lct012`,
+    with partial proof only for the bedroom bulb until that runtime target issue is resolved
+- Current migration status:
+  - `boiler_off` is the first real producer migrated onto the new status-light API
+  - `high_target` and the boost light semantics still use the older dedicated heating-indicator path
 
 ## Scheduling
 - Schedule is code-defined in `config.home_assistant.heating_control.schedule_events`.

@@ -172,6 +172,7 @@
   - current configured targets are:
     - `light.philips_lct015`
     - `light.philips_lct012`
+    - `light.philips_lct015_2`
   - current API entrypoints:
     - `script.status_light_event`
     - `script.status_light_apply_baseline`
@@ -201,14 +202,20 @@
     - unavailable targets are skipped individually
     - first supported capability profiles are `rgb`, `color_temp`, and `brightness`
   - validation completed:
-    - baseline apply works on both configured bulbs
-    - semantic event test temporarily overrides both bulbs and returns them to baseline
+    - baseline apply works on the two responsive configured bulbs
+    - semantic event test temporarily overrides the two responsive configured bulbs and returns them to baseline
     - 30m / 60m / 120m / until-next-day snooze all work
     - unsnooze works immediately
     - unavailable targets do not break the script path
-  - not migrated yet:
-    - old heating light-indicator behavior still exists separately
-    - no existing heating alerts/boost flashes have been moved onto the new API yet
+  - current migration status:
+    - `boiler_off` is now the first real producer routed through `script.status_light_event`
+    - that migrated path no longer uses the old Shelly relay wake-up behavior
+    - `high_target` and boost indicator flashes still use the older dedicated heating-indicator path
+  - current runtime caveat:
+    - `light.philips_lct015_2` is present and configured, but during the live migration validation
+      it did not respond to `light.turn_on` from HA and remained `off`
+    - so live fan-out proof is currently complete for `light.philips_lct015` and `light.philips_lct012`,
+      and only partial for the bedroom bulb pending that target-level runtime issue
 - Group target sliders (`house`, `upstairs`, `downstairs`) used by heating automations/dashboard.
 - Shelly + TP-Link + selected ZHA device naming/area mapping through `sync-devices`.
 - Hue remote scene-cycle automation generated from `home_assistant.hue_scene_cycle`.
