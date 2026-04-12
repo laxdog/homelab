@@ -43,6 +43,8 @@ proxmox:
   storages:
     vm_disk: local-lvm
     media_data_disk: tank-vmdata
+    ssd_fast: ssd-fast
+    ssd_mirror: ssd-mirror
     local_dir: local
     backups_dir: tank-backups
     templates_dir: tank-templates

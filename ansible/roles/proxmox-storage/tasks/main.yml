@@ -49,3 +49,15 @@
     pvesm add zfspool {{ config.proxmox.storages.media_data_disk }}
     --pool {{ config.storage.zfs.pool }} --content images
   when: pvesm_status.stdout is not search('^' ~ config.proxmox.storages.media_data_disk ~ '\\s', multiline=True)
+
+- name: Ensure ssd-fast zfspool storage exists
+  ansible.builtin.shell: >-
+    pvesm add zfspool {{ config.proxmox.storages.ssd_fast }}
+    --pool ssd-fast --content rootdir,images --sparse 1
+  when: pvesm_status.stdout is not search('^' ~ config.proxmox.storages.ssd_fast ~ '\\s', multiline=True)
+
+- name: Ensure ssd-mirror zfspool storage exists
+  ansible.builtin.shell: >-
+    pvesm add zfspool {{ config.proxmox.storages.ssd_mirror }}
+    --pool ssd-mirror --content rootdir,images --sparse 1
+  when: pvesm_status.stdout is not search('^' ~ config.proxmox.storages.ssd_mirror ~ '\\s', multiline=True)
