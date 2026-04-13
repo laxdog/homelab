@@ -228,12 +228,16 @@
     - unsnooze works immediately
     - unavailable targets do not break the script path
   - current migration status:
-    - `boiler_off` and `high_target` are now routed through the heating adapter
+    - all four heating status semantics are now routed through the heating adapter:
+      - `boiler_off`
+      - `high_target`
+      - `boost_end`
+      - `boost_extend`
     - those migrated paths no longer use the old Shelly relay wake-up behavior
-    - boost indicator flashes still use the older dedicated heating-indicator path
+    - the older managed heating-indicator relay/snapshot path has been removed
   - current runtime caveat:
-    - `light.philips_lct015_2` is present and configured, but during the live migration validation
-      it did not respond to `light.turn_on` from HA and remained `off`
+    - `light.philips_lct015_2` is present and configured as an opportunistic target, but it remains
+      unreliable and is currently `unavailable` in live HA
     - so live fan-out proof is currently complete for `light.philips_lct015` and `light.philips_lct012`,
       and only partial for the bedroom bulb pending that target-level runtime issue
 - Group target sliders (`house`, `upstairs`, `downstairs`) used by heating automations/dashboard.

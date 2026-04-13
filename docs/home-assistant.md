@@ -499,12 +499,11 @@ Source of truth:
   - Creates/updates repo-managed heating alert automations from
     `config.home_assistant.heating_alerts`.
 - Current heating alert behavior:
-  - when any managed TRV target reaches `23C`, the living room Shelly relay is turned on if needed,
-    the living room Hue bulb flashes red once, and the prior relay/light state is restored afterward
+  - when any managed TRV target reaches `23C`, the alert is routed through
+    `script.status_light_emit_heating_event` with semantic key `high_target`
   - when the boiler actually transitions from `on` to `off`, the alert is now routed through
     `script.status_light_emit_heating_event` with semantic key `boiler_off`
-  - that migrated `boiler_off` path no longer uses the old Shelly-assisted wake-up behavior
-    for the living-room status bulb
+  - both migrated heating alert paths no longer use the old Shelly-assisted wake-up behavior
 
 ## Status Light API
 - Status-light foundation is code-defined in `config.home_assistant.status_lights`.
@@ -640,14 +639,18 @@ Source of truth:
   - unsnooze cancels snooze immediately and restores baseline
   - the script path also behaves sanely when a target is unavailable
 - Current runtime caveat:
-  - `light.philips_lct015_2` is configured as a target and is suitable on paper, but during this
-    migration slice it did not respond to `light.turn_on` from HA and remained `off`
+  - `light.philips_lct015_2` is configured as an opportunistic target and is suitable on paper,
+    but it remains unreliable and is currently `unavailable` in live HA
   - so live multi-target proof is currently strong on `light.philips_lct015` and `light.philips_lct012`,
     with partial proof only for the bedroom bulb until that runtime target issue is resolved
 - Current migration status:
-  - `boiler_off` and `high_target` now route through the heating adapter rather than directly into
-    the core engine
-  - boost light semantics still use the older dedicated heating-indicator path
+  - all four heating status semantics now route through the heating adapter rather than directly
+    into the core engine:
+    - `boiler_off`
+    - `high_target`
+    - `boost_end`
+    - `boost_extend`
+  - the old managed heating relay/snapshot/restore indicator path has been removed
 
 ## Scheduling
 - Schedule is code-defined in `config.home_assistant.heating_control.schedule_events`.

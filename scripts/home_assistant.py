@@ -3527,180 +3527,15 @@ def cmd_sync_remote_heating_controls() -> None:
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     devices = ws_call(base, token, "config/device_registry/list")
 
-    def flash_delay(seconds: float) -> str:
-        if float(seconds).is_integer():
-            return f"00:00:{int(seconds):02d}"
-        return f"00:00:{seconds:04.1f}"
-
-    def indicator_flash_sequence(
-        relay_entity: str,
-        light_entity: str,
-        prefix: str,
-        rgb_color: List[int],
-        flash_count: int,
-        flash_seconds: float,
-    ) -> List[dict]:
-        if not relay_entity or not light_entity:
+    def status_light_event_sequence(event_key: str) -> List[dict]:
+        if not event_key:
             return []
-
         return [
             {
-                "variables": {
-                    f"{prefix}_relay_was_on": "{{ is_state('" + relay_entity + "', 'on') }}",
-                    f"{prefix}_light_was_on": "{{ is_state('" + light_entity + "', 'on') }}",
-                    f"{prefix}_light_brightness": "{{ state_attr('" + light_entity + "', 'brightness') }}",
-                    f"{prefix}_light_color_mode": "{{ state_attr('" + light_entity + "', 'color_mode') }}",
-                    f"{prefix}_light_xy_x": "{{ (state_attr('" + light_entity + "', 'xy_color') or [none, none])[0] }}",
-                    f"{prefix}_light_xy_y": "{{ (state_attr('" + light_entity + "', 'xy_color') or [none, none])[1] }}",
-                    f"{prefix}_light_color_temp_kelvin": "{{ state_attr('" + light_entity + "', 'color_temp_kelvin') }}",
-                }
-            },
-            {
-                "choose": [
-                    {
-                        "conditions": [
-                            {
-                                "condition": "state",
-                                "entity_id": relay_entity,
-                                "state": "off",
-                            }
-                        ],
-                        "sequence": [
-                            {
-                                "action": "switch.turn_on",
-                                "target": {"entity_id": relay_entity},
-                            },
-                            {"delay": "00:00:02"},
-                        ],
-                    }
-                ]
-            },
-            {
-                "repeat": {
-                    "count": flash_count,
-                    "sequence": [
-                        {
-                            "action": "light.turn_on",
-                            "target": {"entity_id": light_entity},
-                            "data": {
-                                "rgb_color": rgb_color,
-                                "brightness_pct": 100,
-                                "transition": 0,
-                            },
-                        },
-                        {"delay": flash_delay(flash_seconds)},
-                        {"action": "light.turn_off", "target": {"entity_id": light_entity}},
-                        {"delay": flash_delay(flash_seconds)},
-                    ],
-                }
-            },
-            {
-                "choose": [
-                    {
-                        "conditions": [
-                            {
-                                "condition": "template",
-                                "value_template": "{{ "
-                                + prefix
-                                + "_light_was_on and "
-                                + prefix
-                                + "_light_color_mode == 'color_temp' and "
-                                + prefix
-                                + "_light_color_temp_kelvin is not none }}",
-                            }
-                        ],
-                        "sequence": [
-                            {
-                                "action": "light.turn_on",
-                                "target": {"entity_id": light_entity},
-                                "data": {
-                                    "brightness": "{{ " + prefix + "_light_brightness | int(255) }}",
-                                    "color_temp_kelvin": "{{ " + prefix + "_light_color_temp_kelvin | int }}",
-                                    "transition": 0,
-                                },
-                            }
-                        ],
-                    },
-                    {
-                        "conditions": [
-                            {
-                                "condition": "template",
-                                "value_template": "{{ "
-                                + prefix
-                                + "_light_was_on and "
-                                + prefix
-                                + "_light_color_mode != 'color_temp' and "
-                                + prefix
-                                + "_light_xy_x is not none and "
-                                + prefix
-                                + "_light_xy_y is not none }}",
-                            }
-                        ],
-                        "sequence": [
-                            {
-                                "action": "light.turn_on",
-                                "target": {"entity_id": light_entity},
-                                "data": {
-                                    "brightness": "{{ " + prefix + "_light_brightness | int(255) }}",
-                                    "xy_color": [
-                                        "{{ " + prefix + "_light_xy_x | float }}",
-                                        "{{ " + prefix + "_light_xy_y | float }}",
-                                    ],
-                                    "transition": 0,
-                                },
-                            }
-                        ],
-                    },
-                ],
-                "default": [
-                    {
-                        "choose": [
-                            {
-                                "conditions": [
-                                    {
-                                        "condition": "template",
-                                        "value_template": "{{ " + prefix + "_light_was_on }}",
-                                    }
-                                ],
-                                "sequence": [
-                                    {
-                                        "action": "light.turn_on",
-                                        "target": {"entity_id": light_entity},
-                                        "data": {
-                                            "brightness": "{{ " + prefix + "_light_brightness | int(255) }}",
-                                            "transition": 0,
-                                        },
-                                    }
-                                ],
-                            }
-                        ],
-                        "default": [
-                            {
-                                "action": "light.turn_off",
-                                "target": {"entity_id": light_entity},
-                            }
-                        ],
-                    }
-                ],
-            },
-            {
-                "choose": [
-                    {
-                        "conditions": [
-                            {
-                                "condition": "template",
-                                "value_template": "{{ not " + prefix + "_relay_was_on }}",
-                            }
-                        ],
-                        "sequence": [
-                            {
-                                "action": "switch.turn_off",
-                                "target": {"entity_id": relay_entity},
-                            }
-                        ],
-                    }
-                ]
-            },
+                "action": "script.turn_on",
+                "target": {"entity_id": "script.status_light_emit_heating_event"},
+                "data": {"variables": {"event_key": event_key}},
+            }
         ]
 
     for control in controls:
@@ -3723,10 +3558,8 @@ def cmd_sync_remote_heating_controls() -> None:
         duration_minutes = int(control.get("duration_minutes", 30))
         temperature_c = float(control.get("temperature_c", 23))
         fail_safe_off_on_uncertain_restore = bool(control.get("fail_safe_off_on_uncertain_restore", False))
-        indicator_relay_entity = str(control.get("indicator_relay_entity", "")).strip()
-        indicator_light_entity = str(control.get("indicator_light_entity", "")).strip()
-        completion_flash_rgb_color = control.get("completion_flash_rgb_color", [170, 0, 255])
-        completion_flash_seconds = float(control.get("completion_flash_seconds", 1))
+        completion_semantic_event_key = str(control.get("completion_semantic_event_key", "boost_end")).strip()
+        extend_semantic_event_key = str(control.get("extend_semantic_event_key", "boost_extend")).strip()
 
         if (
             not automation_entity
@@ -3798,22 +3631,8 @@ def cmd_sync_remote_heating_controls() -> None:
                 "type": cancel_trigger_type,
                 "subtype": cancel_trigger_subtype,
             }
-        completion_flash_sequence = indicator_flash_sequence(
-            indicator_relay_entity,
-            indicator_light_entity,
-            "completion_indicator",
-            completion_flash_rgb_color,
-            1,
-            completion_flash_seconds,
-        )
-        extend_flash_sequence = indicator_flash_sequence(
-            indicator_relay_entity,
-            indicator_light_entity,
-            "extend_indicator",
-            [255, 0, 0],
-            2,
-            1,
-        )
+        completion_event_sequence = status_light_event_sequence(completion_semantic_event_key)
+        extend_event_sequence = status_light_event_sequence(extend_semantic_event_key)
 
         restore_state_value_template = (
             "{{ "
@@ -4032,7 +3851,7 @@ def cmd_sync_remote_heating_controls() -> None:
                                     "target": {"entity_id": timer_entity},
                                     "data": {"duration": f"00:{duration_minutes:02d}:00"},
                                 },
-                                *extend_flash_sequence,
+                                *extend_event_sequence,
                             ],
                         }
                     ],
@@ -4080,7 +3899,7 @@ def cmd_sync_remote_heating_controls() -> None:
                     "choose": [
                         {
                             "conditions": [{"condition": "template", "value_template": "{{ has_restore_state }}"}],
-                            "sequence": completion_flash_sequence + restore_sequence,
+                            "sequence": completion_event_sequence + restore_sequence,
                         },
                         {
                             "conditions": [
@@ -4162,7 +3981,7 @@ def cmd_sync_remote_heating_controls() -> None:
                                                     "value_template": "{{ trigger.platform == 'event' and trigger.event.event_type == 'timer.finished' }}",
                                                 }
                                             ],
-                                            "sequence": completion_flash_sequence,
+                                            "sequence": completion_event_sequence,
                                         }
                                     ]
                                 },
@@ -4294,18 +4113,11 @@ def cmd_sync_heating_alerts() -> None:
         climate_entities = [str(entity).strip() for entity in alert.get("climate_entities", []) if str(entity).strip()]
         threshold_temperature_c = float(alert.get("threshold_temperature_c", 23))
         boiler_entity = str(alert.get("boiler_entity", "")).strip()
-        relay_entity = str(alert.get("relay_entity", "")).strip()
-        light_entity = str(alert.get("light_entity", "")).strip()
-        flash_rgb_color = alert.get("flash_rgb_color", [255, 0, 0])
-        flash_count = int(alert.get("flash_count", 2))
-        flash_seconds = float(alert.get("flash_seconds", 1))
 
-        if not automation_entity or flash_count < 1 or flash_seconds <= 0:
+        if not automation_entity or not semantic_event_key:
             raise RuntimeError(f"Incomplete heating_alerts entry '{name}'")
 
         if alert_type == "climate_target":
-            if not semantic_event_key and (not relay_entity or not light_entity):
-                raise RuntimeError(f"Incomplete light target for heating_alerts entry '{name}'")
             if not climate_entities:
                 raise RuntimeError(f"Missing climate_entities for heating_alerts entry '{name}'")
             triggers = []
@@ -4328,8 +4140,6 @@ def cmd_sync_heating_alerts() -> None:
         elif alert_type == "boiler_off":
             if not boiler_entity:
                 raise RuntimeError(f"Missing boiler_entity for heating_alerts entry '{name}'")
-            if not semantic_event_key and (not relay_entity or not light_entity):
-                raise RuntimeError(f"Incomplete light target for heating_alerts entry '{name}'")
             triggers = [{"trigger": "state", "entity_id": boiler_entity, "to": "off"}]
             conditions = [
                 {
@@ -4341,182 +4151,20 @@ def cmd_sync_heating_alerts() -> None:
             raise RuntimeError(f"Unsupported heating_alerts alert_type '{alert_type}'")
 
         automation_id = automation_entity.split(".", 1)[1]
-        if semantic_event_key:
-            automation_payload = {
-                "alias": name,
-                "description": "Repo-managed alert routed through the heating status-light adapter.",
-                "mode": "restart",
-                "triggers": triggers,
-                "conditions": conditions,
-                "actions": [
-                    {
-                        "action": "script.turn_on",
-                        "target": {"entity_id": "script.status_light_emit_heating_event"},
-                        "data": {"variables": {"event_key": semantic_event_key}},
-                    }
-                ],
-            }
-        else:
-            flash_payload = {"rgb_color": flash_rgb_color, "brightness_pct": 100, "transition": 0.2}
-            automation_payload = {
-                "alias": name,
-                "description": "Repo-managed alert when a TRV target reaches the configured high temperature.",
-                "mode": "restart",
-                "triggers": triggers,
-                "conditions": conditions,
-                "actions": [
-                    {
-                        "variables": {
-                            "relay_was_on": "{{ is_state('" + relay_entity + "', 'on') }}",
-                            "light_was_on": "{{ is_state('" + light_entity + "', 'on') }}",
-                            "light_brightness": "{{ state_attr('" + light_entity + "', 'brightness') }}",
-                            "light_color_mode": "{{ state_attr('" + light_entity + "', 'color_mode') }}",
-                            "light_xy_color": "{{ state_attr('" + light_entity + "', 'xy_color') }}",
-                            "light_xy_x": "{{ (state_attr('" + light_entity + "', 'xy_color') or [none, none])[0] }}",
-                            "light_xy_y": "{{ (state_attr('" + light_entity + "', 'xy_color') or [none, none])[1] }}",
-                            "light_color_temp_kelvin": "{{ state_attr('" + light_entity + "', 'color_temp_kelvin') }}",
-                        }
-                    },
-                    {
-                        "choose": [
-                            {
-                                "conditions": [
-                                    {
-                                        "condition": "template",
-                                        "value_template": "{{ not relay_was_on }}",
-                                    }
-                                ],
-                                "sequence": [
-                                    {
-                                        "action": "switch.turn_on",
-                                        "target": {"entity_id": relay_entity},
-                                    },
-                                    {"delay": "00:00:02"},
-                                ],
-                            }
-                        ]
-                    },
-                    {
-                        "repeat": {
-                            "count": flash_count,
-                            "sequence": [
-                                {
-                                    "action": "light.turn_on",
-                                    "target": {"entity_id": light_entity},
-                                    "data": flash_payload,
-                                },
-                                {"delay": f"00:00:{int(flash_seconds):02d}"},
-                                {
-                                    "action": "light.turn_off",
-                                    "target": {"entity_id": light_entity},
-                                },
-                                {"delay": f"00:00:{int(flash_seconds):02d}"},
-                            ],
-                        }
-                    },
-                    {
-                        "choose": [
-                            {
-                                "conditions": [
-                                    {
-                                        "condition": "template",
-                                        "value_template": "{{ light_was_on }}",
-                                    },
-                                    {
-                                        "condition": "template",
-                                        "value_template": "{{ light_color_mode == 'color_temp' and light_color_temp_kelvin is not none }}",
-                                    },
-                                ],
-                                "sequence": [
-                                    {
-                                        "action": "light.turn_on",
-                                        "target": {"entity_id": light_entity},
-                                        "data": {
-                                            "brightness": "{{ light_brightness | int(255) }}",
-                                            "color_temp_kelvin": "{{ light_color_temp_kelvin | int }}",
-                                            "transition": 0,
-                                        },
-                                    }
-                                ],
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "condition": "template",
-                                        "value_template": "{{ light_was_on }}",
-                                    },
-                                    {
-                                        "condition": "template",
-                                        "value_template": "{{ light_color_mode != 'color_temp' and light_xy_x is not none and light_xy_y is not none }}",
-                                    },
-                                ],
-                                "sequence": [
-                                    {
-                                        "action": "light.turn_on",
-                                        "target": {"entity_id": light_entity},
-                                        "data": {
-                                            "brightness": "{{ light_brightness | int(255) }}",
-                                            "xy_color": [
-                                                "{{ light_xy_x | float }}",
-                                                "{{ light_xy_y | float }}",
-                                            ],
-                                            "transition": 0,
-                                        },
-                                    }
-                                ],
-                            },
-                        ],
-                        "default": [
-                            {
-                                "choose": [
-                                    {
-                                        "conditions": [
-                                            {
-                                                "condition": "template",
-                                                "value_template": "{{ light_was_on }}",
-                                            }
-                                        ],
-                                        "sequence": [
-                                            {
-                                                "action": "light.turn_on",
-                                                "target": {"entity_id": light_entity},
-                                                "data": {
-                                                    "brightness": "{{ light_brightness | int(255) }}",
-                                                    "transition": 0,
-                                                },
-                                            }
-                                        ],
-                                    }
-                                ],
-                                "default": [
-                                    {
-                                        "action": "light.turn_off",
-                                        "target": {"entity_id": light_entity},
-                                    }
-                                ],
-                            }
-                        ],
-                    },
-                    {
-                        "choose": [
-                            {
-                                "conditions": [
-                                    {
-                                        "condition": "template",
-                                        "value_template": "{{ not relay_was_on }}",
-                                    }
-                                ],
-                                "sequence": [
-                                    {
-                                        "action": "switch.turn_off",
-                                        "target": {"entity_id": relay_entity},
-                                    }
-                                ],
-                            }
-                        ],
-                    },
-                ],
-            }
+        automation_payload = {
+            "alias": name,
+            "description": "Repo-managed alert routed through the heating status-light adapter.",
+            "mode": "restart",
+            "triggers": triggers,
+            "conditions": conditions,
+            "actions": [
+                {
+                    "action": "script.turn_on",
+                    "target": {"entity_id": "script.status_light_emit_heating_event"},
+                    "data": {"variables": {"event_key": semantic_event_key}},
+                }
+            ],
+        }
 
         resp = requests.post(
             f"{base}/api/config/automation/config/{automation_id}",

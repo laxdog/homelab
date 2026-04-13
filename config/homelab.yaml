@@ -1356,13 +1356,8 @@ home_assistant:
       attribute_value: 0
     duration_minutes: 30
     temperature_c: 23
-    indicator_relay_entity: switch.shelly1minig3_e4b32329d38c
-    indicator_light_entity: light.philips_lct015
-    completion_flash_rgb_color:
-    - 170
-    - 0
-    - 255
-    completion_flash_seconds: 1
+    extend_semantic_event_key: boost_extend
+    completion_semantic_event_key: boost_end
     targets:
     - climate.front_window
     - climate.dining_area
@@ -1378,13 +1373,8 @@ home_assistant:
     cancel_trigger_subtype: left
     duration_minutes: 30
     temperature_c: 23
-    indicator_relay_entity: switch.shelly1minig3_e4b32329d38c
-    indicator_light_entity: light.philips_lct015
-    completion_flash_rgb_color:
-    - 170
-    - 0
-    - 255
-    completion_flash_seconds: 1
+    extend_semantic_event_key: boost_extend
+    completion_semantic_event_key: boost_end
     targets:
     - climate.bedroom_2
   heating_alerts:
@@ -1399,23 +1389,11 @@ home_assistant:
     - climate.front_window
     threshold_temperature_c: 23
     semantic_event_key: high_target
-    relay_entity: switch.shelly1minig3_e4b32329d38c
-    light_entity: light.philips_lct015
-    flash_count: 1
-    flash_seconds: 1
   - name: Heating Boiler Idle Alert
     automation_entity: automation.heating_boiler_idle_alert
     alert_type: boiler_off
     boiler_entity: switch.shellyplus1_78ee4cc4b590
     semantic_event_key: boiler_off
-    relay_entity: switch.shelly1minig3_e4b32329d38c
-    light_entity: light.philips_lct015
-    flash_rgb_color:
-    - 0
-    - 102
-    - 255
-    flash_count: 1
-    flash_seconds: 1
   status_lights:
     title: Status Lights
     dashboard_url_path: status-lights
