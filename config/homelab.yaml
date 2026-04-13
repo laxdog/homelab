@@ -41,7 +41,7 @@ proxmox:
   ssh_public_key_path: /home/mrobinson/.ssh/id_rsa.pub
   ssh_private_key_path: /home/mrobinson/.ssh/id_rsa
   storages:
-    vm_disk: local-lvm
+    vm_disk: ssd-mirror
     media_data_disk: tank-vmdata
     ssd_fast: ssd-fast
     ssd_mirror: ssd-mirror
@@ -379,7 +379,6 @@ services:
       cores: 2
       memory_mb: 2048
       disk_gb: 16
-      storage: tank-vmdata
     tailscale-gateway:
       id: 171
       ip: 10.20.30.171
@@ -393,13 +392,13 @@ services:
     adguard:
       id: 153
       ip: 10.20.30.53
+      storage: ssd-fast
       roles:
       - adguard
     nginx-proxy-manager:
       id: 154
       ip: 10.20.30.154
       disk_gb: 16
-      storage: tank-vmdata
       roles:
       - docker
       - nginx_proxy_manager
@@ -454,7 +453,7 @@ services:
       ip: 10.20.30.163
       disk_gb: 40
       memory_mb: 4096
-      storage: tank-vmdata
+      storage: ssd-fast
       tun_required: true
       roles:
       - docker
@@ -500,7 +499,7 @@ services:
       cores: 4
       memory_mb: 4096
       disk_gb: 20
-      storage: tank-vmdata
+      storage: ssd-mirror
       roles:
       - docker
       - jellyfin
@@ -512,7 +511,7 @@ services:
       ip: 10.20.30.170
       cores: 2
       memory_mb: 3072
-      storage: tank-vmdata
+      storage: ssd-fast
       roles:
       - docker
       - authentik

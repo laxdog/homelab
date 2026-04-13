@@ -4,7 +4,7 @@
 # iGPU. The generic LXC loop in guests.tf cannot represent this guest because
 # it needs:
 #   - privileged mode (unprivileged = false)
-#   - non-default storage (tank-vmdata ZFS, not local-lvm thin pool)
+#   - explicit storage (ssd-mirror ZFS, referenced directly not via try() fallback)
 #   - device passthrough for /dev/dri/card0 and /dev/dri/renderD128
 #   - a host bind-mount of /tank/media at /mnt/media (read-only)
 #
