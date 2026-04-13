@@ -10,6 +10,13 @@
         file: ../secrets.yml
       no_log: true
       when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+    - name: Load WiFi vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets-wifi.yml
+      no_log: true
+      when:
+        - lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+        - lookup('file', playbook_dir ~ '/../secrets-wifi.yml', errors='ignore') | length > 0
   roles:
     - remote-node-baseline
     - tailscale-router

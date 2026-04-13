@@ -12,3 +12,9 @@
   ansible.builtin.service:
     name: NetworkManager
     state: restarted
+
+- name: Restart TLP
+  ansible.builtin.service:
+    name: tlp
+    state: restarted
+  listen: Restart TLP

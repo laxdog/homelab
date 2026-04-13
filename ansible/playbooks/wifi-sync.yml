@@ -1,0 +1,206 @@
+---
+# wifi-sync.yml — Discover WiFi networks from remote nodes, merge new ones
+# into homelab.yaml + secrets-wifi.yml, and push the full global list to
+# all nodes.
+#
+# Usage:
+#   cd ansible
+#   ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass ANSIBLE_ROLES_PATH=./roles \
+#     ansible-playbook -i inventory.yml playbooks/wifi-sync.yml [--check]
+
+- name: Discover WiFi networks from remote nodes
+  hosts: remote_nodes_hosts
+  gather_facts: false
+  become: true
+
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+    wifi_config: "{{ config.remote_nodes.wifi_networks | default([]) }}"
+    known_ssids: "{{ wifi_config | map(attribute='ssid') | list }}"
+
+  tasks:
+    - name: List WiFi connection names
+      ansible.builtin.command:
+        cmd: nmcli -t -f NAME,TYPE connection show
+      register: nmcli_connections
+      changed_when: false
+      check_mode: false
+
+    - name: Parse WiFi connection names
+      ansible.builtin.set_fact:
+        wifi_conn_names: >-
+          {{ nmcli_connections.stdout_lines
+             | select('search', ':802-11-wireless$')
+             | map('regex_replace', ':802-11-wireless$', '')
+             | list }}
+
+    - name: Read SSID for each WiFi connection
+      ansible.builtin.command:
+        cmd: "nmcli --show-secrets -t -f 802-11-wireless.ssid connection show '{{ item }}'"
+      loop: "{{ wifi_conn_names }}"
+      register: wifi_ssids_raw
+      changed_when: false
+      check_mode: false
+
+    - name: Read PSK for each WiFi connection
+      ansible.builtin.command:
+        cmd: "nmcli --show-secrets -t -f 802-11-wireless-security.psk connection show '{{ item }}'"
+      loop: "{{ wifi_conn_names }}"
+      register: wifi_psks_raw
+      changed_when: false
+      check_mode: false
+      no_log: true
+
+    - name: Build discovered network list
+      ansible.builtin.set_fact:
+        discovered_networks: >-
+          {{
+            discovered_networks | default([]) + (
+              [{
+                'ssid': (wifi_ssids_raw.results[idx].stdout | regex_replace('^.*:', '')),
+                'psk': (wifi_psks_raw.results[idx].stdout | regex_replace('^.*:', '')),
+                'source_host': inventory_hostname
+              }]
+              if (wifi_psks_raw.results[idx].stdout | regex_replace('^.*:', '')) | length > 0
+                 and (wifi_ssids_raw.results[idx].stdout | regex_replace('^.*:', '')) | length > 0
+              else []
+            )
+          }}
+      loop: "{{ wifi_conn_names }}"
+      loop_control:
+        index_var: idx
+      no_log: true
+
+    - name: Identify new networks not in homelab.yaml
+      ansible.builtin.set_fact:
+        new_networks: >-
+          {{ discovered_networks | default([])
+             | rejectattr('ssid', 'in', known_ssids)
+             | list
+             | unique(attribute='ssid') }}
+      no_log: true
+
+    - name: Report discovered networks
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: {{ (discovered_networks | default([])) | length }} networks with PSK,
+          {{ (new_networks | default([])) | length }} new
+
+- name: Merge new networks into config (runs once on localhost)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+    vault_password_file: "{{ lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') }}"
+    merge_script: "{{ playbook_dir }}/../scripts/wifi_merge.py"
+    config_path: "{{ playbook_dir }}/../../config/homelab.yaml"
+    secrets_path: "{{ playbook_dir }}/../secrets-wifi.yml"
+
+  tasks:
+    - name: Collect new networks from all hosts
+      ansible.builtin.set_fact:
+        all_new_networks: "{{ all_new_networks | default([]) + (hostvars[item].new_networks | default([])) }}"
+      loop: "{{ groups['remote_nodes_hosts'] }}"
+      no_log: true
+
+    - name: Deduplicate collected networks by SSID
+      ansible.builtin.set_fact:
+        all_new_networks: "{{ all_new_networks | unique(attribute='ssid') | list }}"
+      no_log: true
+
+    - name: Run wifi_merge.py for new networks
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ merge_script }}"
+          - --config
+          - "{{ config_path }}"
+          - --secrets
+          - "{{ secrets_path }}"
+          - --new-networks
+          - "{{ all_new_networks | to_json }}"
+          - --vault-password-file
+          - "{{ vault_password_file }}"
+      register: merge_result
+      changed_when: "'ADDED' in merge_result.stdout"
+      when: (all_new_networks | default([])) | length > 0
+      no_log: true
+
+    - name: Report merge result
+      ansible.builtin.debug:
+        msg: "{{ merge_result.stdout | default('No new networks to merge') }}"
+      when: merge_result.stdout is defined
+      no_log: true
+
+    - name: Report no new networks
+      ansible.builtin.debug:
+        msg: "All discovered networks are already in homelab.yaml. Nothing to merge."
+      when: (all_new_networks | default([])) | length == 0
+
+- name: Push global WiFi list to all remote nodes
+  hosts: remote_nodes_hosts
+  gather_facts: false
+  become: true
+
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+    wifi_networks: "{{ config.remote_nodes.wifi_networks | default([]) }}"
+
+  pre_tasks:
+    - name: Load WiFi secrets
+      ansible.builtin.include_vars:
+        file: ../secrets-wifi.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+
+    - name: Load main secrets
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+
+  tasks:
+    - name: Ensure WiFi networks are configured
+      ansible.builtin.command:
+        cmd: >-
+          nmcli connection show '{{ item.ssid }}'
+      register: wifi_check
+      failed_when: false
+      changed_when: false
+      check_mode: false
+      loop: "{{ wifi_networks }}"
+
+    - name: Add missing WiFi networks
+      ansible.builtin.command:
+        cmd: >-
+          nmcli connection add type wifi
+          con-name '{{ item.item.ssid }}'
+          ssid '{{ item.item.ssid }}'
+          wifi-sec.key-mgmt wpa-psk
+          wifi-sec.psk '{{ lookup("vars", item.item.password_var) }}'
+          connection.autoconnect yes
+          connection.autoconnect-priority {{ item.item.autoconnect_priority | default(50) }}
+      when: item.rc != 0
+      loop: "{{ wifi_check.results }}"
+      loop_control:
+        label: "{{ item.item.ssid }}"
+      no_log: true
+
+    - name: Update PSK on existing WiFi networks
+      ansible.builtin.command:
+        cmd: >-
+          nmcli connection modify '{{ item.item.ssid }}'
+          wifi-sec.psk '{{ lookup("vars", item.item.password_var) }}'
+          connection.autoconnect-priority {{ item.item.autoconnect_priority | default(50) }}
+      when: item.rc == 0
+      loop: "{{ wifi_check.results }}"
+      loop_control:
+        label: "{{ item.item.ssid }}"
+      changed_when: false
+      no_log: true
+
+    - name: Report WiFi sync complete
+      ansible.builtin.debug:
+        msg: "{{ wifi_networks | length }} WiFi networks synced to {{ inventory_hostname }}"

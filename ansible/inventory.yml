@@ -170,11 +170,11 @@ python_bot_hosts:
 remote_node_baseline_hosts:
   hosts:
     mums-house-mbp: &id018
-      ansible_host: 10.20.30.75
+      ansible_host: 100.118.218.126
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
     raptor-node-staging: &id019
-      ansible_host: 10.20.30.153
+      ansible_host: 100.88.35.124
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
 remote_nodes_hosts:

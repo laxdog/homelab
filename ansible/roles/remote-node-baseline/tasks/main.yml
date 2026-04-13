@@ -419,3 +419,130 @@
     enabled: true
     state: started
     daemon_reload: true
+
+# ── Battery management (ThinkPad only) ─────────────────────────────
+
+- name: Check for ThinkPad battery threshold sysfs
+  ansible.builtin.stat:
+    path: /sys/class/power_supply/BAT1/charge_control_end_threshold
+  register: thinkpad_battery_sysfs
+
+- name: Install TLP for ThinkPad battery management
+  ansible.builtin.apt:
+    name:
+      - tlp
+      - tlp-rdw
+    state: present
+  when:
+    - remote_node_cfg.battery.enabled | default(false) | bool
+    - thinkpad_battery_sysfs.stat.exists | default(false)
+
+- name: Deploy TLP battery threshold config
+  ansible.builtin.copy:
+    dest: /etc/tlp.d/01-battery-thresholds.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      START_CHARGE_THRESH_BAT1={{ remote_node_cfg.battery.start_threshold | default(40) }}
+      STOP_CHARGE_THRESH_BAT1={{ remote_node_cfg.battery.stop_threshold | default(80) }}
+  when:
+    - remote_node_cfg.battery.enabled | default(false) | bool
+    - thinkpad_battery_sysfs.stat.exists | default(false)
+  notify: Restart TLP
+
+- name: Enable TLP service
+  ansible.builtin.service:
+    name: tlp
+    enabled: true
+    state: started
+  when:
+    - remote_node_cfg.battery.enabled | default(false) | bool
+    - thinkpad_battery_sysfs.stat.exists | default(false)
+
+- name: Note — battery threshold not available on Apple hardware
+  ansible.builtin.debug:
+    msg: >-
+      Battery threshold management is not available on this hardware
+      (Apple SMC does not expose charge_control sysfs). Skipping.
+  when:
+    - not (remote_node_cfg.battery.enabled | default(false) | bool)
+      or not (thinkpad_battery_sysfs.stat.exists | default(false))
+
+# ── Powertop auto-tune ─────────────────────────────────────────────
+
+- name: Install powertop
+  ansible.builtin.apt:
+    name: powertop
+    state: present
+  when: remote_node_cfg.powertop.enabled | default(false) | bool
+
+- name: Deploy powertop autotune service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/powertop-autotune.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Powertop autotune
+      After=network.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/sbin/powertop --auto-tune
+      {% if (remote_node_cfg.powertop.exclude_interfaces | default([])) | length > 0 %}
+      ExecStartPost=/bin/bash -c 'for iface in {{ remote_node_cfg.powertop.exclude_interfaces | join(" ") }}; do /sbin/iw dev $$iface set power_save off 2>/dev/null || true; done'
+      {% endif %}
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+  when: remote_node_cfg.powertop.enabled | default(false) | bool
+  notify: Reload systemd
+
+- name: Enable and start powertop autotune
+  ansible.builtin.systemd:
+    name: powertop-autotune
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: remote_node_cfg.powertop.enabled | default(false) | bool
+
+# ── NTP (chrony) ───────────────────────────────────────────────────
+
+- name: Install chrony
+  ansible.builtin.apt:
+    name: chrony
+    state: present
+
+- name: Enable and start chronyd
+  ansible.builtin.service:
+    name: chronyd
+    enabled: true
+    state: started
+
+# ── Log rotation ───────────────────────────────────────────────────
+
+- name: Deploy remote-node log rotation config
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/remote-node
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      /var/log/syslog
+      /var/log/auth.log
+      /var/log/kern.log
+      {
+          rotate 4
+          weekly
+          missingok
+          notifempty
+          compress
+          delaycompress
+          sharedscripts
+          postrotate
+              /usr/lib/rsyslog/rsyslog-rotate
+          endscript
+      }
