@@ -169,14 +169,8 @@
 - Boiler idle blue-flash alert is also generated from `home_assistant.heating_alerts`.
 - Status-light API foundation from `home_assistant.status_lights`.
   - baseline is repo-owned desired state for one or more configured status bulbs
-  - current configured targets are:
-    - `light.philips_lct015`
-    - `light.philips_lct012`
-    - `light.philips_lct015_2`
-  - current target participation modes:
+  - current configured target is:
     - `light.philips_lct015` -> `dedicated`
-    - `light.philips_lct012` -> `opportunistic`
-    - `light.philips_lct015_2` -> `opportunistic`
   - current core engine entrypoints:
     - `script.status_light_effect`
     - `script.status_light_apply_baseline`
@@ -208,6 +202,7 @@
     - on
     - `2%` brightness
     - warm neutral RGB color
+    - event rendering now sets color before brightness, then returns to baseline
   - current snooze model:
     - `timer.status_light_snooze` is the source of truth for quiet/suppressed output
     - while snoozed, the target bulbs are driven off
@@ -215,18 +210,15 @@
   - current reconciliation:
     - `automation.status_light_reconcile`
     - on startup and snooze-finish, restore baseline if live or keep quiet if still snoozed
-  - multi-target/capability stance:
-    - engine fan-out is parallel across eligible targets
-    - `target_mode` can select `all`, `dedicated`, or `opportunistic` targets
-    - unavailable targets are skipped individually
-    - first supported capability profiles are `rgb`, `color_temp`, and `brightness`
+  - current target stance:
+    - active configured use is intentionally simplified back to the single dedicated status bulb
+    - first supported capability profiles remain `rgb`, `color_temp`, and `brightness`
   - validation completed:
-    - baseline apply works on the two responsive configured bulbs
-    - generic engine effect requests work on the two responsive configured bulbs and return them to baseline
-    - dedicated/opportunistic target selection works on the responsive configured bulbs
+    - baseline apply works on the dedicated configured bulb
+    - generic engine effect requests work on that bulb and return it to baseline
     - 30m / 60m / 120m / until-next-day snooze all work
     - unsnooze works immediately
-    - unavailable targets do not break the script path
+    - visible event flashes now apply color before brightness
   - current migration status:
     - all four heating status semantics are now routed through the heating adapter:
       - `boiler_off`
@@ -235,11 +227,6 @@
       - `boost_extend`
     - those migrated paths no longer use the old Shelly relay wake-up behavior
     - the older managed heating-indicator relay/snapshot path has been removed
-  - current runtime caveat:
-    - `light.philips_lct015_2` is present and configured as an opportunistic target, but it remains
-      unreliable and is currently `unavailable` in live HA
-    - so live fan-out proof is currently complete for `light.philips_lct015` and `light.philips_lct012`,
-      and only partial for the bedroom bulb pending that target-level runtime issue
 - Group target sliders (`house`, `upstairs`, `downstairs`) used by heating automations/dashboard.
 - Shelly + TP-Link + selected ZHA device naming/area mapping through `sync-devices`.
 - Hue remote scene-cycle automation generated from `home_assistant.hue_scene_cycle`.

@@ -1415,14 +1415,6 @@ home_assistant:
       entity_id: light.philips_lct015
       capability: rgb
       participation: dedicated
-    - name: Philips LCT012
-      entity_id: light.philips_lct012
-      capability: rgb
-      participation: opportunistic
-    - name: Bedroom Hue Bulb
-      entity_id: light.philips_lct015_2
-      capability: rgb
-      participation: opportunistic
     color_keys:
       warm_neutral:
         rgb_color:

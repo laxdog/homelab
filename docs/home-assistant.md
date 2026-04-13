@@ -561,6 +561,7 @@ Source of truth:
   - unsnoozed baseline means the status bulb sits on at minimal brightness
   - snoozed state means the status bulb is driven quiet/off
   - unsnooze restores baseline immediately
+  - event rendering sets color first, then raises brightness, then returns to baseline afterward
 
 ### Engine vs adapters
 - Core engine owns:
@@ -588,18 +589,12 @@ Source of truth:
   - enough to support future non-Hue bulbs
   - not a fake universal light-model layer
 
-### Multi-target behavior
+### Target behavior
 - Targets are listed in `config.home_assistant.status_lights.targets`.
-- Targets now declare a participation mode:
-  - `dedicated`
-  - `opportunistic`
-- `script.status_light_effect` chooses eligible targets via `target_mode`:
-  - `all`
-  - `dedicated`
-  - `opportunistic`
-- Effect fan-out is parallel across all eligible configured targets.
-- Unavailable targets are skipped individually.
-- One unavailable target does not block the others.
+- Current active target set is intentionally simplified back to a single dedicated always-on bulb:
+  - `light.philips_lct015`
+- The engine still owns target selection/rendering behavior, but the opportunistic bulb experiment is
+  no longer part of the active configured setup.
 
 ### Snooze model
 - Repo-managed helper:
@@ -629,20 +624,12 @@ Source of truth:
 ### Validation status
 - Validated live against the current configured targets:
   - `light.philips_lct015`
-  - `light.philips_lct012`
-  - `light.philips_lct015_2`
   - baseline apply works
   - a generic bounded engine effect request temporarily overrides baseline and returns to baseline
-    afterward on the two responsive targets
-  - dedicated vs opportunistic target filtering works on the responsive targets
+    afterward on the dedicated status bulb
   - all snooze durations set the timer active and drive the bulb off
   - unsnooze cancels snooze immediately and restores baseline
-  - the script path also behaves sanely when a target is unavailable
-- Current runtime caveat:
-  - `light.philips_lct015_2` is configured as an opportunistic target and is suitable on paper,
-    but it remains unreliable and is currently `unavailable` in live HA
-  - so live multi-target proof is currently strong on `light.philips_lct015` and `light.philips_lct012`,
-    with partial proof only for the bedroom bulb until that runtime target issue is resolved
+  - event rendering now applies color before brightness for visible flashes
 - Current migration status:
   - all four heating status semantics now route through the heating adapter rather than directly
     into the core engine:

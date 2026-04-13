@@ -1567,9 +1567,16 @@ def cmd_sync_status_lights() -> None:
                     "transition": "{{ effect_transition }}",
                 },
             )
-            if "brightness_pct" not in payload:
-                payload["brightness_pct"] = "{{ effect_brightness_pct }}"
-            payload.setdefault("transition", "{{ effect_transition }}")
+            effect_brightness = payload.pop("brightness_pct", "{{ effect_brightness_pct }}")
+            effect_transition = payload.pop("transition", "{{ effect_transition }}")
+            prep_payload = dict(payload)
+            if payload:
+                prep_payload["brightness_pct"] = 1
+                prep_payload["transition"] = 0
+            brightness_payload = {
+                "brightness_pct": effect_brightness,
+                "transition": effect_transition,
+            }
             color_choices.append(
                 {
                     "conditions": [
@@ -1593,10 +1600,21 @@ def cmd_sync_status_lights() -> None:
                                             "repeat": {
                                                 "count": "{{ effect_flash_count }}",
                                                 "sequence": [
+                                                    *(
+                                                        [
+                                                            {
+                                                                "action": "light.turn_on",
+                                                                "target": {"entity_id": entity_id},
+                                                                "data": prep_payload,
+                                                            }
+                                                        ]
+                                                        if prep_payload
+                                                        else []
+                                                    ),
                                                     {
                                                         "action": "light.turn_on",
                                                         "target": {"entity_id": entity_id},
-                                                        "data": payload,
+                                                        "data": brightness_payload,
                                                     },
                                                     {"delay": {"milliseconds": "{{ effect_on_milliseconds }}"}},
                                                     {
