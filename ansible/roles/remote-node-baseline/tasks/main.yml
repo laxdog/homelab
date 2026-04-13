@@ -573,3 +573,44 @@
               /usr/lib/rsyslog/rsyslog-rotate
           endscript
       }
+
+# ── Nagios monitoring (delegate to VM133) ──────────────────────────
+
+- name: Deploy Nagios remote-node check scripts to VM133
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/usr/local/nagios/libexec/{{ item | basename }}"
+    owner: nagios
+    group: nagios
+    mode: '0755'
+  loop:
+    - check_remote_disk.sh
+    - check_remote_tailscale.sh
+    - check_remote_temp.sh
+    - check_remote_ntp.sh
+  delegate_to: "{{ config.services.vms.nagios.ip }}"
+  become: true
+  when: remote_node_cfg.nagios is defined
+
+- name: Deploy Nagios remote-nodes.cfg to VM133
+  ansible.builtin.template:
+    src: remote-nodes.cfg.j2
+    dest: /usr/local/nagios/etc/objects/remote-nodes.cfg
+    owner: nagios
+    group: nagios
+    mode: '0644'
+  delegate_to: "{{ config.services.vms.nagios.ip }}"
+  become: true
+  when: remote_node_cfg.nagios is defined
+  notify: Reload Nagios on VM133
+
+- name: Ensure remote-nodes.cfg is included in nagios.cfg
+  ansible.builtin.lineinfile:
+    path: /usr/local/nagios/etc/nagios.cfg
+    line: "cfg_file=/usr/local/nagios/etc/objects/remote-nodes.cfg"
+    regexp: "^cfg_file=.*remote-nodes"
+    state: present
+  delegate_to: "{{ config.services.vms.nagios.ip }}"
+  become: true
+  when: remote_node_cfg.nagios is defined
+  notify: Reload Nagios on VM133

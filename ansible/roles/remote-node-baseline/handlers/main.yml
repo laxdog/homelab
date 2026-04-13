@@ -18,3 +18,10 @@
     name: tlp
     state: restarted
   listen: Restart TLP
+
+- name: Reload Nagios on VM133
+  ansible.builtin.service:
+    name: nagios
+    state: reloaded
+  delegate_to: "{{ config.services.vms.nagios.ip }}"
+  become: true
