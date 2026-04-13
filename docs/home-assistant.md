@@ -502,15 +502,16 @@ Source of truth:
   - when any managed TRV target reaches `23C`, the living room Shelly relay is turned on if needed,
     the living room Hue bulb flashes red once, and the prior relay/light state is restored afterward
   - when the boiler actually transitions from `on` to `off`, the alert is now routed through
-    `script.status_light_event` with semantic key `boiler_off`
+    `script.status_light_emit_heating_event` with semantic key `boiler_off`
   - that migrated `boiler_off` path no longer uses the old Shelly-assisted wake-up behavior
     for the living-room status bulb
 
 ## Status Light API
 - Status-light foundation is code-defined in `config.home_assistant.status_lights`.
 - Current intent:
-  - provide a generic repo-managed API that other HA producers can call later
-  - keep baseline state, temporary semantic effects, and snooze policy in one place
+  - provide a generic repo-managed engine that other HA producers can call later
+  - keep baseline state, temporary effect rendering, target policy, and snooze policy in one place
+  - keep business/domain semantics out of the engine by using adapter scripts above it
   - avoid dragging the old Shelly-assisted heating-indicator pattern into the new model
 - Current configured targets:
   - `light.philips_lct015`
@@ -519,26 +520,37 @@ Source of truth:
   - the API is designed for additional future bulbs beyond these current targets
 
 ### API shape
-- Main entrypoints:
-  - `script.status_light_event`
-    - field: `event_key`
-    - allowed values currently configured in repo:
-      - `boost_extend`
-      - `boost_end`
-      - `high_target`
-      - `boiler_off`
+- Core engine entrypoints:
+  - `script.status_light_effect`
+    - bounded request fields:
+      - `color_key`
+      - `target_mode` (`all`, `dedicated`, `opportunistic`)
+      - `pattern` (`flash`)
+      - `flash_count`
+      - `on_seconds`
+      - `off_seconds`
+      - `brightness_pct`
+      - `return_mode` (`baseline`, `quiet`, `leave`)
+      - `respect_snooze`
   - `script.status_light_apply_baseline`
+  - `script.status_light_apply_quiet`
   - `script.status_light_snooze_30m`
   - `script.status_light_snooze_60m`
   - `script.status_light_snooze_120m`
   - `script.status_light_snooze_until_next_day`
   - `script.status_light_unsnooze`
+- Heating adapter entrypoints:
+  - `script.status_light_emit_heating_event`
+  - `script.status_light_event`
+    - compatibility shim to the heating adapter
 - Operator test entrypoints:
+  - `script.status_light_test_engine_attention`
   - `script.status_light_test_boost_extend`
   - `script.status_light_test_boiler_off`
 - API rule:
-  - callers request semantic events or baseline/snooze operations
-  - callers do not directly choose arbitrary raw bulb payloads
+  - producers call the generic engine with bounded effect parameters or go through a domain adapter
+  - producers do not directly bind business semantics into the engine
+  - callers do not get arbitrary raw light passthrough
 
 ### Baseline model
 - Baseline is repo-owned desired state for the configured target bulbs.
@@ -551,8 +563,20 @@ Source of truth:
   - snoozed state means the status bulb is driven quiet/off
   - unsnooze restores baseline immediately
 
-### Semantics and capability handling
-- Semantic events are configured in `config.home_assistant.status_lights.events`.
+### Engine vs adapters
+- Core engine owns:
+  - capability-aware rendering
+  - target eligibility and target-mode filtering
+  - unavailable-target skipping
+  - baseline / quiet / snooze handling
+  - bounded effect execution
+- Adapters own:
+  - domain semantics such as `boiler_off`, `high_target`, `boost_extend`, and `boost_end`
+  - mapping those semantics into bounded engine requests
+
+### Color keys and capability handling
+- Generic render colors are configured in `config.home_assistant.status_lights.color_keys`.
+- Heating semantic mappings are configured in `config.home_assistant.status_lights.heating_adapter.events`.
 - First-layer capability model:
   - `rgb`
   - `color_temp`
@@ -567,7 +591,14 @@ Source of truth:
 
 ### Multi-target behavior
 - Targets are listed in `config.home_assistant.status_lights.targets`.
-- Event fan-out is parallel across all configured targets.
+- Targets now declare a participation mode:
+  - `dedicated`
+  - `opportunistic`
+- `script.status_light_effect` chooses eligible targets via `target_mode`:
+  - `all`
+  - `dedicated`
+  - `opportunistic`
+- Effect fan-out is parallel across all eligible configured targets.
 - Unavailable targets are skipped individually.
 - One unavailable target does not block the others.
 
@@ -590,8 +621,9 @@ Source of truth:
   - `/status-lights/overview`
 - Current controls:
   - Apply Baseline
-  - Test Boost Extend
-  - Test Boiler Off
+  - Test Engine Effect
+  - Test Heating Extend
+  - Test Heating Boiler
   - Snooze 30m / 60m / 120m / Until Next Day
   - Unsnooze
 
@@ -601,8 +633,9 @@ Source of truth:
   - `light.philips_lct012`
   - `light.philips_lct015_2`
   - baseline apply works
-  - semantic test event temporarily overrides baseline and returns to baseline afterward on the
-    two responsive targets
+  - a generic bounded engine effect request temporarily overrides baseline and returns to baseline
+    afterward on the two responsive targets
+  - dedicated vs opportunistic target filtering works on the responsive targets
   - all snooze durations set the timer active and drive the bulb off
   - unsnooze cancels snooze immediately and restores baseline
   - the script path also behaves sanely when a target is unavailable
@@ -612,7 +645,8 @@ Source of truth:
   - so live multi-target proof is currently strong on `light.philips_lct015` and `light.philips_lct012`,
     with partial proof only for the bedroom bulb until that runtime target issue is resolved
 - Current migration status:
-  - `boiler_off` is the first real producer migrated onto the new status-light API
+  - `boiler_off` is still the first real producer migrated onto the status-light subsystem
+  - it now routes through the heating adapter rather than directly into the core engine
   - `high_target` and the boost light semantics still use the older dedicated heating-indicator path
 
 ## Scheduling

@@ -1454,11 +1454,19 @@ def cmd_sync_status_lights() -> None:
 
     baseline_cfg = status_cfg.get("baseline", {}) or {}
     targets = status_cfg.get("targets", []) or []
-    events = status_cfg.get("events", {}) or {}
+    color_keys = status_cfg.get("color_keys", {}) or {}
+    heating_events = (status_cfg.get("heating_adapter", {}) or {}).get("events", {}) or {}
     if not targets:
         raise RuntimeError("home_assistant.status_lights.targets must contain at least one target")
-    if not events:
-        raise RuntimeError("home_assistant.status_lights.events must contain at least one semantic event")
+    if not color_keys:
+        raise RuntimeError("home_assistant.status_lights.color_keys must contain at least one color key")
+    if not heating_events:
+        raise RuntimeError("home_assistant.status_lights.heating_adapter.events must contain at least one heating event")
+
+    participation_modes = {"dedicated", "opportunistic"}
+    effect_target_modes = ["all", "dedicated", "opportunistic"]
+    return_modes = ["baseline", "quiet", "leave"]
+    pattern_modes = ["flash"]
 
     def merged_baseline(target: dict) -> dict:
         merged = dict(baseline_cfg)
@@ -1467,25 +1475,51 @@ def cmd_sync_status_lights() -> None:
             merged.update(target_baseline)
         return merged
 
+    def target_participation(target: dict) -> str:
+        participation = str(target.get("participation", "dedicated")).strip().lower()
+        if participation not in participation_modes:
+            raise RuntimeError(f"Unsupported status-light target participation '{participation}'")
+        return participation
+
     def target_payload(target: dict, source: dict) -> dict:
         capability = str(target.get("capability", "rgb")).strip().lower()
+        color_key = str(source.get("color_key", "")).strip()
+        resolved_source: Dict[str, Any] = {}
+        if color_key:
+            color_spec = color_keys.get(color_key)
+            if not isinstance(color_spec, dict):
+                raise RuntimeError(f"Unknown status-light color_key '{color_key}'")
+            resolved_source.update(color_spec)
+        for key in ("rgb_color", "color_temp_kelvin", "brightness_pct", "transition"):
+            if source.get(key) is not None:
+                resolved_source[key] = source.get(key)
         data: Dict[str, Any] = {}
-        brightness_pct = source.get("brightness_pct")
+        brightness_pct = resolved_source.get("brightness_pct")
         if brightness_pct is not None:
-            data["brightness_pct"] = int(brightness_pct)
-        transition = source.get("transition")
+            data["brightness_pct"] = brightness_pct if isinstance(brightness_pct, str) else int(brightness_pct)
+        transition = resolved_source.get("transition")
         if transition is not None:
-            data["transition"] = float(transition)
-        if capability == "rgb" and source.get("rgb_color") is not None:
-            data["rgb_color"] = [int(component) for component in source.get("rgb_color", [])]
-        elif capability in {"color_temp", "ct"} and source.get("color_temp_kelvin") is not None:
-            data["color_temp_kelvin"] = int(source.get("color_temp_kelvin"))
+            data["transition"] = transition if isinstance(transition, str) else float(transition)
+        if capability == "rgb" and resolved_source.get("rgb_color") is not None:
+            data["rgb_color"] = [int(component) for component in resolved_source.get("rgb_color", [])]
+        elif capability in {"color_temp", "ct"} and resolved_source.get("color_temp_kelvin") is not None:
+            data["color_temp_kelvin"] = int(resolved_source.get("color_temp_kelvin"))
         return data
 
     def available_condition(entity_id: str) -> dict:
         return {
             "condition": "template",
             "value_template": "{{ states('" + entity_id + "') not in ['unavailable', 'unknown'] }}",
+        }
+
+    def eligible_effect_condition(entity_id: str, participation: str) -> dict:
+        return {
+            "condition": "template",
+            "value_template": "{{ states('"
+            + entity_id
+            + "') not in ['unavailable', 'unknown'] and (effect_target_mode == 'all' or effect_target_mode == '"
+            + participation
+            + "') }}",
         }
 
     def apply_baseline_sequence(target: dict) -> List[dict]:
@@ -1521,40 +1555,71 @@ def cmd_sync_status_lights() -> None:
             }
         ]
 
-    def effect_sequence(target: dict, effect: dict) -> List[dict]:
+    def effect_sequence(target: dict) -> List[dict]:
         entity_id = str(target.get("entity_id", "")).strip()
-        flashes = max(1, int(effect.get("flashes", 1)))
-        on_seconds = float(effect.get("on_seconds", 0.5))
-        off_seconds = float(effect.get("off_seconds", 0.25))
-        payload = target_payload(target, effect)
-        if "brightness_pct" not in payload:
-            payload["brightness_pct"] = 100
-        payload.setdefault("transition", 0)
+        color_choices: List[dict] = []
+        for color_key in effect_color_options:
+            payload = target_payload(
+                target,
+                {
+                    "color_key": color_key,
+                    "brightness_pct": "{{ effect_brightness_pct }}",
+                    "transition": "{{ effect_transition }}",
+                },
+            )
+            if "brightness_pct" not in payload:
+                payload["brightness_pct"] = "{{ effect_brightness_pct }}"
+            payload.setdefault("transition", "{{ effect_transition }}")
+            color_choices.append(
+                {
+                    "conditions": [
+                        {
+                            "condition": "template",
+                            "value_template": "{{ effect_color_key == '" + color_key + "' }}",
+                        }
+                    ],
+                    "sequence": [
+                        {
+                            "choose": [
+                                {
+                                    "conditions": [
+                                        {
+                                            "condition": "template",
+                                            "value_template": "{{ effect_pattern == 'flash' }}",
+                                        }
+                                    ],
+                                    "sequence": [
+                                        {
+                                            "repeat": {
+                                                "count": "{{ effect_flash_count }}",
+                                                "sequence": [
+                                                    {
+                                                        "action": "light.turn_on",
+                                                        "target": {"entity_id": entity_id},
+                                                        "data": payload,
+                                                    },
+                                                    {"delay": {"milliseconds": "{{ effect_on_milliseconds }}"}},
+                                                    {
+                                                        "action": "light.turn_off",
+                                                        "target": {"entity_id": entity_id},
+                                                    },
+                                                    {"delay": {"milliseconds": "{{ effect_off_milliseconds }}"}},
+                                                ],
+                                            }
+                                        }
+                                    ],
+                                }
+                            ]
+                        }
+                    ],
+                }
+            )
         return [
             {
                 "choose": [
                     {
-                        "conditions": [available_condition(entity_id)],
-                        "sequence": [
-                            {
-                                "repeat": {
-                                    "count": flashes,
-                                    "sequence": [
-                                        {
-                                            "action": "light.turn_on",
-                                            "target": {"entity_id": entity_id},
-                                            "data": payload,
-                                        },
-                                        {"delay": ha_delay(on_seconds)},
-                                        {
-                                            "action": "light.turn_off",
-                                            "target": {"entity_id": entity_id},
-                                        },
-                                        {"delay": ha_delay(off_seconds)},
-                                    ],
-                                }
-                            }
-                        ],
+                        "conditions": [eligible_effect_condition(entity_id, target_participation(target))],
+                        "sequence": [{"choose": color_choices}],
                     }
                 ]
             }
@@ -1565,7 +1630,9 @@ def cmd_sync_status_lights() -> None:
 
     baseline_script_entity = "script.status_light_apply_baseline"
     quiet_script_entity = "script.status_light_apply_quiet"
-    event_script_entity = "script.status_light_event"
+    effect_script_entity = "script.status_light_effect"
+    heating_adapter_script_entity = "script.status_light_emit_heating_event"
+    compatibility_event_script_entity = "script.status_light_event"
     unsnooze_script_entity = "script.status_light_unsnooze"
     reconcile_automation_entity = "automation.status_light_reconcile"
 
@@ -1580,24 +1647,108 @@ def cmd_sync_status_lights() -> None:
         "mode": "restart",
     }
 
-    event_choices: List[dict] = []
-    event_options: List[str] = []
-    for event_key, event_cfg in events.items():
-        event_name = str(event_key).strip()
-        event_options.append(event_name)
-        parallel_effect = {"parallel": [{"sequence": effect_sequence(target, event_cfg)} for target in targets]}
-        event_choices.append(
+    effect_color_options = list(color_keys.keys())
+    default_color_key = effect_color_options[0]
+    effect_parallel = {"parallel": [{"sequence": effect_sequence(target)} for target in targets]}
+    effect_script_payload = {
+        "alias": "Status Light Effect",
+        "description": "Repo-managed generic status-light engine entrypoint for bounded effect requests.",
+        "fields": {
+            "color_key": {
+                "name": "Color key",
+                "description": "Bounded render color key from config.home_assistant.status_lights.color_keys.",
+                "required": True,
+                "selector": {"select": {"options": effect_color_options}},
+            },
+            "target_mode": {
+                "name": "Target mode",
+                "description": "Choose dedicated, opportunistic, or all configured status-light targets.",
+                "required": False,
+                "selector": {"select": {"options": effect_target_modes}},
+            },
+            "pattern": {
+                "name": "Pattern",
+                "description": "Bounded engine pattern mode.",
+                "required": False,
+                "selector": {"select": {"options": pattern_modes}},
+            },
+            "flash_count": {
+                "name": "Flash count",
+                "description": "Repeat count for flash patterns.",
+                "required": False,
+                "selector": {"number": {"mode": "box", "min": 1, "max": 10, "step": 1}},
+            },
+            "on_seconds": {
+                "name": "On seconds",
+                "description": "Per-step illuminated duration in seconds.",
+                "required": False,
+                "selector": {"number": {"mode": "box", "min": 0.1, "max": 10, "step": 0.1}},
+            },
+            "off_seconds": {
+                "name": "Off seconds",
+                "description": "Per-step dark duration in seconds.",
+                "required": False,
+                "selector": {"number": {"mode": "box", "min": 0.0, "max": 10, "step": 0.1}},
+            },
+            "brightness_pct": {
+                "name": "Brightness percent",
+                "description": "Effect brightness as a bounded percentage.",
+                "required": False,
+                "selector": {"number": {"mode": "box", "min": 1, "max": 100, "step": 1}},
+            },
+            "return_mode": {
+                "name": "Return mode",
+                "description": "What the engine should do when the effect completes.",
+                "required": False,
+                "selector": {"select": {"options": return_modes}},
+            },
+            "respect_snooze": {
+                "name": "Respect snooze",
+                "description": "Suppress the effect while snoozed when enabled.",
+                "required": False,
+                "selector": {"boolean": {}},
+            },
+        },
+        "sequence": [
             {
-                "conditions": [{"condition": "template", "value_template": "{{ event_key == '" + event_name + "' }}"}],
-                "sequence": [
-                    parallel_effect,
+                "variables": {
+                    "effect_color_key": "{{ color_key | default('" + default_color_key + "') }}",
+                    "effect_target_mode": "{{ target_mode | default('all') }}",
+                    "effect_pattern": "{{ pattern | default('flash') }}",
+                    "effect_return_mode": "{{ return_mode | default('baseline') }}",
+                    "effect_respect_snooze": "{{ true if respect_snooze is not defined else respect_snooze }}",
+                    "effect_flash_count": "{{ [flash_count | default(1) | int(1), 1] | max }}",
+                    "effect_brightness_pct": "{{ [brightness_pct | default(100) | int(100), 1] | max }}",
+                    "effect_transition": 0,
+                    "effect_on_milliseconds": "{{ [((on_seconds | default(0.5) | float(0.5)) * 1000) | round(0) | int, 1] | max }}",
+                    "effect_off_milliseconds": "{{ [((off_seconds | default(0.25) | float(0.25)) * 1000) | round(0) | int, 0] | max }}",
+                }
+            },
+            {
+                "choose": [
+                    {
+                        "conditions": [
+                            {
+                                "condition": "template",
+                                "value_template": "{{ effect_respect_snooze in [true, 'true', 'True', 1, '1'] and is_state('"
+                                + snooze_timer_entity
+                                + "', 'active') }}",
+                            }
+                        ],
+                        "sequence": [],
+                    }
+                ],
+                "default": [
+                    effect_parallel,
                     {
                         "choose": [
                             {
                                 "conditions": [
                                     {
                                         "condition": "template",
-                                        "value_template": "{{ not is_state('" + snooze_timer_entity + "', 'active') }}",
+                                        "value_template": "{{ effect_return_mode == 'baseline' and not is_state('"
+                                        + snooze_timer_entity
+                                        + "', 'active') }}",
                                     }
                                 ],
                                 "sequence": [
@@ -1606,47 +1757,111 @@ def cmd_sync_status_lights() -> None:
                                         "target": {"entity_id": baseline_script_entity},
                                     }
                                 ],
-                            }
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "condition": "template",
+                                        "value_template": "{{ effect_return_mode == 'baseline' and is_state('"
+                                        + snooze_timer_entity
+                                        + "', 'active') }}",
+                                    }
+                                ],
+                                "sequence": [
+                                    {
+                                        "action": "script.turn_on",
+                                        "target": {"entity_id": quiet_script_entity},
+                                    }
+                                ],
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "condition": "template",
+                                        "value_template": "{{ effect_return_mode == 'quiet' }}",
+                                    }
+                                ],
+                                "sequence": [
+                                    {
+                                        "action": "script.turn_on",
+                                        "target": {"entity_id": quiet_script_entity},
+                                    }
+                                ],
+                            },
                         ]
                     },
                 ],
-            }
-        )
-
-    event_script_payload = {
-        "alias": "Status Light Event",
-        "description": "Repo-managed semantic event entrypoint for status-light notifications.",
-        "fields": {
-            "event_key": {
-                "name": "Event key",
-                "description": "Semantic status-light event to emit.",
-                "required": True,
-                "selector": {"select": {"options": event_options}},
-            }
-        },
-        "sequence": [
-            {
-                "choose": [
-                    {
-                        "conditions": [
-                            {
-                                "condition": "template",
-                                "value_template": "{{ is_state('" + snooze_timer_entity + "', 'active') }}",
-                            }
-                        ],
-                        "sequence": [],
-                    }
-                ],
-                "default": [{"choose": event_choices}],
             }
         ],
         "mode": "queued",
         "max": 10,
     }
 
+    heating_event_choices: List[dict] = []
+    heating_event_options: List[str] = []
+    for event_key, effect_request in heating_events.items():
+        event_name = str(event_key).strip()
+        if not event_name:
+            continue
+        heating_event_options.append(event_name)
+        heating_event_choices.append(
+            {
+                "conditions": [{"condition": "template", "value_template": "{{ event_key == '" + event_name + "' }}"}],
+                "sequence": [
+                    {
+                        "action": "script.turn_on",
+                        "target": {"entity_id": effect_script_entity},
+                        "data": {"variables": effect_request},
+                    }
+                ],
+            }
+        )
+
+    heating_adapter_payload = {
+        "alias": "Status Light Emit Heating Event",
+        "description": "Heating-specific adapter from semantic heating events to the generic status-light engine.",
+        "fields": {
+            "event_key": {
+                "name": "Heating event key",
+                "description": "Heating semantic event to map into a generic status-light engine request.",
+                "required": True,
+                "selector": {"select": {"options": heating_event_options}},
+            }
+        },
+        "sequence": [{"choose": heating_event_choices}],
+        "mode": "queued",
+        "max": 10,
+    }
+
     test_script_specs = [
-        ("script.status_light_test_boost_extend", "Status Light Test Boost Extend", "boost_extend"),
-        ("script.status_light_test_boiler_off", "Status Light Test Boiler Off", "boiler_off"),
+        (
+            "script.status_light_test_engine_attention",
+            "Status Light Test Engine Attention",
+            effect_script_entity,
+            {
+                "color_key": "attention_red",
+                "target_mode": "dedicated",
+                "pattern": "flash",
+                "flash_count": 1,
+                "on_seconds": 0.4,
+                "off_seconds": 0.2,
+                "brightness_pct": 100,
+                "return_mode": "baseline",
+                "respect_snooze": True,
+            },
+        ),
+        (
+            "script.status_light_test_boost_extend",
+            "Status Light Test Boost Extend",
+            heating_adapter_script_entity,
+            {"event_key": "boost_extend"},
+        ),
+        (
+            "script.status_light_test_boiler_off",
+            "Status Light Test Boiler Off",
+            heating_adapter_script_entity,
+            {"event_key": "boiler_off"},
+        ),
     ]
     snooze_script_specs = [
         ("script.status_light_snooze_30m", "Status Light Snooze 30m", "00:30:00"),
@@ -1665,7 +1880,32 @@ def cmd_sync_status_lights() -> None:
     script_payloads: List[Tuple[str, dict]] = [
         (baseline_script_entity, baseline_script_payload),
         (quiet_script_entity, quiet_script_payload),
-        (event_script_entity, event_script_payload),
+        (effect_script_entity, effect_script_payload),
+        (heating_adapter_script_entity, heating_adapter_payload),
+        (
+            compatibility_event_script_entity,
+            {
+                "alias": "Status Light Event",
+                "description": "Compatibility shim to the heating-specific status-light adapter.",
+                "fields": {
+                    "event_key": {
+                        "name": "Heating event key",
+                        "description": "Deprecated compatibility field for heating semantic events.",
+                        "required": True,
+                        "selector": {"select": {"options": heating_event_options}},
+                    }
+                },
+                "sequence": [
+                    {
+                        "action": "script.turn_on",
+                        "target": {"entity_id": heating_adapter_script_entity},
+                        "data": {"variables": {"event_key": "{{ event_key }}"}},
+                    }
+                ],
+                "mode": "queued",
+                "max": 10,
+            },
+        ),
         (
             unsnooze_script_entity,
             {
@@ -1725,7 +1965,7 @@ def cmd_sync_status_lights() -> None:
             )
         )
 
-    for script_entity, alias, event_key in test_script_specs:
+    for script_entity, alias, target_script_entity, variables in test_script_specs:
         script_payloads.append(
             (
                 script_entity,
@@ -1734,8 +1974,8 @@ def cmd_sync_status_lights() -> None:
                     "sequence": [
                         {
                             "action": "script.turn_on",
-                            "target": {"entity_id": event_script_entity},
-                            "data": {"variables": {"event_key": event_key}},
+                            "target": {"entity_id": target_script_entity},
+                            "data": {"variables": variables},
                         }
                     ],
                     "mode": "restart",
@@ -1880,7 +2120,13 @@ def cmd_sync_status_lights() -> None:
                 "columns": 2,
                 "square": False,
                 "cards": [
-                    target_card(str(target.get("entity_id", "")).strip(), str(target.get("name", str(target.get("entity_id", "")).strip())).strip())
+                    target_card(
+                        str(target.get("entity_id", "")).strip(),
+                        str(target.get("name", str(target.get("entity_id", "")).strip())).strip()
+                        + " ("
+                        + target_participation(target).title()
+                        + ")",
+                    )
                     for target in targets
                 ],
             },
@@ -1896,8 +2142,9 @@ def cmd_sync_status_lights() -> None:
                 "square": False,
                 "cards": [
                     operator_card("Apply Baseline", "Restore live baseline", "mdi:lightbulb-auto", "green", baseline_script_entity),
-                    operator_card("Test Boost Extend", "Emit semantic test event", "mdi:fire", "red", "script.status_light_test_boost_extend"),
-                    operator_card("Test Boiler Off", "Emit semantic test event", "mdi:water-boiler-off", "blue", "script.status_light_test_boiler_off"),
+                    operator_card("Test Engine Effect", "Emit generic engine request", "mdi:led-strip-variant", "red", "script.status_light_test_engine_attention"),
+                    operator_card("Test Heating Extend", "Emit heating adapter event", "mdi:fire", "red", "script.status_light_test_boost_extend"),
+                    operator_card("Test Heating Boiler", "Emit heating adapter event", "mdi:water-boiler-off", "blue", "script.status_light_test_boiler_off"),
                     operator_card("Snooze 30m", "Suppress events for 30 minutes", "mdi:timer-outline", "amber", "script.status_light_snooze_30m"),
                     operator_card("Snooze 60m", "Suppress events for 1 hour", "mdi:timer-sand", "amber", "script.status_light_snooze_60m"),
                     operator_card("Snooze 120m", "Suppress events for 2 hours", "mdi:timer-sand-complete", "amber", "script.status_light_snooze_120m"),
@@ -4097,14 +4344,14 @@ def cmd_sync_heating_alerts() -> None:
         if semantic_event_key:
             automation_payload = {
                 "alias": name,
-                "description": "Repo-managed alert routed through the status-light semantic event API.",
+                "description": "Repo-managed alert routed through the heating status-light adapter.",
                 "mode": "restart",
                 "triggers": triggers,
                 "conditions": conditions,
                 "actions": [
                     {
                         "action": "script.turn_on",
-                        "target": {"entity_id": "script.status_light_event"},
+                        "target": {"entity_id": "script.status_light_emit_heating_event"},
                         "data": {"variables": {"event_key": semantic_event_key}},
                     }
                 ],

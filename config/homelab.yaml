@@ -1435,57 +1435,82 @@ home_assistant:
     - name: Living Room Status Bulb
       entity_id: light.philips_lct015
       capability: rgb
+      participation: dedicated
     - name: Philips LCT012
       entity_id: light.philips_lct012
       capability: rgb
+      participation: opportunistic
     - name: Bedroom Hue Bulb
       entity_id: light.philips_lct015_2
       capability: rgb
-    events:
-      boost_extend:
-        label: Boost Extend
-        flashes: 2
-        on_seconds: 0.35
-        off_seconds: 0.25
-        brightness_pct: 100
+      participation: opportunistic
+    color_keys:
+      warm_neutral:
+        rgb_color:
+        - 255
+        - 180
+        - 120
+        color_temp_kelvin: 3000
+      attention_red:
         rgb_color:
         - 255
         - 0
         - 0
         color_temp_kelvin: 2200
-      boost_end:
-        label: Boost End
-        flashes: 1
-        on_seconds: 0.6
-        off_seconds: 0.25
-        brightness_pct: 100
+      completion_purple:
         rgb_color:
         - 170
         - 0
         - 255
         color_temp_kelvin: 2600
-      high_target:
-        label: High Target
-        flashes: 1
-        on_seconds: 0.8
-        off_seconds: 0.25
-        brightness_pct: 100
-        rgb_color:
-        - 255
-        - 0
-        - 0
-        color_temp_kelvin: 2200
-      boiler_off:
-        label: Boiler Off
-        flashes: 1
-        on_seconds: 0.8
-        off_seconds: 0.25
-        brightness_pct: 100
+      info_blue:
         rgb_color:
         - 0
         - 102
         - 255
         color_temp_kelvin: 5000
+    heating_adapter:
+      events:
+        boost_extend:
+          color_key: attention_red
+          pattern: flash
+          flash_count: 2
+          on_seconds: 0.35
+          off_seconds: 0.25
+          brightness_pct: 100
+          target_mode: all
+          return_mode: baseline
+          respect_snooze: true
+        boost_end:
+          color_key: completion_purple
+          pattern: flash
+          flash_count: 1
+          on_seconds: 0.6
+          off_seconds: 0.25
+          brightness_pct: 100
+          target_mode: all
+          return_mode: baseline
+          respect_snooze: true
+        high_target:
+          color_key: attention_red
+          pattern: flash
+          flash_count: 1
+          on_seconds: 0.8
+          off_seconds: 0.25
+          brightness_pct: 100
+          target_mode: all
+          return_mode: baseline
+          respect_snooze: true
+        boiler_off:
+          color_key: info_blue
+          pattern: flash
+          flash_count: 1
+          on_seconds: 0.8
+          off_seconds: 0.25
+          brightness_pct: 100
+          target_mode: all
+          return_mode: baseline
+          respect_snooze: true
   heating_dashboard:
     title: Heating
     dashboard_url_path: heating-overview

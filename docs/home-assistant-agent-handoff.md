@@ -173,15 +173,33 @@
     - `light.philips_lct015`
     - `light.philips_lct012`
     - `light.philips_lct015_2`
-  - current API entrypoints:
-    - `script.status_light_event`
+  - current target participation modes:
+    - `light.philips_lct015` -> `dedicated`
+    - `light.philips_lct012` -> `opportunistic`
+    - `light.philips_lct015_2` -> `opportunistic`
+  - current core engine entrypoints:
+    - `script.status_light_effect`
     - `script.status_light_apply_baseline`
+    - `script.status_light_apply_quiet`
     - `script.status_light_snooze_30m`
     - `script.status_light_snooze_60m`
     - `script.status_light_snooze_120m`
     - `script.status_light_snooze_until_next_day`
     - `script.status_light_unsnooze`
-  - current semantic events configured:
+  - current adapter entrypoints:
+    - `script.status_light_emit_heating_event`
+    - `script.status_light_event` as a compatibility shim to the heating adapter
+  - current bounded engine request fields:
+    - `color_key`
+    - `target_mode`
+    - `pattern`
+    - `flash_count`
+    - `on_seconds`
+    - `off_seconds`
+    - `brightness_pct`
+    - `return_mode`
+    - `respect_snooze`
+  - current heating adapter events configured:
     - `boost_extend`
     - `boost_end`
     - `high_target`
@@ -198,17 +216,19 @@
     - `automation.status_light_reconcile`
     - on startup and snooze-finish, restore baseline if live or keep quiet if still snoozed
   - multi-target/capability stance:
-    - targets fan out in parallel
+    - engine fan-out is parallel across eligible targets
+    - `target_mode` can select `all`, `dedicated`, or `opportunistic` targets
     - unavailable targets are skipped individually
     - first supported capability profiles are `rgb`, `color_temp`, and `brightness`
   - validation completed:
     - baseline apply works on the two responsive configured bulbs
-    - semantic event test temporarily overrides the two responsive configured bulbs and returns them to baseline
+    - generic engine effect requests work on the two responsive configured bulbs and return them to baseline
+    - dedicated/opportunistic target selection works on the responsive configured bulbs
     - 30m / 60m / 120m / until-next-day snooze all work
     - unsnooze works immediately
     - unavailable targets do not break the script path
   - current migration status:
-    - `boiler_off` is now the first real producer routed through `script.status_light_event`
+    - `boiler_off` is now the first real producer routed through the heating adapter
     - that migrated path no longer uses the old Shelly relay wake-up behavior
     - `high_target` and boost indicator flashes still use the older dedicated heating-indicator path
   - current runtime caveat:
