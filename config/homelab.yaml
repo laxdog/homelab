@@ -1798,6 +1798,7 @@ media_stack:
       downloads_incomplete: /data/downloads/incomplete
       downloads_usenet: /data/downloads/usenet
       downloads_torrents: /data/downloads/torrents
+      tdarr_cache: /temp
   data_layout:
   - downloads/incomplete
   - downloads/usenet
@@ -1836,6 +1837,11 @@ media_stack:
     bazarr:
       image: lscr.io/linuxserver/bazarr:latest
       port: 6767
+    tdarr:
+      image: haveagitgat/tdarr:latest
+      node_image: haveagitgat/tdarr_node:latest
+      port: 8265
+      server_port: 8266
     cleanuparr:
       image: ghcr.io/cleanuparr/cleanuparr:latest
       port: 11011

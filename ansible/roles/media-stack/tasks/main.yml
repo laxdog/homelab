@@ -23,6 +23,18 @@
       - name: Movies
         collection_type: movies
         path: /media/movies
+    media_stack_tdarr_transcode_threads: >-
+      {{
+        [
+          (
+            ansible_facts.processor_vcpus
+            | default(ansible_facts.processor_nproc, true)
+            | default(2, true)
+            | int
+          ) - 1,
+          1
+        ] | max
+      }}
     media_stack_projects:
       - name: core
         compose_template: core-compose.yaml.j2
@@ -100,11 +112,27 @@
     - sonarr
     - radarr
     - bazarr
+    - tdarr
     - cleanuparr
     - gluetun
     - sabnzbd
     - nzbget
     - qbittorrent
+
+- name: Create Tdarr appdata and cache directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default(config.media_stack.shared_ids.uid) }}"
+    group: "{{ item.group | default(config.media_stack.shared_ids.gid) }}"
+    mode: "{{ item.mode | default('0775') }}"
+  loop:
+    - path: "{{ media_stack_paths.host.appdata_base }}/tdarr/server"
+    - path: "{{ media_stack_paths.host.appdata_base }}/tdarr/configs"
+    - path: "{{ media_stack_paths.host.appdata_base }}/tdarr/logs"
+    - path: "{{ media_stack_paths.host.data_base }}/tdarr"
+    - path: "{{ media_stack_paths.host.data_base }}/tdarr/cache"
+    - path: "{{ media_stack_paths.host.media_tv }}/Tdarr Samples/Season 1"
 
 - name: Normalize qBittorrent download paths
   ansible.builtin.replace:
@@ -171,7 +199,7 @@
     chdir: "{{ media_stack_root }}/core"
 
 - name: Deploy media arr stack
-  ansible.builtin.command: docker compose up -d --remove-orphans prowlarr sonarr radarr bazarr
+  ansible.builtin.command: docker compose up -d --remove-orphans prowlarr sonarr radarr bazarr tdarr tdarr-node
   args:
     chdir: "{{ media_stack_root }}/arr"
 
@@ -401,6 +429,16 @@
   retries: 12
   delay: 5
   until: bazarr_http.status in [200, 302, 401]
+
+- name: Wait for Tdarr to answer locally
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ config.media_stack.apps.tdarr.port }}"
+    method: GET
+    status_code: [200, 302]
+  register: tdarr_http
+  retries: 12
+  delay: 5
+  until: tdarr_http.status in [200, 302]
 
 - name: Bootstrap Bazarr settings, providers, and language profile
   ansible.builtin.shell: |
