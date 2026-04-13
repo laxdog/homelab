@@ -409,7 +409,7 @@ Source of truth:
       that only applies on HA startup when:
       - the downstairs boost timer is inactive
       - the downstairs restore helper is empty
-      - all three downstairs targets are still sitting at the boost setpoint
+      - both downstairs targets are still sitting at the boost setpoint
     - “desired state” means:
       - while the timer is active, the target TRVs should be at the configured boost temperature in `heat` mode
       - while the timer is inactive but the helper is still populated, the target TRVs should be driven back to the saved pre-boost state
@@ -423,7 +423,7 @@ Source of truth:
       - if the timer is inactive but the helper is populated, reconcile keeps trying to restore the saved pre-boost state until the targets actually match it, then clears the helper
   - Current living room `Heating` remote behavior:
     - top short press runs `script.boost_downstairs`, which boosts `Front Window`,
-      `Dining Area`, and `Bathroom` to `23C` for 30 minutes, then restores their
+      `Dining Area` to `23C` for 30 minutes, then restores their
       previous modes/setpoints
     - bottom short press runs `script.cancel_boost_downstairs`, which cancels the
       boost and restores the saved pre-boost modes/setpoints immediately
@@ -476,7 +476,7 @@ Source of truth:
       - observed result:
         - `timer.boost_downstairs` came back `idle`
         - `input_text.boost_downstairs_restore_state` came back empty
-        - `climate.front_window`, `climate.dining_area`, and `climate.bathroom` all reconciled to `off`
+        - `climate.front_window` and `climate.dining_area` both reconciled to `off`
         - their target temperatures still showed `23C`, but HVAC mode was safely `off`
       - direct probe result:
         - setting `input_text.boost_downstairs_restore_state` to a sentinel value and power-cycling the HA VM caused it to come back empty
@@ -512,11 +512,9 @@ Source of truth:
   - keep baseline state, temporary effect rendering, target policy, and snooze policy in one place
   - keep business/domain semantics out of the engine by using adapter scripts above it
   - avoid dragging the old Shelly-assisted heating-indicator pattern into the new model
-- Current configured targets:
-  - `light.philips_lct015`
+- Current configured target:
   - `light.philips_lct012`
-  - `light.philips_lct015_2`
-  - the API is designed for additional future bulbs beyond these current targets
+  - the API is designed for future additional bulbs, but current active use is single-target
 
 ### API shape
 - Core engine entrypoints:
@@ -592,7 +590,7 @@ Source of truth:
 ### Target behavior
 - Targets are listed in `config.home_assistant.status_lights.targets`.
 - Current active target set is intentionally simplified back to a single dedicated always-on bulb:
-  - `light.philips_lct015`
+  - `light.philips_lct012`
 - The engine still owns target selection/rendering behavior, but the opportunistic bulb experiment is
   no longer part of the active configured setup.
 
@@ -623,7 +621,7 @@ Source of truth:
 
 ### Validation status
 - Validated live against the current configured targets:
-  - `light.philips_lct015`
+  - `light.philips_lct012`
   - baseline apply works
   - a generic bounded engine effect request temporarily overrides baseline and returns to baseline
     afterward on the dedicated status bulb

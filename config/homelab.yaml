@@ -1361,7 +1361,6 @@ home_assistant:
     targets:
     - climate.front_window
     - climate.dining_area
-    - climate.bathroom
   - name: Bedroom Heating Boost
     automation_entity: automation.bedroom_heating_boost
     script_entity: script.boost_bedroom
@@ -1411,8 +1410,8 @@ home_assistant:
       color_temp_kelvin: 3000
       transition: 0
     targets:
-    - name: Living Room Status Bulb
-      entity_id: light.philips_lct015
+    - name: Philips LCT012 Status Bulb
+      entity_id: light.philips_lct012
       capability: rgb
       participation: dedicated
     color_keys:

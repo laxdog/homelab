@@ -149,7 +149,7 @@
   - downstairs expiry-while-HA-down was rerun cleanly on `2026-03-19` and the narrower fail-safe now covers it:
     - timer comes back `idle`
     - downstairs restore helper comes back empty
-    - `front_window`, `dining_area`, and `bathroom` reconcile to `off`
+    - `front_window` and `dining_area` reconcile to `off`
   - direct probe showed the root cause:
     - the YAML-defined downstairs restore helper does not retain its value across a full HA VM restart
   - practical status:
@@ -170,7 +170,7 @@
 - Status-light API foundation from `home_assistant.status_lights`.
   - baseline is repo-owned desired state for one or more configured status bulbs
   - current configured target is:
-    - `light.philips_lct015` -> `dedicated`
+    - `light.philips_lct012` -> `dedicated`
   - current core engine entrypoints:
     - `script.status_light_effect`
     - `script.status_light_apply_baseline`
