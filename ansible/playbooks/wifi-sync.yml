@@ -51,21 +51,32 @@
       check_mode: false
       no_log: true
 
+    - name: Read key-mgmt for each WiFi connection
+      ansible.builtin.command:
+        cmd: "nmcli -t -f 802-11-wireless-security.key-mgmt connection show '{{ item }}'"
+      loop: "{{ wifi_conn_names }}"
+      register: wifi_keymgmt_raw
+      changed_when: false
+      check_mode: false
+
     - name: Build discovered network list
       ansible.builtin.set_fact:
         discovered_networks: >-
-          {{
-            discovered_networks | default([]) + (
-              [{
-                'ssid': (wifi_ssids_raw.results[idx].stdout | regex_replace('^.*:', '')),
-                'psk': (wifi_psks_raw.results[idx].stdout | regex_replace('^.*:', '')),
-                'source_host': inventory_hostname
-              }]
-              if (wifi_psks_raw.results[idx].stdout | regex_replace('^.*:', '')) | length > 0
-                 and (wifi_ssids_raw.results[idx].stdout | regex_replace('^.*:', '')) | length > 0
-              else []
-            )
-          }}
+          {%- set ns = discovered_networks | default([]) -%}
+          {%- set ssid = wifi_ssids_raw.results[idx].stdout | regex_replace('^.*:', '') -%}
+          {%- set psk = wifi_psks_raw.results[idx].stdout | regex_replace('^.*:', '') -%}
+          {%- set km = wifi_keymgmt_raw.results[idx].stdout | regex_replace('^.*:', '') -%}
+          {%- if ssid | length > 0 -%}
+            {%- if psk | length > 0 -%}
+              {{ ns + [{'ssid': ssid, 'psk': psk, 'key_mgmt': km, 'source_host': inventory_hostname}] }}
+            {%- elif km == '' or km == '--' -%}
+              {{ ns + [{'ssid': ssid, 'psk': '', 'open': true, 'key_mgmt': 'none', 'source_host': inventory_hostname}] }}
+            {%- else -%}
+              {{ ns + [{'ssid': ssid, 'psk': '', 'key_mgmt': km, 'source_host': inventory_hostname}] }}
+            {%- endif -%}
+          {%- else -%}
+            {{ ns }}
+          {%- endif -%}
       loop: "{{ wifi_conn_names }}"
       loop_control:
         index_var: idx

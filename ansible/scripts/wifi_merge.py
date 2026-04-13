@@ -77,7 +77,7 @@ def known_ssids(config: dict) -> set:
     return {n["ssid"] for n in networks}
 
 
-def append_wifi_to_config(config_path: str, ssid: str, vault_var: str):
+def append_wifi_to_config(config_path: str, ssid: str, vault_var: str = None, is_open: bool = False):
     """Append a wifi_networks entry to homelab.yaml under remote_nodes.wifi_networks."""
     with open(config_path) as f:
         lines = f.readlines()
@@ -94,7 +94,9 @@ def append_wifi_to_config(config_path: str, ssid: str, vault_var: str):
             if re.match(r"^\s+- ssid:", line):
                 insert_idx = i
                 indent = re.match(r"^(\s+)", line).group(1)
-            elif re.match(r"^\s+\w", line) and not re.match(r"^\s+(password|autoconnect)", line):
+            elif re.match(r"^\s+\w", line) and not re.match(
+                r"^\s+(password|autoconnect|open)", line
+            ):
                 # Left the wifi_networks block
                 break
 
@@ -106,17 +108,25 @@ def append_wifi_to_config(config_path: str, ssid: str, vault_var: str):
     j = insert_idx + 1
     while j < len(lines) and not re.match(r"^\s+- ssid:", lines[j]):
         if re.match(r"^\s+\w", lines[j]) and not re.match(
-            r"^\s+(password|autoconnect)", lines[j]
+            r"^\s+(password|autoconnect|open)", lines[j]
         ):
             break
         j += 1
 
-    new_entry = (
-        f"{indent}- ssid: '{ssid}'\n"
-        f"{indent}  password_var: {vault_var}\n"
-        f"{indent}  autoconnect: true\n"
-        f"{indent}  autoconnect_priority: 50\n"
-    )
+    if is_open:
+        new_entry = (
+            f"{indent}- ssid: '{ssid}'\n"
+            f"{indent}  open: true\n"
+            f"{indent}  autoconnect: true\n"
+            f"{indent}  autoconnect_priority: 30\n"
+        )
+    else:
+        new_entry = (
+            f"{indent}- ssid: '{ssid}'\n"
+            f"{indent}  password_var: {vault_var}\n"
+            f"{indent}  autoconnect: true\n"
+            f"{indent}  autoconnect_priority: 50\n"
+        )
     lines.insert(j, new_entry)
 
     with open(config_path, "w") as f:
@@ -140,15 +150,33 @@ def main():
     added = []
     skipped = []
 
+    warnings = []
+
     for net in networks:
         ssid = net["ssid"]
-        psk = net["psk"]
-        var_name = vault_var_name(ssid)
+        psk = net.get("psk", "")
+        is_open = net.get("open", False)
+        key_mgmt = net.get("key_mgmt", "")
 
         if ssid in existing_ssids:
             skipped.append(f"{ssid} — already in homelab.yaml")
             continue
 
+        # Open network (no security)
+        if is_open or key_mgmt == "none":
+            if args.dry_run:
+                added.append(f"WOULD ADD (open): ssid={ssid}")
+            else:
+                append_wifi_to_config(args.config, ssid, is_open=True)
+                added.append(f"ADDED (open): ssid={ssid}")
+            continue
+
+        # WPA-PSK with empty/missing PSK — broken profile, skip with warning
+        if not psk:
+            warnings.append(f"{ssid} — WPA-PSK but empty PSK (agent-owned or broken), skipped")
+            continue
+
+        var_name = vault_var_name(ssid)
         need_vault = var_name not in existing_vault_vars
 
         if args.dry_run:
@@ -164,9 +192,7 @@ def main():
                     f.write(encrypted)
                     f.write("\n")
 
-            # Append to homelab.yaml
-            append_wifi_to_config(args.config, ssid, var_name)
-
+            append_wifi_to_config(args.config, ssid, vault_var=var_name)
             added.append(f"ADDED: ssid={ssid}, vault_var={var_name}")
 
     # Report
@@ -179,8 +205,12 @@ def main():
     print(f"  Skipped: {len(skipped)}")
     for s in skipped:
         print(f"    {s}")
+    if warnings:
+        print(f"  Warnings: {len(warnings)}")
+        for w in warnings:
+            print(f"    {w}")
 
-    return 0 if not added or not args.dry_run else 0
+    return 0
 
 
 if __name__ == "__main__":

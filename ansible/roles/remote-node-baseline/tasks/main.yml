@@ -82,7 +82,7 @@
     that:
       - lookup('vars', item.password_var, default='') | length > 0
     fail_msg: "Missing vaulted WiFi secret '{{ item.password_var }}' for SSID '{{ item.ssid }}'."
-  loop: "{{ remote_node_wifi_networks }}"
+  loop: "{{ remote_node_wifi_networks | rejectattr('open', 'defined') | list + (remote_node_wifi_networks | selectattr('open', 'defined') | rejectattr('open', 'equalto', true) | list) }}"
   loop_control:
     label: "{{ item.ssid }}"
 
@@ -122,7 +122,7 @@
   when: item.rc != 0
   changed_when: true
 
-- name: Enforce configured WiFi network profiles as system-wide
+- name: Enforce configured WPA-PSK WiFi profiles as system-wide
   ansible.builtin.command:
     argv:
       - nmcli
@@ -143,11 +143,31 @@
       - "{{ lookup('vars', item.password_var) }}"
       - 802-11-wireless-security.psk-flags
       - "0"
-  loop: "{{ remote_node_wifi_networks }}"
+  loop: "{{ remote_node_wifi_networks | rejectattr('open', 'defined') | list + (remote_node_wifi_networks | selectattr('open', 'defined') | rejectattr('open', 'equalto', true) | list) }}"
   loop_control:
     label: "{{ item.ssid }}"
   changed_when: false
   no_log: true
+
+- name: Enforce configured open WiFi profiles as system-wide
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - connection
+      - modify
+      - "{{ item.ssid }}"
+      - connection.permissions
+      - ""
+      - connection.autoconnect
+      - "{{ 'yes' if (item.autoconnect | default(false) | bool) else 'no' }}"
+      - connection.autoconnect-priority
+      - "{{ item.autoconnect_priority | default(0) | string }}"
+      - 802-11-wireless.mode
+      - infrastructure
+  loop: "{{ remote_node_wifi_networks | selectattr('open', 'defined') | selectattr('open', 'equalto', true) | list }}"
+  loop_control:
+    label: "{{ item.ssid }}"
+  changed_when: false
 
 - name: Find active WiFi connection name
   ansible.builtin.shell: |
