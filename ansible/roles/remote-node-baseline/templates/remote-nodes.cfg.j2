@@ -1,0 +1,117 @@
+# Remote node monitoring — deployed by homelab ansible
+# Managed by remote-node-baseline role
+
+{% for name, node in config.remote_nodes.nodes.items() %}
+{% if node.nagios is defined %}
+# ═══ {{ name }} ═══
+
+define host {
+  use              linux-server
+  host_name        {{ name }}
+  alias            {{ name }}
+  address          {{ node.tailscale_ip }}
+  contact_groups   admins
+}
+
+{% if node.nagios.ping | default(false) %}
+define service {
+  use                     generic-service
+  host_name               {{ name }}
+  service_description     PING
+{% if node.environment | default('') == 'prod' %}
+  check_command           check_ping!200.0,40%!500.0,60%
+  max_check_attempts      5
+{% else %}
+  check_command           check_ping!100.0,20%!500.0,60%
+  max_check_attempts      3
+{% endif %}
+  contact_groups          admins
+  notifications_enabled   1
+  check_interval          5
+}
+{% endif %}
+
+define service {
+  use                     generic-service
+  host_name               {{ name }}
+  service_description     SSH
+  check_command           check_ssh
+  contact_groups          admins
+  notifications_enabled   1
+  check_interval          5
+  max_check_attempts      3
+}
+
+{% if node.nagios.disk | default(false) %}
+define service {
+  use                     generic-service
+  host_name               {{ name }}
+  service_description     Disk /
+  check_command           check_remote_disk!{{ node.tailscale_ip }}!{{ node.ssh_user | default('mrobinson') }}
+  contact_groups          admins
+  notifications_enabled   1
+  check_interval          10
+  max_check_attempts      3
+}
+{% endif %}
+
+{% if node.nagios.tailscale | default(false) %}
+define service {
+  use                     generic-service
+  host_name               {{ name }}
+  service_description     Tailscale
+  check_command           check_remote_tailscale!{{ node.tailscale_ip }}!{{ node.ssh_user | default('mrobinson') }}
+  contact_groups          admins
+  notifications_enabled   1
+  check_interval          5
+  max_check_attempts      3
+}
+{% endif %}
+
+{% if node.nagios.cpu_temp | default(false) %}
+define service {
+  use                     generic-service
+  host_name               {{ name }}
+  service_description     CPU Temperature
+  check_command           check_remote_temp!{{ node.tailscale_ip }}!{{ node.ssh_user | default('mrobinson') }}
+  contact_groups          admins
+  notifications_enabled   1
+  check_interval          10
+  max_check_attempts      3
+}
+{% endif %}
+
+{% if node.nagios.ntp | default(false) %}
+define service {
+  use                     generic-service
+  host_name               {{ name }}
+  service_description     NTP Sync
+  check_command           check_remote_ntp!{{ node.tailscale_ip }}!{{ node.ssh_user | default('mrobinson') }}
+  contact_groups          admins
+  notifications_enabled   1
+  check_interval          15
+  max_check_attempts      3
+}
+{% endif %}
+
+{% endif %}
+{% endfor %}
+
+# ═══ COMMAND DEFINITIONS ═══
+
+define command {
+  command_name    check_remote_disk
+  command_line    $USER1$/check_remote_disk.sh $ARG1$ $ARG2$
+}
+define command {
+  command_name    check_remote_tailscale
+  command_line    $USER1$/check_remote_tailscale.sh $ARG1$ $ARG2$
+}
+define command {
+  command_name    check_remote_temp
+  command_line    $USER1$/check_remote_temp.sh $ARG1$ $ARG2$
+}
+define command {
+  command_name    check_remote_ntp
+  command_line    $USER1$/check_remote_ntp.sh $ARG1$ $ARG2$
+}
