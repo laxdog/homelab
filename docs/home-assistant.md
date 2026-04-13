@@ -645,9 +645,9 @@ Source of truth:
   - so live multi-target proof is currently strong on `light.philips_lct015` and `light.philips_lct012`,
     with partial proof only for the bedroom bulb until that runtime target issue is resolved
 - Current migration status:
-  - `boiler_off` is still the first real producer migrated onto the status-light subsystem
-  - it now routes through the heating adapter rather than directly into the core engine
-  - `high_target` and the boost light semantics still use the older dedicated heating-indicator path
+  - `boiler_off` and `high_target` now route through the heating adapter rather than directly into
+    the core engine
+  - boost light semantics still use the older dedicated heating-indicator path
 
 ## Scheduling
 - Schedule is code-defined in `config.home_assistant.heating_control.schedule_events`.

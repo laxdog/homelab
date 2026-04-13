@@ -1398,6 +1398,7 @@ home_assistant:
     - climate.games_room
     - climate.front_window
     threshold_temperature_c: 23
+    semantic_event_key: high_target
     relay_entity: switch.shelly1minig3_e4b32329d38c
     light_entity: light.philips_lct015
     flash_count: 1

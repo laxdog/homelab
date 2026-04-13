@@ -228,9 +228,9 @@
     - unsnooze works immediately
     - unavailable targets do not break the script path
   - current migration status:
-    - `boiler_off` is now the first real producer routed through the heating adapter
-    - that migrated path no longer uses the old Shelly relay wake-up behavior
-    - `high_target` and boost indicator flashes still use the older dedicated heating-indicator path
+    - `boiler_off` and `high_target` are now routed through the heating adapter
+    - those migrated paths no longer use the old Shelly relay wake-up behavior
+    - boost indicator flashes still use the older dedicated heating-indicator path
   - current runtime caveat:
     - `light.philips_lct015_2` is present and configured, but during the live migration validation
       it did not respond to `light.turn_on` from HA and remained `off`
