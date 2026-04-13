@@ -208,8 +208,6 @@ adguard:
     answer: 10.20.30.154
   - domain: jellyfin.laxdog.uk
     answer: 10.20.30.154
-  - domain: plex.laxdog.uk
-    answer: 10.20.30.154
   - domain: prowlarr.laxdog.uk
     answer: 10.20.30.154
   - domain: sonarr.laxdog.uk
@@ -718,7 +716,6 @@ npm:
     - ha.laxdog.uk
     - nagios.laxdog.uk
     - jellyfin.laxdog.uk
-    - plex.laxdog.uk
     - prowlarr.laxdog.uk
     - sonarr.laxdog.uk
     - radarr.laxdog.uk
@@ -739,7 +736,6 @@ npm:
     - nagios.lax.dog
     - proxmox.lax.dog
     - jellyfin.lax.dog
-    - plex.lax.dog
     - prowlarr.lax.dog
     - sonarr.lax.dog
     - radarr.lax.dog
@@ -879,13 +875,6 @@ npm:
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
-  - name: Plex
-    domain: plex.laxdog.uk
-    forward_host: 10.20.30.120
-    forward_port: 32400
-    access_list: Internal Access
-    ssl: true
-    certificate: laxdog-internal-le
   - name: Prowlarr
     domain: prowlarr.laxdog.uk
     forward_host: 10.20.30.120
@@ -1007,14 +996,6 @@ npm:
     domain: jellyfin.lax.dog
     forward_host: 10.20.30.167
     forward_port: 8097
-    access_list: External Public
-    ssl: true
-    certificate: laxdog-external-le
-    authentik_protect: true
-  - name: Plex External
-    domain: plex.lax.dog
-    forward_host: 10.20.30.120
-    forward_port: 32400
     access_list: External Public
     ssl: true
     certificate: laxdog-external-le
@@ -1163,9 +1144,6 @@ authentik:
   - name: Jellyfin
     slug: jellyfin
     external_host: https://jellyfin.lax.dog
-  - name: Plex
-    slug: plex
-    external_host: https://plex.lax.dog
   - name: Prowlarr
     slug: prowlarr
     external_host: https://prowlarr.lax.dog
@@ -1985,10 +1963,6 @@ cloudflare:
       proxied: false
     - type: A
       name: jellyfin.laxdog.uk
-      content: 10.20.30.154
-      proxied: false
-    - type: A
-      name: plex.laxdog.uk
       content: 10.20.30.154
       proxied: false
     - type: A
