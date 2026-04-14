@@ -1,7 +1,7 @@
 # Home Assistant Agent Handoff
 
 ## Scope
-- Manage Home Assistant VM (`10.20.30.134`) config and automations as IaC.
+- Manage Home Assistant VM (`10.20.30.122`) config and automations as IaC.
 - Keep source of truth in `config/homelab.yaml` + `scripts/home_assistant.py`.
 - Avoid manual UI edits unless explicitly required (HACS installs are still manual on HAOS).
 
@@ -17,7 +17,7 @@
 ## Access
 - Internal URL: `https://ha.laxdog.uk`
 - External URL: `https://ha.lax.dog` (through NPM / Authentik policy)
-- Direct IP URL: `http://10.20.30.134:8123`
+- Direct IP URL: `http://10.20.30.122:8123`
 - If `ha.laxdog.uk` shows `400 Bad Request`, re-run `scripts/run.py guests` to
   re-apply repo-managed `configuration.yaml` proxy trust settings.
 

@@ -64,7 +64,7 @@ Primary Proxmox host is `10.20.30.46`.
 
 #### VMs
 - `120 media-stack` - `10.20.30.120` - Docker media stack VM - running
-- `122 home-assistant` - `10.20.30.134` - HAOS - running
+- `122 home-assistant` - `10.20.30.122` - HAOS - running
 - `133 nagios` - `10.20.30.133` - monitoring - running
 - `171 tailscale-gateway` - `10.20.30.171` - tailscale router/gateway - running
 
@@ -651,8 +651,8 @@ tank/templates  1.79G  17.5T  1.79G  /tank/templates
 ["couchdb.lax.dog"] | 10.20.30.128 | 5984 | access_list_id=4 | cert_id=16
 ["couchdb.laxdog.uk"] | 10.20.30.128 | 5984 | access_list_id=2 | cert_id=17
 ["dns.laxdog.uk"] | 10.20.30.53 | 80 | access_list_id=2 | cert_id=17
-["ha.lax.dog"] | 10.20.30.134 | 8123 | access_list_id=4 | cert_id=16
-["ha.laxdog.uk"] | 10.20.30.134 | 8123 | access_list_id=2 | cert_id=17
+["ha.lax.dog"] | 10.20.30.122 | 8123 | access_list_id=4 | cert_id=16
+["ha.laxdog.uk"] | 10.20.30.122 | 8123 | access_list_id=2 | cert_id=17
 ["health.laxdog.uk"] | 10.20.30.159 | 8000 | access_list_id=2 | cert_id=17
 ["heimdall.laxdog.uk"] | 10.20.30.166 | 80 | access_list_id=2 | cert_id=17
 ["jellyfin.lax.dog"] | 10.20.30.120 | 8096 | access_list_id=4 | cert_id=16

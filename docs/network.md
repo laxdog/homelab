@@ -7,10 +7,16 @@ Source of truth: `config/homelab.yaml`.
 - Gateway: 10.20.30.1
 - Proxmox host: 10.20.30.46 (vmbr0)
 
+## Router
+- Model: ASUS RT-AC86U (Asuswrt-Merlin 3.0.0.4.386)
+- SSH: `ssh admin@10.20.30.1` (key-based, uses `~/.ssh/id_rsa`)
+- DHCP static reservations: `nvram get dhcp_staticlist` / `nvram set dhcp_staticlist=...` then `nvram commit` and `service restart_dnsmasq`
+- Format: `<MAC>IP>>` entries concatenated, e.g. `<A0:9A:8E:35:E5:02>10.20.30.83>>`
+
 ## Reserved
 - AdGuard/DNS: 10.20.30.53
 - Authentik: 10.20.30.170
-- Home Assistant: 10.20.30.134
+- Home Assistant: 10.20.30.122
 - Nagios: 10.20.30.133
 - Router: 10.20.30.1
 - UniFi links: 10.20.30.50, 10.20.30.51

@@ -13,6 +13,13 @@ network:
   subnet: 10.20.30.0/24
   gateway: 10.20.30.1
   bridge: vmbr0
+  router:
+    ip: 10.20.30.1
+    model: ASUS RT-AC86U
+    firmware: Asuswrt-Merlin 3.0.0.4.386
+    ssh_user: admin
+    ssh_key: /home/mrobinson/.ssh/id_rsa
+    dhcp_method: nvram dhcp_staticlist
   reserved:
     router: 10.20.30.1
     adguard: 10.20.30.53
@@ -403,7 +410,7 @@ services:
         cache: metadata
     home-assistant:
       id: 122
-      ip: 10.20.30.134
+      ip: 10.20.30.122
       roles:
       - haos
       os: haos
@@ -854,7 +861,7 @@ npm:
     certificate: laxdog-internal-le
   - name: Home Assistant
     domain: ha.laxdog.uk
-    forward_host: 10.20.30.134
+    forward_host: 10.20.30.122
     forward_port: 8123
     access_list: Internal Access
     ssl: true
@@ -1061,7 +1068,7 @@ npm:
     authentik_protect: true
   - name: Home Assistant External
     domain: ha.lax.dog
-    forward_host: 10.20.30.134
+    forward_host: 10.20.30.122
     forward_port: 8123
     access_list: External Public
     ssl: true
@@ -1692,7 +1699,7 @@ nagios:
     address: 10.20.30.120
     check_ssh: true
   - name: home-assistant
-    address: 10.20.30.134
+    address: 10.20.30.122
     check_ssh: false
   - name: nagios
     address: 10.20.30.133
@@ -1746,7 +1753,7 @@ nagios:
   http_backend_checks:
   - name: home-assistant
     host: home-assistant
-    target_host: 10.20.30.134
+    target_host: 10.20.30.122
     target_port: 8123
     path: /
   raffle_raptor_checks:
@@ -2152,7 +2159,7 @@ validation:
     host: 10.20.30.170
     port: 9000
   - name: home-assistant
-    host: 10.20.30.134
+    host: 10.20.30.122
     port: 8123
   - name: nagios
     host: 10.20.30.133

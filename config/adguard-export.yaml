@@ -175,7 +175,7 @@ clients:
     name: homeassistant.lax.dog
     source: rDNS
   - whois_info: {}
-    ip: 10.20.30.134
+    ip: 10.20.30.122
     name: homeassistant.lax.dog
     source: rDNS
   - whois_info: {}
