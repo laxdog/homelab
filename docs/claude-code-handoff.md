@@ -420,6 +420,18 @@ Current infra state is healthy enough that this is no longer a homelab routing/T
 - `mums-house-mbp (10.20.30.75)` was unreachable during last pass; no fresh validation
 - old Proxmox host `10.20.30.155` is powered off for move but not fully cleaned up/decommissioned in repo/docs
 
+## Backlog
+
+### NPM upstream healthcheck / retry on startup
+When Proxmox restarts all guests (e.g. for hardware maintenance), NPM (CT154) comes up before backends are ready, causing brief 502 Bad Gateway responses on all proxied services. Observed during the 2026-04-08 SSD install — two full-estate stopall/startall cycles produced a 502 cascade on raffle-raptor-dev and other services for ~10 minutes until backends finished initialising.
+
+NPM Pro supports upstream health checks but NPM open source does not natively. Options to investigate:
+1. Custom nginx upstream health check config in NPM's advanced config per proxy host (e.g. `proxy_next_upstream` directives with retry)
+2. A startup delay or ordering at the Proxmox level — delay NPM start by 30s after other LXCs are up (Proxmox `onboot` ordering + `startup=order=` with delay)
+3. Replace NPM with Caddy or Traefik which have native upstream health checks and automatic retry logic
+
+Priority: **low** — only affects planned restart windows, not steady-state operation. Mitigated by advance notice to service tenants before maintenance.
+
 ## Historical Context That Still Matters
 
 ### Major incidents
