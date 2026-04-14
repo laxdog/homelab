@@ -1,0 +1,170 @@
+modules:
+  rr_statusz:
+    headers:
+      Accept: application/json
+    http_client_config:
+      basic_auth:
+        username: rr
+        password_file: /etc/json-exporter/rr_password
+    metrics:
+      # Worker health
+      - name: rr_worker_running
+        type: value
+        help: "Worker running state (1=running, 0=stopped)"
+        path: "{ .worker_running }"
+        values:
+            "true": 1
+            "false": 0
+      - name: rr_success_rate_5m
+        type: value
+        help: "Worker success rate over 5 minutes"
+        path: "{ .success_rate_5m }"
+      - name: rr_overdue_count
+        type: value
+        help: "Number of overdue scrape jobs"
+        path: "{ .overdue_count }"
+      - name: rr_scrapes_per_min_5m
+        type: value
+        help: "Scrapes per minute (5m window)"
+        path: "{ .scrapes_per_min_5m }"
+      - name: rr_tracked_active_count
+        type: value
+        help: "Number of actively tracked items"
+        path: "{ .tracked_active_count }"
+      - name: rr_queue_depth
+        type: value
+        help: "Current queue depth"
+        path: "{ .queue_depth }"
+      - name: rr_consecutive_failures
+        type: value
+        help: "Consecutive failure count"
+        path: "{ .consecutive_failures }"
+
+      # Phase timing (p95)
+      - name: rr_p95_queue_wait_ms
+        type: value
+        help: "Queue wait p95 (ms)"
+        path: "{ .p95_queue_wait_ms_5m }"
+      - name: rr_p95_fetch_requests_ms
+        type: value
+        help: "Fetch requests p95 (ms)"
+        path: "{ .p95_fetch_requests_ms_5m }"
+      - name: rr_p95_parse_ms
+        type: value
+        help: "Parse p95 (ms)"
+        path: "{ .p95_parse_ms_5m }"
+      - name: rr_p95_compute_ms
+        type: value
+        help: "Compute p95 (ms)"
+        path: "{ .p95_compute_ms_5m }"
+      - name: rr_p95_db_write_ms
+        type: value
+        help: "DB write p95 (ms)"
+        path: "{ .p95_db_write_ms_5m }"
+      - name: rr_p95_total_duration_ms
+        type: value
+        help: "Total scrape duration p95 (ms)"
+        path: "{ .p95_total_duration_ms_5m }"
+      - name: rr_p95_loop_iteration_ms
+        type: value
+        help: "Loop iteration p95 (ms)"
+        path: "{ .p95_loop_iteration_ms_5m }"
+
+      # Phase timing (avg)
+      - name: rr_avg_fetch_requests_ms
+        type: value
+        help: "Fetch requests avg (ms)"
+        path: "{ .avg_fetch_requests_ms_5m }"
+      - name: rr_avg_parse_ms
+        type: value
+        help: "Parse avg (ms)"
+        path: "{ .avg_parse_ms_5m }"
+      - name: rr_avg_compute_ms
+        type: value
+        help: "Compute avg (ms)"
+        path: "{ .avg_compute_ms_5m }"
+      - name: rr_avg_db_write_ms
+        type: value
+        help: "DB write avg (ms)"
+        path: "{ .avg_db_write_ms_5m }"
+      - name: rr_avg_queue_wait_ms
+        type: value
+        help: "Queue wait avg (ms)"
+        path: "{ .avg_queue_wait_ms_5m }"
+
+      # Playwright / fetch
+      - name: rr_fetch_requests_success_5m
+        type: value
+        help: "Successful request fetches (5m)"
+        path: "{ .fetch_requests_success_5m }"
+      - name: rr_fetch_requests_fallback_5m
+        type: value
+        help: "Request fetch fallbacks to playwright (5m)"
+        path: "{ .fetch_requests_fallback_5m }"
+      - name: rr_fetch_playwright_used_5m
+        type: value
+        help: "Playwright fetches used (5m)"
+        path: "{ .fetch_playwright_used_5m }"
+
+      # HTTP errors
+      - name: rr_requests_http_403_count_5m
+        type: value
+        help: "HTTP 403 responses (5m)"
+        path: "{ .requests_http_403_count_5m }"
+      - name: rr_requests_http_429_count_5m
+        type: value
+        help: "HTTP 429 responses (5m)"
+        path: "{ .requests_http_429_count_5m }"
+      - name: rr_requests_http_5xx_count_5m
+        type: value
+        help: "HTTP 5xx responses (5m)"
+        path: "{ .requests_http_5xx_count_5m }"
+      - name: rr_cloudflare_challenge_rate
+        type: value
+        help: "Cloudflare challenge rate"
+        path: "{ .cloudflare_challenge_rate_window }"
+
+      # Parse state
+      - name: rr_active_parse_total_count
+        type: value
+        help: "Active parse total count"
+        path: "{ .active_parse_total_count }"
+      - name: rr_active_parse_issue_count
+        type: value
+        help: "Active parse issue count"
+        path: "{ .active_parse_issue_count }"
+
+      # Disk
+      - name: rr_disk_used_pct
+        type: value
+        help: "Disk usage percentage"
+        path: "{ .disk_used_pct }"
+
+      # Snapshots
+      - name: rr_oldest_active_snapshot_age_sec
+        type: value
+        help: "Oldest active snapshot age (seconds)"
+        path: "{ .oldest_active_snapshot_age_sec }"
+      - name: rr_newest_active_snapshot_age_sec
+        type: value
+        help: "Newest active snapshot age (seconds)"
+        path: "{ .newest_active_snapshot_age_sec }"
+
+      # Discovery
+      - name: rr_discovery_url_count
+        type: value
+        help: "Discovery URL count"
+        path: "{ .discovery_url_count }"
+      - name: rr_discovery_errors_24h
+        type: value
+        help: "Discovery errors in last 24h"
+        path: "{ .discovery_errors_24h }"
+
+      # VPN
+      - name: rr_vpn_active
+        type: value
+        help: "VPN active state (1=active)"
+        path: "{ .vpn_active }"
+        values:
+            "true": 1
+            "false": 0

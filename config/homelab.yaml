@@ -214,6 +214,10 @@ adguard:
     answer: 10.20.30.154
   - domain: ha.laxdog.uk
     answer: 10.20.30.154
+  - domain: grafana.laxdog.uk
+    answer: 10.20.30.154
+  - domain: prometheus.laxdog.uk
+    answer: 10.20.30.154
   - domain: nagios.laxdog.uk
     answer: 10.20.30.154
   - domain: jellyfin.laxdog.uk
@@ -560,6 +564,14 @@ services:
       roles:
       - docker
       - authentik
+    observability:
+      id: 172
+      ip: 10.20.30.172
+      cores: 2
+      memory_mb: 1024
+      disk_gb: 20
+      roles:
+      - docker
 proxmox_metadata:
   enabled: true
   oidc_services:
@@ -726,6 +738,8 @@ npm:
     - ha.laxdog.uk
     - nagios.laxdog.uk
     - jellyfin.laxdog.uk
+    - grafana.laxdog.uk
+    - prometheus.laxdog.uk
     - prowlarr.laxdog.uk
     - sonarr.laxdog.uk
     - radarr.laxdog.uk
@@ -931,6 +945,20 @@ npm:
     domain: qbittorrent.laxdog.uk
     forward_host: 10.20.30.120
     forward_port: 8080
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Grafana
+    domain: grafana.laxdog.uk
+    forward_host: 10.20.30.172
+    forward_port: 3000
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Prometheus
+    domain: prometheus.laxdog.uk
+    forward_host: 10.20.30.172
+    forward_port: 9090
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le

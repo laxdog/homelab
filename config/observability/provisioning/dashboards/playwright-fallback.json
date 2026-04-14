@@ -1,0 +1,136 @@
+{
+  "uid": "rr-playwright",
+  "title": "RR Playwright Fallback",
+  "tags": ["raffleraptor"],
+  "timezone": "browser",
+  "schemaVersion": 40,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Fetch Success vs Fallback (5m)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "expr": "rr_fetch_requests_success_5m{env=\"prod\"}",
+          "legendFormat": "success prod",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "expr": "rr_fetch_requests_success_5m{env=\"staging\"}",
+          "legendFormat": "success staging",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "expr": "rr_fetch_requests_fallback_5m{env=\"prod\"}",
+          "legendFormat": "fallback prod",
+          "refId": "C"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "expr": "rr_fetch_requests_fallback_5m{env=\"staging\"}",
+          "legendFormat": "fallback staging",
+          "refId": "D"
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "Prometheus" }
+    },
+    {
+      "id": 2,
+      "title": "Playwright Used (5m)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "expr": "rr_fetch_playwright_used_5m{env=\"prod\"}",
+          "legendFormat": "prod",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "expr": "rr_fetch_playwright_used_5m{env=\"staging\"}",
+          "legendFormat": "staging",
+          "refId": "B"
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "Prometheus" }
+    },
+    {
+      "id": 3,
+      "title": "Cloudflare Challenge Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "expr": "rr_cloudflare_challenge_rate{env=\"prod\"}",
+          "legendFormat": "prod",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "expr": "rr_cloudflare_challenge_rate{env=\"staging\"}",
+          "legendFormat": "staging",
+          "refId": "B"
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "Prometheus" }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: rr-prod
+    metrics_path: /probe
+    params:
+      module: [rr_statusz]
+      target: ["https://raffle-raptor.lax.dog/statusz"]
+    static_configs:
+      - targets: ["json-exporter:7979"]
+        labels:
+          env: prod
+          service: raffle-raptor
+    relabel_configs:
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: json-exporter:7979
+
+  - job_name: rr-staging
+    metrics_path: /probe
+    params:
+      module: [rr_statusz]
+      target: ["https://raffle-raptor-dev.lax.dog/statusz"]
+    static_configs:
+      - targets: ["json-exporter:7979"]
+        labels:
+          env: staging
+          service: raffle-raptor
+    relabel_configs:
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: json-exporter:7979

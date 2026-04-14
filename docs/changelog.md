@@ -40,3 +40,9 @@ Significant infrastructure changes by date. Agents should add entries here for m
 - Remote-node baseline deployed to raptor-node-staging
 - WiFi hardening, healthcheck timer, failsafe reboot policy
 - Tailscale router role added for remote nodes
+
+## 2026-04-15
+- CT172 (observability) deployed — Prometheus + Grafana + json-exporter
+- Scraping RR prod and staging /statusz via json-exporter (34 metrics per env)
+- 5 Grafana dashboards provisioned: Worker Health, Phase Timing, Playwright Fallback, Parse & Issues, Infra Health
+- grafana.laxdog.uk and prometheus.laxdog.uk NPM + AdGuard routes
