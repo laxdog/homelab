@@ -106,6 +106,12 @@ These apply to ALL agents.
 - Use by-id paths for ZFS pool members
 - Run `terraform plan` before `terraform apply`
 - Prove live state before assuming from repo
+- One guest at a time for migrations — verify each before proceeding to the next
+- Document router DHCP changes in `docs/network.md`
+- Add new WiFi networks via `ansible/playbooks/wifi-sync.yml`, not manually
+- When adding a new guest, follow `docs/runbooks/add-new-guest.md`
+- When adding a remote node, follow `docs/runbooks/add-remote-node.md`
+- Guest IPs must match the convention: last octet = VM/CT ID (except CT153 adguard = .53)
 
 ### NEVER
 - Push without explicit user instruction
@@ -114,6 +120,19 @@ These apply to ALL agents.
 - Run `terraform apply` without `plan` first
 - Move multiple guests simultaneously
 - Touch `/srv/data/media` or `/srv/data/downloads` (tank virtiofs mounts)
+- Run destructive commands (`rm -rf`, `zpool destroy`, `pvesm remove`, `git reset --hard`) without explicit user confirmation
+- Amend or rewrite published git history
+
+## End of session
+
+Every agent must do the following before ending a session:
+
+- [ ] Run `terraform plan` (homelab agent only) — confirm no unexpected drift
+- [ ] Update `docs/changelog.md` with any significant changes made this session
+- [ ] Update your agent backlog — tick off completed items, add new ones discovered
+- [ ] Commit all uncommitted changes (narrow commits, no unrelated dirty files)
+- [ ] Push only if the user has instructed you to
+- [ ] Update `docs/claude-code-handoff.md` with current HEAD and brief session summary
 
 ## Infrastructure consumers
 
