@@ -4,7 +4,7 @@
 INACTIVE — repo docs are out of date. Hardware was set up manually. Agent needs to be restarted fresh when work resumes.
 
 ## Known state
-- IP: 10.20.30.206
+- IP: 10.20.30.212
 - Connected to CRT display
 - Setup was done manually — repo does not fully reflect live state
 

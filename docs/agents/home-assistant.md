@@ -4,7 +4,7 @@
 - VM122 at 10.20.30.122 (HAOS)
 - All automations, scripts, dashboards, heating logic, status lights
 - `config/homelab.yaml` home_assistant: block
-- `scripts/home_assistant.py` generator (if present)
+- `scripts/home_assistant.py` generator
 - `ansible/roles/home-assistant-bootstrap/` (if present)
 - Terraform: `haos_vms["home-assistant"]`
 
