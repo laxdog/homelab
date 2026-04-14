@@ -8,6 +8,8 @@ Current latest commit: `e616018` - `Fix Bazarr access and Heimdall icon override
 
 This brief is for Claude Code taking over ongoing homelab infra work. It is written to be usable cold. It assumes no prior chat context.
 
+See `docs/backlog.md` for the current task backlog. Check and update it each session.
+
 ## Project Overview
 
 ### What this repo is
