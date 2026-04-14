@@ -135,10 +135,7 @@
     return_content: true
     status_code: 200
   register: adguard_dns_info
-  when: >-
-    (config.adguard.dns.resolve_clients is defined)
-    or (config.adguard.dns.use_private_ptr_resolvers is defined)
-    or ((config.adguard.dns.local_ptr_upstreams | default([])) | length > 0)
+  when: config.adguard.dns is defined
 
 - name: Decide if AdGuard DNS config needs update
   ansible.builtin.set_fact:
@@ -150,6 +147,10 @@
           != (config.adguard.dns.use_private_ptr_resolvers | default(false) | bool))
         or ((adguard_dns_info.json.local_ptr_upstreams | default([]) | sort)
           != ((config.adguard.dns.local_ptr_upstreams | default([])) | sort))
+        or ((adguard_dns_info.json.cache_optimistic | default(false) | bool)
+          != (config.adguard.dns.cache_optimistic | default(false) | bool))
+        or ((adguard_dns_info.json.upstream_dns | default([]) | sort)
+          != (config.adguard.dns.upstream_dns | default([]) | sort))
       }}
   when: adguard_dns_info.json is defined
 
@@ -165,6 +166,8 @@
       resolve_clients: "{{ config.adguard.dns.resolve_clients | default(false) | bool }}"
       use_private_ptr_resolvers: "{{ config.adguard.dns.use_private_ptr_resolvers | default(false) | bool }}"
       local_ptr_upstreams: "{{ config.adguard.dns.local_ptr_upstreams | default([]) }}"
+      cache_optimistic: "{{ config.adguard.dns.cache_optimistic | default(false) | bool }}"
+      upstream_dns: "{{ config.adguard.dns.upstream_dns | default([]) }}"
     status_code: 200
   when: adguard_dns_config_need_update | default(false)
 

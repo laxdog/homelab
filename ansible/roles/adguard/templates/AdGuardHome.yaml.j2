@@ -23,6 +23,7 @@ dns:
     - {{ upstream }}
 {% endfor %}
   bootstrap_dns: "{{ config.adguard.dns.bootstrap_dns | first }}"
+  cache_optimistic: {{ (config.adguard.dns.cache_optimistic | default(false)) | bool | lower }}
   resolve_clients: {{ (config.adguard.dns.resolve_clients | default(false)) | bool | lower }}
   use_private_ptr_resolvers: {{ (config.adguard.dns.use_private_ptr_resolvers | default(false)) | bool | lower }}
   local_ptr_upstreams:
