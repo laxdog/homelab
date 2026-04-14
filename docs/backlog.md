@@ -70,3 +70,10 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Context: SSDs moved to onboard Intel SATA. SAS3008 TRIM passthrough never tested. Worth documenting for future reference.
   - Effort: low
   - Added: 2026-04-14
+
+## Future
+
+- [ ] Migrate to OPNsense
+  - Context: current router is stock ASUS RT-AC86U. DHCP reservations are MAC-only (no hostname support on stock firmware). OPNsense will provide proper named DHCP, better VLAN support, and cleaner integration with the homelab. Guest SSIDs were causing issues with Merlin so stock firmware is being used in the interim.
+  - Effort: high
+  - Added: 2026-04-14
