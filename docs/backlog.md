@@ -76,11 +76,6 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Effort: low
   - Added: 2026-04-14
 
-- [ ] grafana/prometheus SSL cert SAN mismatch
-  - Context: cert 17 doesn't include grafana.laxdog.uk or prometheus.laxdog.uk. LE HTTP-01 can't reach internal-only domains. Need wildcard cert or add SANs at next renewal.
-  - Effort: low
-  - Added: 2026-04-15
-
 ## Future
 
 - [ ] Migrate to OPNsense

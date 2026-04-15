@@ -130,7 +130,11 @@ This homelab uses two domains with fundamentally different access models.
 **Never:**
 - Add Cloudflare DNS records for `laxdog.uk` subdomains
 - Expect AdGuard rewrites to work for `lax.dog` from outside the LAN
-- Cert issues on `laxdog.uk` = NPM cert problem (check NPM UI / API)
+
+> **WARNING: laxdog.uk subdomains must NEVER have Cloudflare DNS records.** They are resolved internally via AdGuard only. Adding a Cloudflare record for a laxdog.uk subdomain exposes internal service IPs to the internet and breaks the internal-only access model. The laxdog.uk LE cert uses DNS-01 challenge via the Cloudflare API for the `laxdog.uk` zone — this does NOT require public A records.
+
+**Troubleshooting certs:**
+- Cert issues on `laxdog.uk` = NPM cert problem. The internal cert (cert 17) uses DNS-01 challenge via Cloudflare API. New SANs are added by running `certbot certonly --expand` inside the NPM container with the updated domain list.
 - Cert issues on `lax.dog` = Cloudflare / LE problem (check Cloudflare dashboard)
 
 ## Universal conventions
