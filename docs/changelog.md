@@ -16,6 +16,14 @@ Significant infrastructure changes by date. Agents should add entries here for m
 - AGENTS.md structure created with per-agent docs, runbooks, changelog
 - Router (ASUS RT-AC86U) access documented in config and network docs
 - docs/backlog.md created with 15 items across all scopes
+- DHCP static reservations added for all 19 guests on the router
+- OPNsense migration added to backlog (future)
+
+## 2026-04-15
+- CT172 (observability) deployed — Prometheus + Grafana + json-exporter
+- RR statusz scraping: prod + staging, 30s interval, 34 metrics per env
+- 5 Grafana dashboards provisioned: Worker Health, Phase Timing, Playwright Fallback, Parse & Issues, Infra Health
+- grafana.laxdog.uk + prometheus.laxdog.uk NPM + AdGuard routes
 
 ## 2026-04-08
 - SSD hardware: 3 SATA SSDs installed (Kingston 894G + 2x ORICO 477G)

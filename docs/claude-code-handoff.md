@@ -7,8 +7,8 @@ For significant changes see `docs/changelog.md`.
 For runbooks see `docs/runbooks/`.
 
 ## Current session context
-- Last updated: 2026-04-14
-- Current HEAD: `9c098c0`
+- Last updated: 2026-04-15
+- Current HEAD: (updated at session close)
 
 ## Durable user preferences
 - Safety-first over speed

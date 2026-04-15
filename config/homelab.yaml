@@ -1142,6 +1142,8 @@ organizr:
 heimdall:
   icon_slug_map:
     Bazarr: bazarr
+    Grafana: grafana
+    Prometheus: prometheus
   icon_overrides:
     Raffle Raptor Dev:
       icon_emoji: 🦖
