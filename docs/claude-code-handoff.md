@@ -8,7 +8,8 @@ For runbooks see `docs/runbooks/`.
 
 ## Current session context
 - Last updated: 2026-04-15
-- Current HEAD: (see git log --oneline -1)
+- Current HEAD: (updated at final commit below)
+- Session summary: Major multi-day infrastructure session covering SSD pool creation and full guest migration (19 guests from NVMe/tank to ssd-fast + ssd-mirror), Plex retirement, AdGuard persistent clients and optimistic caching, remote-node battery/powertop/WiFi-sync/Nagios monitoring, Tailscale on VM133, HA IP migration (.134 → .122), DHCP reservations for all guests, AGENTS.md docs structure with per-agent docs and runbooks, CT172 observability stack (Prometheus + Grafana + 5 dashboards), domain architecture documentation, cert 17 SAN expansion via DNS-01, and full docs consistency pass.
 
 ## Durable user preferences
 - Safety-first over speed

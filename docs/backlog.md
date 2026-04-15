@@ -29,10 +29,8 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Effort: high
   - Added: 2026-04-14
 
-- [ ] Terraform plan as end-of-session check
-  - Context: TF credentials are in the vault, agent can run this autonomously. Should be standard practice.
-  - Effort: low
-  - Added: 2026-04-14
+- [x] Terraform plan as end-of-session check — DONE: documented in AGENTS.md end-of-session checklist
+  - Added: 2026-04-14, Completed: 2026-04-15
 
 - [ ] check_raffle_raptor.py not in repo
   - Context: Nagios check plugin on VM133 was deployed directly. Should be in repo under ansible/roles/nagios or similar.

@@ -26,7 +26,10 @@ Significant infrastructure changes by date. Agents should add entries here for m
 - grafana.laxdog.uk + prometheus.laxdog.uk NPM + AdGuard routes
 - json-exporter: removed deprecated rr_queue_depth, renamed p95_total_duration → p95_scrape_duration, added playwright latency metrics
 - Heimdall: Grafana + Prometheus icon slug mappings
-- Cert: grafana/prometheus use cert 17 (SAN mismatch for now — needs Cloudflare DNS for LE, added to backlog)
+- Cert 17 renewed with grafana + prometheus SANs via certbot --expand DNS-01 (Cloudflare API). Valid LE cert, no -k needed.
+- Incorrect Cloudflare A records for grafana/prometheus removed (laxdog.uk is internal-only, no CF records)
+- Domain architecture documented in AGENTS.md (laxdog.uk internal vs lax.dog external, DNS-01 cert model)
+- Full docs consistency pass: storage.md rewritten, 8 other docs updated for post-migration accuracy
 
 ## 2026-04-08
 - SSD hardware: 3 SATA SSDs installed (Kingston 894G + 2x ORICO 477G)
