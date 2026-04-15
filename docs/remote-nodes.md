@@ -7,11 +7,12 @@ This baseline is for WiFi-only remote laptops that are administered over SSH + T
 
 Current nodes:
 - inventory name: `mums-house-mbp`
-- LAN bootstrap IP: `10.20.30.75`
+- LAN bootstrap IP: `10.20.30.75`, Tailscale: `100.118.218.126`
 - desired hostname: `mums-house-mbp`
 - inventory name: `raptor-node-staging`
-- LAN bootstrap IP: `10.20.30.153`
+- LAN bootstrap IP: `10.20.30.153`, Tailscale: `100.88.35.124`
 - desired hostname: `raptor-node-staging`
+- NOTE: Ansible inventory uses Tailscale IPs for both nodes (not LAN IPs)
 - purpose: staging remote node for future remote deploy testing
 - current tailscale state: joined (`BackendState=Running`)
 - exit-node capability: enabled (`Self.ExitNodeOption=true`)

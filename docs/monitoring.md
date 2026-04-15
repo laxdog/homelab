@@ -3,9 +3,27 @@
 Source of truth: `config/homelab.yaml`.
 
 ## Nagios host
-- VM: `nagios` (`10.20.30.133`)
+- VM: `nagios` (`10.20.30.133`, Tailscale: `100.120.89.28`)
 - Internal URL: `https://nagios.laxdog.uk`
 - External URL: `https://nagios.lax.dog` (behind Authentik)
+- SSH: `ssh ubuntu@100.120.89.28` (via Tailscale)
+- Config: `/usr/local/nagios/etc/objects/homelab.cfg` + `remote-nodes.cfg`
+- 16 hosts monitored, ~142 service checks
+
+## Remote node monitoring
+- Both remote nodes monitored via Tailscale IPs from VM133
+- raptor-node-staging (100.88.35.124): PING, SSH, Disk, Tailscale, CPU Temp, NTP
+- mums-house-mbp (100.118.218.126): PING, SSH, Disk, Tailscale, CPU Temp, NTP
+- Check scripts: `/usr/local/nagios/libexec/check_remote_*.sh`
+- Config: `/usr/local/nagios/etc/objects/remote-nodes.cfg`
+
+## Observability (Prometheus + Grafana)
+- CT172 at 10.20.30.172
+- Grafana: https://grafana.laxdog.uk
+- Prometheus: https://prometheus.laxdog.uk
+- Scrapes RR prod + staging /statusz (35 metrics per env)
+- 5 dashboards: Worker Health, Phase Timing, Playwright, Parse & Issues, Infra Health
+- Complements Nagios — Prometheus provides trending/history, Nagios provides alerting
 
 ## What Nagios checks
 - Host `PING` for all hosts in `config.nagios.hosts`.

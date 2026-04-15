@@ -76,8 +76,7 @@ Internal (`laxdog.uk`):
 - Jellyfin is exposed internally and externally without forward-auth to keep native apps working.
   Bootstrap is automated; see `docs/jellyfin.md`.
 - Media-stack internal UI routes are internal-only (`laxdog.uk`) and terminate at NPM:
-  - `plex.laxdog.uk` -> `10.20.30.120:32400`
-  - `jellyfin.laxdog.uk` -> `10.20.30.120:8096`
+  - `jellyfin.laxdog.uk` -> `10.20.30.167:8097` (CT167 jellyfin-hw, hardware transcoding)
   - `prowlarr.laxdog.uk` -> `10.20.30.120:9696`
   - `sonarr.laxdog.uk` -> `10.20.30.120:8989`
   - `radarr.laxdog.uk` -> `10.20.30.120:7878`

@@ -7,8 +7,7 @@ Source of truth: `config/homelab.yaml`.
 - Path: client -> internal DNS -> NPM (`10.20.30.154`) -> media backend (`10.20.30.120:*`).
 - Servarr behavior (`sonarr`/`radarr`/`prowlarr`): keep app auth at `Forms + DisabledForLocalAddresses`; internal proxied `*.laxdog.uk` requests currently return UI `200` (no login prompt) while external `*.lax.dog` remains upstream-authenticated.
 - Hosts:
-  - `plex.laxdog.uk` -> `10.20.30.120:32400`
-  - `jellyfin.laxdog.uk` -> `10.20.30.120:8096`
+  - `jellyfin.laxdog.uk` -> `10.20.30.167:8097` (CT167 jellyfin-hw)
   - `prowlarr.laxdog.uk` -> `10.20.30.120:9696`
   - `sonarr.laxdog.uk` -> `10.20.30.120:8989`
   - `radarr.laxdog.uk` -> `10.20.30.120:7878`

@@ -1,12 +1,16 @@
-# Observability Stack Design
+# Observability Stack
+
+**Status: DEPLOYED** (2026-04-15)
 
 ## Deployment
 
-- **Guest**: CT172 on ssd-mirror
+- **Guest**: CT172 on ssd-mirror (20GB, 2 cores, 1GB RAM)
 - **OS**: Ubuntu 24.04
 - **IP**: 10.20.30.172
-- **Stack**: Prometheus + Grafana in Docker (single LXC for simplicity at homelab scale)
-- **Storage**: ssd-mirror (428G free, estimated usage ~2-3GB/year at 15s scrape interval)
+- **Stack**: Prometheus + Grafana + json-exporter in Docker Compose
+- **Grafana URL**: https://grafana.laxdog.uk (valid LE cert via DNS-01)
+- **Prometheus URL**: https://prometheus.laxdog.uk (valid LE cert via DNS-01)
+- **Config in repo**: `config/observability/`
 
 ## Prometheus
 

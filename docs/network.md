@@ -23,7 +23,10 @@ Source of truth: `config/homelab.yaml`.
 
 ## Guest IPs
 - 10.20.30.100-199 reserved for Proxmox guests
-- CTID=IP convention where possible
+- Last octet = VM/CT ID (e.g. CT167 = .167, VM122 = .122)
+- Exception: CT153 (adguard) = .53 (DNS convention)
+- All 20 guests have DHCP static reservations on the router
+- For the full domain architecture (laxdog.uk vs lax.dog), see `AGENTS.md`
 
 ## DHCP
 - 10.20.30.200-249

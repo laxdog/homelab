@@ -67,6 +67,7 @@ Both Claude and Codex agents pick up AGENTS.md automatically. All agents operati
 | 166 | heimdall | 10.20.30.166 | ssd-mirror | Heimdall dashboard |
 | 167 | jellyfin-hw | 10.20.30.167 | ssd-mirror | Jellyfin with iGPU hardware transcoding |
 | 170 | authentik | 10.20.30.170 | ssd-fast | Authentik identity provider |
+| 172 | observability | 10.20.30.172 | ssd-mirror | Prometheus + Grafana + json-exporter |
 
 ### Remote nodes
 
@@ -100,7 +101,7 @@ This homelab uses two domains with fundamentally different access models.
 ### laxdog.uk — Internal domain
 - Resolved via AdGuard DNS rewrites on CT153 (all subdomains → NPM at 10.20.30.154)
 - Only accessible on the LAN or via Tailscale
-- SSL certs issued by NPM / Let's Encrypt via HTTP-01 challenge (NPM handles this directly, no Cloudflare involvement)
+- SSL certs issued by NPM / Let's Encrypt via DNS-01 challenge (using Cloudflare API for the laxdog.uk zone — no public A records needed)
 - No Cloudflare DNS records needed or used for this domain
 - No Authentik protection (LAN-only access is sufficient)
 - Examples: `heimdall.laxdog.uk`, `grafana.laxdog.uk`, `dns.laxdog.uk`, `nagios.laxdog.uk`
@@ -118,8 +119,8 @@ This homelab uses two domains with fundamentally different access models.
 **Adding a new internal service (laxdog.uk):**
 1. Add AdGuard rewrite: `subdomain.laxdog.uk → 10.20.30.154` in `config/homelab.yaml` under `adguard.rewrites`
 2. Add NPM proxy host pointing at the backend in `config/homelab.yaml` under `npm.proxy_hosts`
-3. NPM handles the LE cert automatically via HTTP-01 challenge
-4. No Cloudflare involvement needed
+3. Add the new subdomain to cert 17's SAN list via `certbot --expand` inside the NPM container (DNS-01 via Cloudflare API)
+4. No Cloudflare A records needed
 
 **Adding a new external service (lax.dog):**
 1. Add Cloudflare DNS A record → homelab external IP in `config/homelab.yaml` under `cloudflare.zones`

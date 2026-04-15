@@ -3,45 +3,48 @@
 Source of truth: `config/homelab.yaml`.
 
 ## Pools
-- NVMe: Proxmox VM/CT disks (`local-lvm`)
-- HDD: ZFS pool `tank`
 
-## Datasets
-- `/tank/media`
-- `/tank/downloads`
+| Pool | Type | Disks | Size | Purpose |
+|---|---|---|---:|---|
+| ssd-fast | ZFS solo | Kingston SA400 894G (SATA) | 888G | High-IOPS guest rootfs: CT153 AdGuard, CT163 RR-dev, CT170 Authentik |
+| ssd-mirror | ZFS mirror | 2x ORICO 477G (SATA) | 476G | Redundant guest rootfs: all other guests including CT172 observability |
+| tank | ZFS raidz1 | 3x Seagate 10TB SAS | 27.3T | Bulk: media, downloads, backups, templates |
+| local-lvm | LVM thin | NVMe (shared with boot) | 156G | Nearly empty — only cloud-init ISOs |
+| local | dir | NVMe | 69G | ISOs, templates, import images |
+
+All guest rootfs disks were migrated to SSD pools on 2026-04-13. `autotrim=on` on both SSD pools. TRIM works natively via onboard Intel SATA (AHCI).
+
+## ZFS datasets
+
+- `/tank/media` — media library (virtiofs to VM120)
+- `/tank/downloads` — download staging (virtiofs to VM120)
 - `/tank/personal`
-- `/tank/backups`
+- `/tank/backups` — daily vzdump target
 - `/tank/templates`
 - `/tank/scratch`
 
 ## Backups
-- Proxmox vzdump to `/tank/backups`
-- ZFS replication for `/tank/personal` and `/tank/backups`
 
-## Appdata
-- Appdata lives on NVMe (VM/CT disks)
-- Appdata backups land in `/tank/backups`
+- Daily vzdump at 04:30 to `/tank/backups/dump/`
+- All 20 guests backed up (zstd, 14-day retention)
+- ~43 GB/day compressed, ~600 GB steady-state
 
 ## Proxmox storage IDs
-- `tank-backups` -> `/tank/backups` (backup content)
-- `tank-templates` -> `/tank/templates` (iso, templates, import, snippets)
-- `tank-vmdata` -> `tank` zfs pool (guest data disks only; used by `media-stack` bulk-data disk)
 
-## Media-Stack Foundation
-- VM `media-stack` root disk (`local-lvm`) is for OS + appdata only.
-- VM `media-stack` bulk data disk is on `tank-vmdata` (ZFS-backed) and mounted in-guest at `/srv/data`.
-- Shared media layout under `/srv/data`:
-  - `downloads/incomplete`
-  - `downloads/usenet`
-  - `downloads/torrents`
-  - `media/movies`
-  - `media/tv`
-  - `media/music`
-  - `media/audiobooks`
-  - `media/comedy`
-  - `media/software`
-  - `media/roms`
-- Internal NFS export baseline is `/srv/data` from VM `120` (`10.20.30.120`) to `10.20.30.0/24`.
+| ID | Type | Path/Pool | Content |
+|---|---|---|---|
+| local | dir | /var/lib/vz | iso, backup, vztmpl, import |
+| local-lvm | lvmthin | pve/data | rootdir, images (nearly empty) |
+| ssd-fast | zfspool | ssd-fast | rootdir, images |
+| ssd-mirror | zfspool | ssd-mirror | rootdir, images |
+| tank-backups | dir | /tank/backups | backup |
+| tank-templates | dir | /tank/templates | iso, vztmpl, import, snippets |
+| tank-vmdata | zfspool | tank | images, rootdir (legacy — CT167 bind mount only) |
 
-## TODO
-- Set `prune-backups keep-all=1` for `tank-backups` storage via Ansible (currently omitted due to syntax check issues).
+## Media-Stack storage model
+
+- VM120 root disk on ssd-mirror (OS + appdata at `/opt/media-stack/appdata/`)
+- Media/downloads via virtiofs mounts from tank pool (not VM disks):
+  - `/srv/data/media` → `tank-media`
+  - `/srv/data/downloads` → `tank-downloads`
+- Plex and Jellyfin on VM120 are retired — CT167 is production Jellyfin
