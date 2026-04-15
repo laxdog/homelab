@@ -46,3 +46,8 @@ Docker compose files should be committed to this repo and deployed via Ansible. 
   - Context: /opt/media-stack/appdata/bazarr/fix/ui.py no longer needed. Safe to delete.
   - Effort: low
   - Added: 2026-04-14
+
+- [ ] Investigate Cleanuparr
+  - Context: Cleanuparr is running on VM120 as part of the media stack. Understand what it does, whether it's configured correctly, and whether it needs any homelab-side config or monitoring.
+  - Effort: low
+  - Added: 2026-04-14

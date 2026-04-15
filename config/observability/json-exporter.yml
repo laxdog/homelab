@@ -31,10 +31,6 @@ modules:
         type: value
         help: "Number of actively tracked items"
         path: "{ .tracked_active_count }"
-      - name: rr_queue_depth
-        type: value
-        help: "Current queue depth"
-        path: "{ .queue_depth }"
       - name: rr_consecutive_failures
         type: value
         help: "Consecutive failure count"
@@ -61,10 +57,10 @@ modules:
         type: value
         help: "DB write p95 (ms)"
         path: "{ .p95_db_write_ms_5m }"
-      - name: rr_p95_total_duration_ms
+      - name: rr_p95_scrape_duration_ms
         type: value
-        help: "Total scrape duration p95 (ms)"
-        path: "{ .p95_total_duration_ms_5m }"
+        help: "Scrape duration p95 (ms)"
+        path: "{ .p95_scrape_duration_ms_5m }"
       - name: rr_p95_loop_iteration_ms
         type: value
         help: "Loop iteration p95 (ms)"
@@ -105,6 +101,15 @@ modules:
         type: value
         help: "Playwright fetches used (5m)"
         path: "{ .fetch_playwright_used_5m }"
+
+      - name: rr_avg_fetch_playwright_ms
+        type: value
+        help: "Avg Playwright fetch latency (ms)"
+        path: "{ .avg_fetch_playwright_ms_5m }"
+      - name: rr_p95_fetch_playwright_ms
+        type: value
+        help: "P95 Playwright fetch latency (ms)"
+        path: "{ .p95_fetch_playwright_ms_5m }"
 
       # HTTP errors
       - name: rr_requests_http_403_count_5m

@@ -8,7 +8,7 @@ For runbooks see `docs/runbooks/`.
 
 ## Current session context
 - Last updated: 2026-04-15
-- Current HEAD: (updated at session close)
+- Current HEAD: (see git log --oneline -1)
 
 ## Durable user preferences
 - Safety-first over speed

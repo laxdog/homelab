@@ -21,9 +21,12 @@ Significant infrastructure changes by date. Agents should add entries here for m
 
 ## 2026-04-15
 - CT172 (observability) deployed — Prometheus + Grafana + json-exporter
-- RR statusz scraping: prod + staging, 30s interval, 34 metrics per env
+- RR statusz scraping: prod + staging, 30s interval, 35 metrics per env
 - 5 Grafana dashboards provisioned: Worker Health, Phase Timing, Playwright Fallback, Parse & Issues, Infra Health
 - grafana.laxdog.uk + prometheus.laxdog.uk NPM + AdGuard routes
+- json-exporter: removed deprecated rr_queue_depth, renamed p95_total_duration → p95_scrape_duration, added playwright latency metrics
+- Heimdall: Grafana + Prometheus icon slug mappings
+- Cert: grafana/prometheus use cert 17 (SAN mismatch for now — needs Cloudflare DNS for LE, added to backlog)
 
 ## 2026-04-08
 - SSD hardware: 3 SATA SSDs installed (Kingston 894G + 2x ORICO 477G)
@@ -48,9 +51,5 @@ Significant infrastructure changes by date. Agents should add entries here for m
 - Remote-node baseline deployed to raptor-node-staging
 - WiFi hardening, healthcheck timer, failsafe reboot policy
 - Tailscale router role added for remote nodes
-
-## 2026-04-15
-- CT172 (observability) deployed — Prometheus + Grafana + json-exporter
-- Scraping RR prod and staging /statusz via json-exporter (34 metrics per env)
 - 5 Grafana dashboards provisioned: Worker Health, Phase Timing, Playwright Fallback, Parse & Issues, Infra Health
 - grafana.laxdog.uk and prometheus.laxdog.uk NPM + AdGuard routes
