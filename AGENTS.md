@@ -93,6 +93,46 @@ Both managed by `remote-node-baseline` + `tailscale-router` roles. Battery manag
 | `ansible/secrets-rr-staging.yml` | Vault-encrypted RR DB credentials |
 | `~/.ansible_vault_pass` | Vault password file |
 
+## Domain architecture
+
+This homelab uses two domains with fundamentally different access models.
+
+### laxdog.uk — Internal domain
+- Resolved via AdGuard DNS rewrites on CT153 (all subdomains → NPM at 10.20.30.154)
+- Only accessible on the LAN or via Tailscale
+- SSL certs issued by NPM / Let's Encrypt via HTTP-01 challenge (NPM handles this directly, no Cloudflare involvement)
+- No Cloudflare DNS records needed or used for this domain
+- No Authentik protection (LAN-only access is sufficient)
+- Examples: `heimdall.laxdog.uk`, `grafana.laxdog.uk`, `dns.laxdog.uk`, `nagios.laxdog.uk`
+
+### lax.dog — External domain
+- DNS managed via Cloudflare (API key in vault)
+- Cloudflare A records point to the homelab's external IP
+- Accessible from the internet
+- SSL certs issued via Cloudflare / LE DNS-01 challenge using Cloudflare API
+- Protected by Authentik forward-auth for sensitive services
+- Examples: `jellyfin.lax.dog`, `ha.lax.dog`, `raffle-raptor.lax.dog`
+
+### Rules for agents
+
+**Adding a new internal service (laxdog.uk):**
+1. Add AdGuard rewrite: `subdomain.laxdog.uk → 10.20.30.154` in `config/homelab.yaml` under `adguard.rewrites`
+2. Add NPM proxy host pointing at the backend in `config/homelab.yaml` under `npm.proxy_hosts`
+3. NPM handles the LE cert automatically via HTTP-01 challenge
+4. No Cloudflare involvement needed
+
+**Adding a new external service (lax.dog):**
+1. Add Cloudflare DNS A record → homelab external IP in `config/homelab.yaml` under `cloudflare.zones`
+2. Add NPM proxy host with the Cloudflare-issued cert in `config/homelab.yaml` under `npm.external_proxy_hosts`
+3. Add Authentik forward-auth config if the service is sensitive
+4. Consider whether it actually needs to be external — prefer `laxdog.uk` for internal tools
+
+**Never:**
+- Add Cloudflare DNS records for `laxdog.uk` subdomains
+- Expect AdGuard rewrites to work for `lax.dog` from outside the LAN
+- Cert issues on `laxdog.uk` = NPM cert problem (check NPM UI / API)
+- Cert issues on `lax.dog` = Cloudflare / LE problem (check Cloudflare dashboard)
+
 ## Universal conventions
 
 These apply to ALL agents.
