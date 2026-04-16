@@ -78,6 +78,14 @@ Both Claude and Codex agents pick up AGENTS.md automatically. All agents operati
 
 Both managed by `remote-node-baseline` + `tailscale-router` roles. Battery management (TLP on X270), powertop, chrony, WiFi sync, Nagios monitoring all deployed.
 
+### Known gotcha: --accept-routes on LAN guests
+
+LAN-resident VMs/LXCs that join the Tailnet should NOT have `--accept-routes` enabled. The tailscale-gateway (VM171) advertises `10.20.30.0/24` as a subnet route. Any guest with `--accept-routes=true` will install this route in Tailscale's policy routing table (table 52) at higher priority than the main table, causing reply traffic to route out `tailscale0` instead of `eth0` — breaking all inbound LAN connectivity (ping, SSH, HTTP all fail).
+
+**Fix:** `tailscale set --accept-routes=false` on the affected guest.
+
+This was discovered when VM133 (Nagios) went unreachable after Tailscale was installed. Packets arrived on eth0 but replies were routed out tailscale0. All current Tailscale guests (VM133, CT163, VM171) have been verified with `RouteAll: false`.
+
 ## Key files
 
 | Path | Purpose |
