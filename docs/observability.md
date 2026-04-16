@@ -32,7 +32,7 @@
 | Target | Endpoint | Transport |
 |---|---|---|
 | raffle-raptor prod | `https://raffle-raptor.lax.dog/statusz` | Public HTTPS (prod is NOT on the Tailnet) |
-| raffle-raptor staging | `https://raffle-raptor-dev.lax.dog/statusz` or direct via Tailscale | Tailscale (rr-node-staging-local at 100.88.35.124) |
+| raffle-raptor staging | `https://raffle-raptor-dev.lax.dog/statusz` or direct via Tailscale | Tailscale (rr-worker-staging-home at 100.88.35.124) |
 | Future targets | Additive — no redesign needed | — |
 
 ### RR /statusz shape (as of 2026-04-14)
@@ -115,8 +115,8 @@ Existing Nagios checks for RR (`check_raffle_raptor.py`) continue to provide ale
 | VM120 Docker containers | ~12 | JSON Docker logs | Promtail docker_sd_configs on VM120 |
 | CT172 Docker containers | 4 | JSON Docker logs | Promtail docker_sd_configs on CT172 |
 | Proxmox host (PVE) | 1 | journald + syslog | Promtail binary → Loki HTTP push |
-| rr-node-staging-local | 1 | journald + syslog | Promtail binary → Loki via Tailscale |
-| rr-node-prod-mums | 1 | journald + syslog | Promtail binary → Loki via Tailscale |
+| rr-worker-staging-home | 1 | journald + syslog | Promtail binary → Loki via Tailscale |
+| rr-worker-prod-mums | 1 | journald + syslog | Promtail binary → Loki via Tailscale |
 
 ### Retention
 - **Period**: 90 days (`limits_config.retention_period: 90d`)

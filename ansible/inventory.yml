@@ -81,7 +81,7 @@ docker_hosts:
       ansible_host: 10.20.30.164
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
-    raffle-raptor-dev: &id015
+    rr-application-staging-proxmox: &id015
       ansible_host: 10.20.30.163
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
@@ -113,7 +113,7 @@ guests:
     netalertx: *id012
     nginx-proxy-manager: *id013
     organizr: *id014
-    raffle-raptor-dev: *id015
+    rr-application-staging-proxmox: *id015
     static-sites: *id016
     tailscale-gateway: &id020
       ansible_host: 10.20.30.171
@@ -144,7 +144,7 @@ lxcs:
     nginx-proxy-manager: *id013
     observability: *id021
     organizr: *id014
-    raffle-raptor-dev: *id015
+    rr-application-staging-proxmox: *id015
     static-sites: *id016
 media_hosts:
   hosts:
@@ -172,29 +172,29 @@ proxmox_hosts:
       ansible_ssh_user: root
 python_bot_hosts:
   hosts:
-    raffle-raptor-dev: *id015
+    rr-application-staging-proxmox: *id015
 remote_node_baseline_hosts:
   hosts:
-    rr-node-prod-mums: &id018
+    rr-worker-prod-mums: &id018
       ansible_host: 100.118.218.126
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
-    rr-node-staging-local: &id019
+    rr-worker-staging-home: &id019
       ansible_host: 100.88.35.124
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
 remote_nodes_hosts:
   hosts:
-    rr-node-prod-mums: *id018
-    rr-node-staging-local: *id019
+    rr-worker-prod-mums: *id018
+    rr-worker-staging-home: *id019
 static_sites_hosts:
   hosts:
     static-sites: *id016
 tailscale_router_hosts:
   hosts:
-    rr-node-prod-mums: *id018
-    raffle-raptor-dev: *id015
-    rr-node-staging-local: *id019
+    rr-worker-prod-mums: *id018
+    rr-application-staging-proxmox: *id015
+    rr-worker-staging-home: *id019
     tailscale-gateway: *id020
 observability_hosts:
   hosts:
@@ -221,20 +221,20 @@ promtail_hosts:
       ansible_host: 10.20.30.46
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
-    raffle-raptor-dev: *id015
+    rr-application-staging-proxmox: *id015
     static-sites: *id016
     tailscale-gateway: *id020
-    rr-node-prod-mums: *id018
-    rr-node-prod-vps: &id022
+    rr-worker-prod-mums: *id018
+    rr-application-prod-vps: &id022
       ansible_host: 100.82.170.21
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
-    rr-node-staging-local: *id019
+    rr-worker-staging-home: *id019
   vars:
     promtail_docker_logs: false
 raffle_raptor_prod_hosts:
   hosts:
-    rr-node-prod-vps: *id022
+    rr-application-prod-vps: *id022
 promtail_docker_hosts:
   hosts:
     media-stack: *id011

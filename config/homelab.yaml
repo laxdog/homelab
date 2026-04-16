@@ -318,12 +318,12 @@ remote_nodes:
     reboot_after_failure_seconds: 2700
     reboot_cooldown_seconds: 86400
   nodes:
-    rr-node-prod-mums:
+    rr-worker-prod-mums:
       ip: 10.20.30.75
       tailscale_ip: 100.118.218.126
       ssh_user: mrobinson
       location_label: Mum's House
-      hostname: rr-node-prod-mums
+      hostname: rr-worker-prod-mums
       environment: prod
       roles:
       - remote_node_baseline
@@ -346,12 +346,12 @@ remote_nodes:
         tailscale: true
         cpu_temp: true
         ntp: true
-    rr-node-staging-local:
+    rr-worker-staging-home:
       ip: 10.20.30.153
       tailscale_ip: 100.88.35.124
       ssh_user: mrobinson
       location_label: staging
-      hostname: rr-node-staging-local
+      hostname: rr-worker-staging-home
       environment: staging
       roles:
       - remote_node_baseline
@@ -377,12 +377,12 @@ remote_nodes:
         tailscale: true
         cpu_temp: true
         ntp: true
-    rr-node-prod-vps:
+    rr-application-prod-vps:
       ip: 159.195.59.97
       tailscale_ip: 100.82.170.21
       ssh_user: mrobinson
       location_label: prod VPS
-      hostname: rr-node-prod-vps
+      hostname: rr-application-prod-vps
       environment: prod
       roles: []
       wifi_only: false
@@ -523,7 +523,7 @@ services:
       roles:
       - docker
       - browser
-    raffle-raptor-dev:
+    rr-application-staging-proxmox:
       id: 163
       ip: 10.20.30.163
       disk_gb: 40
@@ -690,7 +690,7 @@ proxmox_metadata:
     - label: ssh
       username: root
       password_var: root_password
-    raffle-raptor-dev:
+    rr-application-staging-proxmox:
     - label: ssh
       username: mrobinson
       password_var: root_password
@@ -1796,7 +1796,7 @@ nagios:
   - name: unifi-secondary
     address: 10.20.30.51
     check_ssh: false
-  - name: raffle-raptor-dev
+  - name: rr-application-staging-proxmox
     address: 10.20.30.163
     check_ssh: true
   dns_checks:
@@ -1840,7 +1840,7 @@ nagios:
     target_ip: 10.20.30.154
     notify: false
     extra_checks: true
-  - name: rr-node-prod-vps
+  - name: rr-application-prod-vps
     host: nagios
     base_url: https://raffle-raptor.lax.dog
 media_stack:

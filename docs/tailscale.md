@@ -18,7 +18,7 @@ Out of scope in phase 1:
 - VMID: `171`
 - LAN IP: `10.20.30.171`
 - Role: `tailscale_router`
-- Service LXC: `raffle-raptor-dev`
+- Service LXC: `rr-application-staging-proxmox`
 - CT ID: `163`
 - LAN IP: `10.20.30.163`
 - Role: `tailscale_router`
@@ -53,7 +53,7 @@ Default phase-1 flags used by helper command:
 2. In Tailscale admin console, approve:
    - subnet route `10.20.30.0/24`
    - exit node advertisement
-   - (none required for `raffle-raptor-dev` unless policy approval is enabled in tailnet)
+   - (none required for `rr-application-staging-proxmox` unless policy approval is enabled in tailnet)
 3. Configure split DNS in Tailscale admin:
    - domain: `laxdog.uk`
    - nameserver: `10.20.30.53`

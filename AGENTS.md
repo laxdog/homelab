@@ -62,7 +62,7 @@ Both Claude and Codex agents pick up AGENTS.md automatically. All agents operati
 | 160 | dashboard | 10.20.30.160 | ssd-mirror | Dashboard helper |
 | 161 | static-sites | 10.20.30.161 | ssd-mirror | Static sites |
 | 162 | browser | 10.20.30.162 | ssd-mirror | Firefox container |
-| 163 | raffle-raptor-dev | 10.20.30.163 | ssd-fast | RR dev (Tailscale: 100.92.43.108) |
+| 163 | rr-application-staging-proxmox | 10.20.30.163 | ssd-fast | RR staging app (Tailscale: 100.92.43.108) |
 | 164 | organizr | 10.20.30.164 | ssd-mirror | Organizr |
 | 166 | heimdall | 10.20.30.166 | ssd-mirror | Heimdall dashboard |
 | 167 | jellyfin-hw | 10.20.30.167 | ssd-mirror | Jellyfin with iGPU hardware transcoding |
@@ -73,8 +73,8 @@ Both Claude and Codex agents pick up AGENTS.md automatically. All agents operati
 
 | Name | LAN IP | Tailscale IP | Hardware | Location |
 |---|---|---|---|---|
-| rr-node-staging-local | 10.20.30.153 | 100.88.35.124 | ThinkPad X270 | staging |
-| rr-node-prod-mums | 10.20.30.75 | 100.118.218.126 | MacBook Pro 12,1 (2015) | remote (Mum's House) |
+| rr-worker-staging-home | 10.20.30.153 | 100.88.35.124 | ThinkPad X270 | staging |
+| rr-worker-prod-mums | 10.20.30.75 | 100.118.218.126 | MacBook Pro 12,1 (2015) | remote (Mum's House) |
 
 Both managed by `remote-node-baseline` + `tailscale-router` roles. Battery management (TLP on X270), powertop, chrony, WiFi sync, Nagios monitoring all deployed.
 
@@ -93,13 +93,13 @@ When testing firewall rules that restrict access by source IP, the following hos
 | Host | External IP | Tailscale IP | Notes |
 |---|---|---|---|
 | Operator home | 212.56.120.65 | — | Static |
-| rr-node-staging-local | 212.56.120.65 | 100.88.35.124 | On home LAN, same NAT exit as operator home — cannot use as untrusted test source |
-| rr-node-prod-mums | 109.155.65.157 | 100.118.218.126 | Dynamic residential (BT/EE) — use for testing residential IP rules |
-| rr-node-prod-vps | 159.195.59.97 | 100.82.170.21 | VPS, stable public IP — best source for testing deny rules |
+| rr-worker-staging-home | 212.56.120.65 | 100.88.35.124 | On home LAN, same NAT exit as operator home — cannot use as untrusted test source |
+| rr-worker-prod-mums | 109.155.65.157 | 100.118.218.126 | Dynamic residential (BT/EE) — use for testing residential IP rules |
+| rr-application-prod-vps | 159.195.59.97 | 100.82.170.21 | VPS, stable public IP — best source for testing deny rules |
 
 To get current external IP of any host: `ssh <host> "curl -4 -s https://ifconfig.me"`
 
-rr-node-prod-vps is the best available source for testing SSH deny rules since it has a stable public IP not in any homelab allow list. To verify deny rules without an untrusted source, check iptables packet counters on the target (`sudo iptables -L ufw-user-input -n -v`).
+rr-application-prod-vps is the best available source for testing SSH deny rules since it has a stable public IP not in any homelab allow list. To verify deny rules without an untrusted source, check iptables packet counters on the target (`sudo iptables -L ufw-user-input -n -v`).
 
 ## Key files
 

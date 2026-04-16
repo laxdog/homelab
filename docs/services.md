@@ -19,7 +19,7 @@ Source of truth: `config/homelab.yaml`.
 - dashboard
 - static-sites
 - browser
-- raffle-raptor-dev
+- rr-application-staging-proxmox
 - organizr
 - heimdall
 - authentik
@@ -38,7 +38,7 @@ External (`lax.dog`):
 - `netalertx.lax.dog` -> NetAlertX (Authentik forward-auth)
 - `ha.lax.dog` -> Home Assistant (Authentik forward-auth)
 - `couchdb.lax.dog` -> CouchDB
-- `raffle-raptor-dev.lax.dog` -> raffle-raptor-dev via NPM (`10.20.30.163:8081`)
+- `raffle-raptor-dev.lax.dog` -> rr-application-staging-proxmox via NPM (`10.20.30.163:8081`)
 
 Internal (`laxdog.uk`):
 - `laxdog.uk` -> Heimdall (internal root landing page)
@@ -68,7 +68,7 @@ Internal (`laxdog.uk`):
 - `router.laxdog.uk`
 - `unifi-primary.laxdog.uk`
 - `unifi-secondary.laxdog.uk`
-- `raffle-raptor-dev.laxdog.uk` -> raffle-raptor-dev via NPM (`10.20.30.163:8081`)
+- `raffle-raptor-dev.laxdog.uk` -> rr-application-staging-proxmox via NPM (`10.20.30.163:8081`)
 
 ## Notes
 - Media stack day-1 app layout is repo-managed under `/opt/media-stack`.
@@ -100,13 +100,13 @@ Internal (`laxdog.uk`):
 - Home Assistant owner bootstrap is automated during onboarding with `config.home_assistant.*` and `home_assistant_admin_password`.
 - AdGuard config export/import workflow is documented in `docs/adguard.md`.
 - Proxmox tags/notes are managed by `scripts/proxmox_metadata.py` (see `docs/proxmox-metadata.md`).
-- `raffle-raptor-dev` is marked `tun_required` and receives `/dev/net/tun` passthrough from Proxmox for Gluetun-based networking.
-- `raffle-raptor-dev` exposes a staging-only Postgres discovery path over Tailscale for `rr-node-staging-local`:
+- `rr-application-staging-proxmox` is marked `tun_required` and receives `/dev/net/tun` passthrough from Proxmox for Gluetun-based networking.
+- `rr-application-staging-proxmox` exposes a staging-only Postgres discovery path over Tailscale for `rr-worker-staging-home`:
   - endpoint: `100.92.43.108:5432` (Tailscale IP only)
   - source restriction: `100.88.35.124/32` only
   - DB user: `rr_discovery_staging` (read-only discovery role)
   - password source-of-truth: `ansible/secrets-rr-staging.yml` (`rr_discovery_staging_db_password`, vaulted)
-  - current staging worker bootstrap copy: `/etc/raffle-raptor/remote-discovery-db.env` on `rr-node-staging-local`
+  - current staging worker bootstrap copy: `/etc/raffle-raptor/remote-discovery-db.env` on `rr-worker-staging-home`
   - managed by Ansible role `rr-staging-db-access` (runtime units + firewall + pg_hba + role grants)
 - `tailscale-gateway` is a dedicated VM used for remote LAN access via Tailscale:
   - advertises subnet route `10.20.30.0/24`

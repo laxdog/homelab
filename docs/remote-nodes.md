@@ -6,12 +6,12 @@ Source of truth: `config/homelab.yaml` under `remote_nodes`.
 This baseline is for WiFi-only remote laptops that are administered over SSH + Tailscale.
 
 Current nodes:
-- inventory name: `rr-node-prod-mums`
+- inventory name: `rr-worker-prod-mums`
 - LAN bootstrap IP: `10.20.30.75`, Tailscale: `100.118.218.126`
-- desired hostname: `rr-node-prod-mums`
-- inventory name: `rr-node-staging-local`
+- desired hostname: `rr-worker-prod-mums`
+- inventory name: `rr-worker-staging-home`
 - LAN bootstrap IP: `10.20.30.153`, Tailscale: `100.88.35.124`
-- desired hostname: `rr-node-staging-local`
+- desired hostname: `rr-worker-staging-home`
 - NOTE: Ansible inventory uses Tailscale IPs for both nodes (not LAN IPs)
 - purpose: staging remote node for future remote deploy testing
 - current tailscale state: joined (`BackendState=Running`)
@@ -19,8 +19,8 @@ Current nodes:
 - key expiry: disabled (`Self.KeyExpiry=null`)
 
 Role split:
-- `rr-node-staging-local` is the staging node for remote deploy validation.
-- `rr-node-prod-mums` remains the production-style remote node baseline reference.
+- `rr-worker-staging-home` is the staging node for remote deploy validation.
+- `rr-worker-prod-mums` remains the production-style remote node baseline reference.
 
 ## Repo Layout
 - inventory generation: `scripts/run.py` (`remote_nodes` -> `remote_nodes_hosts`)
@@ -167,7 +167,7 @@ To add a new fleet SSID safely:
   - `sudo tailscale status --json | jq -r '.BackendState,.Self.KeyExpiry,.Self.ExitNodeOption'`
 - CLI cannot disable key expiry policy; this requires Tailscale admin UI.
 - For unattended remote nodes, verify in admin UI:
-  - device `rr-node-prod-mums`
+  - device `rr-worker-prod-mums`
   - disable/extend key expiry policy as desired for long-lived unattended access
 
 ## On-Site Tomorrow (if SSID changes)
