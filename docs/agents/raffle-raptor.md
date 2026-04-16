@@ -26,6 +26,16 @@ Nagios checks for RR (all on VM133):
 - **raffle-raptor-dev**: healthz, statusz, HTTP domain (both laxdog.uk and lax.dog), VPN, snapshot, total-perf, Cloudflare
 - Notifications: prod enabled, dev enabled (re-enabled 2026-04-14)
 
+## Prod VPS access
+- **Tailscale IP**: 100.82.170.21 (hostname: raffle-raptor-prod)
+- **Public IP**: 159.195.59.97
+- **Primary SSH**: `ssh mrobinson@100.82.170.21` (via Tailscale)
+- **Fallback SSH**: `ssh mrobinson@159.195.59.97` (allowed from 212.56.120.65 and 109.155.65.157 only)
+- **SSH hardened**: UFW restricts port 22 to operator home, mum's house, and Tailscale CGNAT range. All other SSH is denied.
+- **Monitoring**: Nagios checks (PING, SSH, Disk, Tailscale, NTP) via Tailscale IP from VM133
+- **Logs**: Promtail shipping journald + syslog + `/var/log/raffle-raptor/*.log` to Loki on CT172
+- **Prometheus**: Scraped via json-exporter through public URL (CT172 can't reach Tailscale IPs directly)
+
 ## Known issues
 - **overdue_count WARN on prod statusz** — RR agent investigating worker capacity. Homelab action: none until RR agent reports back.
 - **502s on raffle-raptor-dev (2026-04-08)** — traced to planned maintenance restart (two full-estate stopall/startall cycles for SSD hardware install). Closed as known incident.

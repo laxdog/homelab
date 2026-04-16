@@ -225,9 +225,16 @@ promtail_hosts:
     static-sites: *id016
     tailscale-gateway: *id020
     mums-house-mbp: *id018
+    raffle-raptor-prod: &id022
+      ansible_host: 100.82.170.21
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: mrobinson
     raptor-node-staging: *id019
   vars:
     promtail_docker_logs: false
+raffle_raptor_prod_hosts:
+  hosts:
+    raffle-raptor-prod: *id022
 promtail_docker_hosts:
   hosts:
     media-stack: *id011

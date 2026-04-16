@@ -48,6 +48,12 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Scope: homelab
   - Added: 2026-04-15
 
+- [ ] Verify mum's house external IP for prod VPS SSH firewall
+  - Context: 109.155.65.157 is a residential BT/EE dynamic IP. If it changes, SSH from mum's house to the prod VPS will break. Periodically verify the IP matches the firewall rule. Long-term fix is Tailscale-only SSH which eliminates this entirely.
+  - Effort: low
+  - Scope: homelab
+  - Added: 2026-04-15
+
 ## Low Priority
 
 - [ ] Stale WiFi profiles on mums-house-mbp

@@ -34,6 +34,10 @@ Significant infrastructure changes by date. Agents should add entries here for m
 - Loki added as Grafana datasource (provisioned)
 - loki.laxdog.uk NPM proxy host + AdGuard rewrite added
 - VM133 (Nagios) SSH unreachable — added to backlog
+- raffle-raptor-prod VPS (159.195.59.97) joined to Tailnet as 100.82.170.21
+- Promtail deployed to prod VPS with RR app log scraping (/var/log/raffle-raptor/*.log)
+- Nagios checks for prod VPS: PING, SSH, Disk, Tailscale, NTP via Tailscale IP
+- SSH hardened on prod VPS: UFW restricts port 22 to operator home, mum's house, Tailscale only
 - Domain architecture documented in AGENTS.md (laxdog.uk internal vs lax.dog external, DNS-01 cert model)
 - Full docs consistency pass: storage.md rewritten, 8 other docs updated for post-migration accuracy
 

@@ -377,6 +377,30 @@ remote_nodes:
         tailscale: true
         cpu_temp: true
         ntp: true
+    raffle-raptor-prod:
+      ip: 159.195.59.97
+      tailscale_ip: 100.82.170.21
+      ssh_user: mrobinson
+      location_label: prod VPS
+      hostname: raffle-raptor-prod
+      environment: prod
+      roles: []
+      wifi_only: false
+      tailscale:
+        advertise_routes: []
+        advertise_exit_node: false
+        accept_dns: false
+        accept_routes: true
+      battery:
+        enabled: false
+      powertop:
+        enabled: false
+      nagios:
+        ping: true
+        disk: true
+        tailscale: true
+        cpu_temp: false
+        ntp: true
 batocera:
   defaults:
     ssh_user: root

@@ -28,6 +28,17 @@ scrape_configs:
           job: syslog
           host: {{ inventory_hostname }}
           __path__: /var/log/syslog
+{% if promtail_app_logs | default(false) %}
+
+  - job_name: app
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: {{ promtail_app_name | default('app') }}
+          env: {{ promtail_app_env | default('prod') }}
+          host: {{ inventory_hostname }}
+          __path__: {{ promtail_app_log_path }}
+{% endif %}
 {% if promtail_docker_logs | default(false) %}
 
   - job_name: docker
