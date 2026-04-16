@@ -86,6 +86,55 @@ Existing Nagios checks for RR (`check_raffle_raptor.py`) continue to provide ale
 - No dashboards until RR ships `docs/statusz_contract.md` defining the stable metrics interface
 - Not a replacement for Nagios alerting — complementary trending/visualisation layer
 
+## Log Aggregation (Loki)
+
+### Components
+- **Loki**: log storage and query engine (added to CT172 docker-compose)
+- **Promtail**: log shipping agent (deployed via Ansible to all guests and remote nodes)
+- **Grafana**: already running, Loki added as a data source
+
+### Deployment
+- Loki added to CT172 `config/observability/docker-compose.yml`
+- Promtail deployed via Ansible role: `ansible/roles/promtail/`
+- Config driven from `config/homelab.yaml`
+
+### Promtail deployment model
+**Option A — Promtail on every guest** (chosen). Rationale:
+- VM120 Docker JSON logs require local socket access (`docker_sd_configs`)
+- Remote nodes (Tailscale-only) can only ship logs from a local agent
+- Granular per-host labels with clean separation
+- Ansible role makes deployment consistent across all host types
+
+### Log sources
+
+| Source | Count | Log format | Transport |
+|---|---|---|---|
+| LXCs (Ubuntu 24.04) | 15 | journald + syslog | Promtail binary → Loki HTTP push |
+| VMs (Ubuntu) | 3 (120, 133, 171) | journald + syslog | Promtail binary → Loki HTTP push |
+| VM122 (HAOS) | 1 | N/A (excluded — HAOS has no package manager) | — |
+| VM120 Docker containers | ~12 | JSON Docker logs | Promtail docker_sd_configs on VM120 |
+| CT172 Docker containers | 4 | JSON Docker logs | Promtail docker_sd_configs on CT172 |
+| Proxmox host (PVE) | 1 | journald + syslog | Promtail binary → Loki HTTP push |
+| raptor-node-staging | 1 | journald + syslog | Promtail binary → Loki via Tailscale |
+| mums-house-mbp | 1 | journald + syslog | Promtail binary → Loki via Tailscale |
+
+### Retention
+- **Period**: 90 days (`limits_config.retention_period: 90d`)
+- **Estimated volume**: ~50–100 MB/day compressed across all sources → ~4.5–9 GB for 90 days
+- **Storage**: Loki data volume on CT172 rootfs (ssd-mirror), included in daily vzdump backup
+- CT172 has 18 GB free disk — comfortable headroom
+
+### Repo structure
+```
+config/observability/loki.yml           — Loki server config
+config/observability/promtail.yml       — Base Promtail config (reference)
+config/observability/docker-compose.yml — Updated with Loki service
+ansible/roles/promtail/
+  tasks/main.yml                        — Install binary, deploy config, enable service
+  templates/promtail.yml.j2             — Host-specific config (journald + optional docker)
+  handlers/main.yml                     — Restart handler
+```
+
 ## Phase plan
 
 | Phase | Scope | Depends on |
@@ -95,3 +144,4 @@ Existing Nagios checks for RR (`check_raffle_raptor.py`) continue to provide ale
 | **3** | Add RR scrape targets | RR `/metrics` or json_exporter config |
 | **4** | Build Grafana dashboards | RR `statusz_contract.md` |
 | **5** | Add infrastructure targets (node_exporter, etc.) | Phase 2 complete |
+| **6** | Log aggregation — Loki on CT172, Promtail on all guests | Phase 2 complete |

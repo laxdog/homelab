@@ -214,13 +214,13 @@ adguard:
     answer: 10.20.30.154
   - domain: ha.laxdog.uk
     answer: 10.20.30.154
-  - domain: grafana.laxdog.uk
-    answer: 10.20.30.154
-  - domain: prometheus.laxdog.uk
-    answer: 10.20.30.154
   - domain: nagios.laxdog.uk
     answer: 10.20.30.154
   - domain: jellyfin.laxdog.uk
+    answer: 10.20.30.154
+  - domain: grafana.laxdog.uk
+    answer: 10.20.30.154
+  - domain: prometheus.laxdog.uk
     answer: 10.20.30.154
   - domain: prowlarr.laxdog.uk
     answer: 10.20.30.154
@@ -572,6 +572,13 @@ services:
       disk_gb: 20
       roles:
       - docker
+      loki:
+        port: 3100
+        retention_days: 90
+        version: "2.9.10"
+      promtail:
+        port: 9080
+        version: "2.9.10"
 proxmox_metadata:
   enabled: true
   oidc_services:

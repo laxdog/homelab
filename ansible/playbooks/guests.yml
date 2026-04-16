@@ -341,3 +341,13 @@
       when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
   roles:
     - nagios
+
+- name: Deploy Promtail log shipping agent
+  hosts: promtail_hosts
+  become: true
+  gather_facts: true
+  tags: [promtail]
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  roles:
+    - promtail
