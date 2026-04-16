@@ -73,8 +73,8 @@ Both Claude and Codex agents pick up AGENTS.md automatically. All agents operati
 
 | Name | LAN IP | Tailscale IP | Hardware | Location |
 |---|---|---|---|---|
-| raptor-node-staging | 10.20.30.153 | 100.88.35.124 | ThinkPad X270 | staging |
-| mums-house-mbp | 10.20.30.75 | 100.118.218.126 | MacBook Pro 12,1 (2015) | remote (Mum's House) |
+| rr-node-staging-local | 10.20.30.153 | 100.88.35.124 | ThinkPad X270 | staging |
+| rr-node-prod-mums | 10.20.30.75 | 100.118.218.126 | MacBook Pro 12,1 (2015) | remote (Mum's House) |
 
 Both managed by `remote-node-baseline` + `tailscale-router` roles. Battery management (TLP on X270), powertop, chrony, WiFi sync, Nagios monitoring all deployed.
 
@@ -93,13 +93,13 @@ When testing firewall rules that restrict access by source IP, the following hos
 | Host | External IP | Tailscale IP | Notes |
 |---|---|---|---|
 | Operator home | 212.56.120.65 | — | Static |
-| raptor-node-staging | 212.56.120.65 | 100.88.35.124 | On home LAN, same NAT exit as operator home — cannot use as untrusted test source |
-| mums-house-mbp | 109.155.65.157 | 100.118.218.126 | Dynamic residential (BT/EE) — use for testing residential IP rules |
-| raffle-raptor-prod | 159.195.59.97 | 100.82.170.21 | VPS, stable public IP — best source for testing deny rules |
+| rr-node-staging-local | 212.56.120.65 | 100.88.35.124 | On home LAN, same NAT exit as operator home — cannot use as untrusted test source |
+| rr-node-prod-mums | 109.155.65.157 | 100.118.218.126 | Dynamic residential (BT/EE) — use for testing residential IP rules |
+| rr-node-prod-vps | 159.195.59.97 | 100.82.170.21 | VPS, stable public IP — best source for testing deny rules |
 
 To get current external IP of any host: `ssh <host> "curl -4 -s https://ifconfig.me"`
 
-raffle-raptor-prod is the best available source for testing SSH deny rules since it has a stable public IP not in any homelab allow list. To verify deny rules without an untrusted source, check iptables packet counters on the target (`sudo iptables -L ufw-user-input -n -v`).
+rr-node-prod-vps is the best available source for testing SSH deny rules since it has a stable public IP not in any homelab allow list. To verify deny rules without an untrusted source, check iptables packet counters on the target (`sudo iptables -L ufw-user-input -n -v`).
 
 ## Key files
 

@@ -9,7 +9,7 @@ For runbooks see `docs/runbooks/`.
 ## Current session context
 - Last updated: 2026-04-15
 - Current HEAD: (updated at final commit below)
-- Session summary: Loki log aggregation added to CT172 observability stack. Loki 2.9.10 deployed alongside Prometheus/Grafana. Promtail Ansible role created and deployed to 20 hosts (15 LXCs, 3 VMs, PVE host, raptor-node-staging, mums-house-mbp). Docker container log scraping on VM120 + CT172. CT172 RAM bumped 1GB→2GB. loki.laxdog.uk proxy host added. VM133 SSH unreachable (backlogged). Terraform plan requires credentials (not in env).
+- Session summary: Loki log aggregation added to CT172 observability stack. Loki 2.9.10 deployed alongside Prometheus/Grafana. Promtail Ansible role created and deployed to 20 hosts (15 LXCs, 3 VMs, PVE host, rr-node-staging-local, rr-node-prod-mums). Docker container log scraping on VM120 + CT172. CT172 RAM bumped 1GB→2GB. loki.laxdog.uk proxy host added. VM133 SSH unreachable (backlogged). Terraform plan requires credentials (not in env).
 
 ## Durable user preferences
 - Safety-first over speed
@@ -55,8 +55,8 @@ nvram get dhcp_staticlist  # DHCP reservations
 
 ### Remote nodes
 Both use Tailscale IPs in the ansible inventory:
-- raptor-node-staging: `ssh mrobinson@100.88.35.124`
-- mums-house-mbp: `ssh mrobinson@100.118.218.126`
+- rr-node-staging-local: `ssh mrobinson@100.88.35.124`
+- rr-node-prod-mums: `ssh mrobinson@100.118.218.126`
 
 ### Nagios (VM133)
 Accessible via Tailscale: `ssh ubuntu@100.120.89.28`

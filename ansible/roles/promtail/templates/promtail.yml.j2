@@ -37,7 +37,7 @@ scrape_configs:
           job: {{ promtail_app_name | default('app') }}
           env: {{ promtail_app_env | default('prod') }}
           host: {{ inventory_hostname }}
-          __path__: {{ promtail_app_log_path }}
+          __path__: {{ promtail_app_log_path | default('/var/log/app/*.log') }}
 {% endif %}
 {% if promtail_docker_logs | default(false) %}
 

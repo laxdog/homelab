@@ -318,12 +318,12 @@ remote_nodes:
     reboot_after_failure_seconds: 2700
     reboot_cooldown_seconds: 86400
   nodes:
-    mums-house-mbp:
+    rr-node-prod-mums:
       ip: 10.20.30.75
       tailscale_ip: 100.118.218.126
       ssh_user: mrobinson
       location_label: Mum's House
-      hostname: mums-house-mbp
+      hostname: rr-node-prod-mums
       environment: prod
       roles:
       - remote_node_baseline
@@ -346,12 +346,12 @@ remote_nodes:
         tailscale: true
         cpu_temp: true
         ntp: true
-    raptor-node-staging:
+    rr-node-staging-local:
       ip: 10.20.30.153
       tailscale_ip: 100.88.35.124
       ssh_user: mrobinson
       location_label: staging
-      hostname: raptor-node-staging
+      hostname: rr-node-staging-local
       environment: staging
       roles:
       - remote_node_baseline
@@ -377,12 +377,12 @@ remote_nodes:
         tailscale: true
         cpu_temp: true
         ntp: true
-    raffle-raptor-prod:
+    rr-node-prod-vps:
       ip: 159.195.59.97
       tailscale_ip: 100.82.170.21
       ssh_user: mrobinson
       location_label: prod VPS
-      hostname: raffle-raptor-prod
+      hostname: rr-node-prod-vps
       environment: prod
       roles: []
       wifi_only: false
@@ -1840,7 +1840,7 @@ nagios:
     target_ip: 10.20.30.154
     notify: false
     extra_checks: true
-  - name: raffle-raptor-prod
+  - name: rr-node-prod-vps
     host: nagios
     base_url: https://raffle-raptor.lax.dog
 media_stack:

@@ -56,7 +56,7 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
 
 ## Low Priority
 
-- [ ] Stale WiFi profiles on mums-house-mbp
+- [ ] Stale WiFi profiles on rr-node-prod-mums
   - Context: 4 profiles with GNOME keyring passwords (EE-R2F2CJ, Castlewood Guest WiFi, theinternet, VM0513311) — inaccessible and dead weight.
   - Effort: low
   - Added: 2026-04-14

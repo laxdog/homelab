@@ -175,26 +175,26 @@ python_bot_hosts:
     raffle-raptor-dev: *id015
 remote_node_baseline_hosts:
   hosts:
-    mums-house-mbp: &id018
+    rr-node-prod-mums: &id018
       ansible_host: 100.118.218.126
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
-    raptor-node-staging: &id019
+    rr-node-staging-local: &id019
       ansible_host: 100.88.35.124
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
 remote_nodes_hosts:
   hosts:
-    mums-house-mbp: *id018
-    raptor-node-staging: *id019
+    rr-node-prod-mums: *id018
+    rr-node-staging-local: *id019
 static_sites_hosts:
   hosts:
     static-sites: *id016
 tailscale_router_hosts:
   hosts:
-    mums-house-mbp: *id018
+    rr-node-prod-mums: *id018
     raffle-raptor-dev: *id015
-    raptor-node-staging: *id019
+    rr-node-staging-local: *id019
     tailscale-gateway: *id020
 observability_hosts:
   hosts:
@@ -224,17 +224,17 @@ promtail_hosts:
     raffle-raptor-dev: *id015
     static-sites: *id016
     tailscale-gateway: *id020
-    mums-house-mbp: *id018
-    raffle-raptor-prod: &id022
+    rr-node-prod-mums: *id018
+    rr-node-prod-vps: &id022
       ansible_host: 100.82.170.21
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
-    raptor-node-staging: *id019
+    rr-node-staging-local: *id019
   vars:
     promtail_docker_logs: false
 raffle_raptor_prod_hosts:
   hosts:
-    raffle-raptor-prod: *id022
+    rr-node-prod-vps: *id022
 promtail_docker_hosts:
   hosts:
     media-stack: *id011

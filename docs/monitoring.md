@@ -12,8 +12,8 @@ Source of truth: `config/homelab.yaml`.
 
 ## Remote node monitoring
 - Both remote nodes monitored via Tailscale IPs from VM133
-- raptor-node-staging (100.88.35.124): PING, SSH, Disk, Tailscale, CPU Temp, NTP
-- mums-house-mbp (100.118.218.126): PING, SSH, Disk, Tailscale, CPU Temp, NTP
+- rr-node-staging-local (100.88.35.124): PING, SSH, Disk, Tailscale, CPU Temp, NTP
+- rr-node-prod-mums (100.118.218.126): PING, SSH, Disk, Tailscale, CPU Temp, NTP
 - Check scripts: `/usr/local/nagios/libexec/check_remote_*.sh`
 - Config: `/usr/local/nagios/etc/objects/remote-nodes.cfg`
 
