@@ -244,6 +244,8 @@ adguard:
     answer: 10.20.30.154
   - domain: raffle-raptor-dev.laxdog.uk
     answer: 10.20.30.154
+  - domain: loki.laxdog.uk
+    answer: 10.20.30.154
   - domain: laxdog.uk
     answer: 10.20.30.154
   user_rules:
@@ -568,7 +570,7 @@ services:
       id: 172
       ip: 10.20.30.172
       cores: 2
-      memory_mb: 1024
+      memory_mb: 2048
       disk_gb: 20
       roles:
       - docker
@@ -758,6 +760,7 @@ npm:
     - unifi-primary.laxdog.uk
     - unifi-secondary.laxdog.uk
     - raffle-raptor-dev.laxdog.uk
+    - loki.laxdog.uk
   - name: laxdog-external-le
     type: letsencrypt
     dns_provider: cloudflare
@@ -990,6 +993,13 @@ npm:
     forward_scheme: https
     forward_host: 10.20.30.51
     forward_port: 443
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Loki
+    domain: loki.laxdog.uk
+    forward_host: 10.20.30.172
+    forward_port: 3100
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le

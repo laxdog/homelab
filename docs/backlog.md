@@ -42,6 +42,12 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Effort: medium
   - Added: 2026-04-14
 
+- [ ] Investigate VM133 (Nagios) SSH unreachable
+  - Context: Promtail deployment failed because SSH to 10.20.30.133 is unreachable. Nagios checks work via Tailscale (100.120.89.28) but direct LAN SSH is failing. Investigate why and fix so Promtail can be deployed and VM133 logs flow into Loki.
+  - Effort: low
+  - Scope: homelab
+  - Added: 2026-04-15
+
 ## Low Priority
 
 - [ ] Stale WiFi profiles on mums-house-mbp

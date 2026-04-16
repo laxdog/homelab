@@ -28,6 +28,12 @@ Significant infrastructure changes by date. Agents should add entries here for m
 - Heimdall: Grafana + Prometheus icon slug mappings
 - Cert 17 renewed with grafana + prometheus SANs via certbot --expand DNS-01 (Cloudflare API). Valid LE cert, no -k needed.
 - Incorrect Cloudflare A records for grafana/prometheus removed (laxdog.uk is internal-only, no CF records)
+- Loki 2.9.10 deployed on CT172 for log aggregation (90-day retention)
+- Promtail Ansible role created and deployed to 20 hosts (15 LXCs, 3 VMs, PVE host, raptor-node-staging)
+- CT172 RAM bumped from 1GB to 2GB for Loki headroom
+- Loki added as Grafana datasource (provisioned)
+- loki.laxdog.uk NPM proxy host + AdGuard rewrite added
+- VM133 (Nagios) SSH unreachable — added to backlog
 - Domain architecture documented in AGENTS.md (laxdog.uk internal vs lax.dog external, DNS-01 cert model)
 - Full docs consistency pass: storage.md rewritten, 8 other docs updated for post-migration accuracy
 

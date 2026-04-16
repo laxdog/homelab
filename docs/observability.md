@@ -4,7 +4,7 @@
 
 ## Deployment
 
-- **Guest**: CT172 on ssd-mirror (20GB, 2 cores, 1GB RAM)
+- **Guest**: CT172 on ssd-mirror (20GB, 2 cores, 2GB RAM)
 - **OS**: Ubuntu 24.04
 - **IP**: 10.20.30.172
 - **Stack**: Prometheus + Grafana + json-exporter in Docker Compose

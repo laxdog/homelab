@@ -9,7 +9,7 @@ For runbooks see `docs/runbooks/`.
 ## Current session context
 - Last updated: 2026-04-15
 - Current HEAD: (updated at final commit below)
-- Session summary: Major multi-day infrastructure session covering SSD pool creation and full guest migration (19 guests from NVMe/tank to ssd-fast + ssd-mirror), Plex retirement, AdGuard persistent clients and optimistic caching, remote-node battery/powertop/WiFi-sync/Nagios monitoring, Tailscale on VM133, HA IP migration (.134 → .122), DHCP reservations for all guests, AGENTS.md docs structure with per-agent docs and runbooks, CT172 observability stack (Prometheus + Grafana + 5 dashboards), domain architecture documentation, cert 17 SAN expansion via DNS-01, and full docs consistency pass.
+- Session summary: Loki log aggregation added to CT172 observability stack. Loki 2.9.10 deployed alongside Prometheus/Grafana. Promtail Ansible role created and deployed to 20 hosts (15 LXCs, 3 VMs, PVE host, raptor-node-staging, mums-house-mbp). Docker container log scraping on VM120 + CT172. CT172 RAM bumped 1GB→2GB. loki.laxdog.uk proxy host added. VM133 SSH unreachable (backlogged). Terraform plan requires credentials (not in env).
 
 ## Durable user preferences
 - Safety-first over speed
