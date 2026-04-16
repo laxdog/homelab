@@ -86,6 +86,21 @@ LAN-resident VMs/LXCs that join the Tailnet should NOT have `--accept-routes` en
 
 This was discovered when VM133 (Nagios) went unreachable after Tailscale was installed. Packets arrived on eth0 but replies were routed out tailscale0. All current Tailscale guests (VM133, CT163, VM171) have been verified with `RouteAll: false`.
 
+### Firewall testing
+
+When testing firewall rules that restrict access by source IP, the following hosts are available as test sources:
+
+| Host | External IP | Tailscale IP | Notes |
+|---|---|---|---|
+| Operator home | 212.56.120.65 | — | Static |
+| mums-house-mbp | 109.155.65.157 | 100.118.218.126 | Dynamic residential (BT/EE) |
+| raptor-node-staging | 212.56.120.65 | 100.88.35.124 | On LAN — shares operator home external IP via NAT |
+| raffle-raptor-prod | 159.195.59.97 | 100.82.170.21 | VPS, stable |
+
+To get current external IP of any host: `ssh <host> "curl -4 -s https://ifconfig.me"`
+
+**Important:** raptor-node-staging shares the operator home's external IP (both behind the same router NAT), so it cannot be used as an "untrusted" source for testing deny rules. To verify deny rules, check iptables packet counters on the target (`sudo iptables -L ufw-user-input -n -v`) — internet bots provide a steady stream of blocked SSH attempts.
+
 ## Key files
 
 | Path | Purpose |
