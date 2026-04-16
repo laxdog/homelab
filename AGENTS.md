@@ -93,13 +93,13 @@ When testing firewall rules that restrict access by source IP, the following hos
 | Host | External IP | Tailscale IP | Notes |
 |---|---|---|---|
 | Operator home | 212.56.120.65 | — | Static |
-| mums-house-mbp | 109.155.65.157 | 100.118.218.126 | Dynamic residential (BT/EE) |
-| raptor-node-staging | 212.56.120.65 | 100.88.35.124 | On LAN — shares operator home external IP via NAT |
-| raffle-raptor-prod | 159.195.59.97 | 100.82.170.21 | VPS, stable |
+| raptor-node-staging | 212.56.120.65 | 100.88.35.124 | On home LAN, same NAT exit as operator home — cannot use as untrusted test source |
+| mums-house-mbp | 109.155.65.157 | 100.118.218.126 | Dynamic residential (BT/EE) — use for testing residential IP rules |
+| raffle-raptor-prod | 159.195.59.97 | 100.82.170.21 | VPS, stable public IP — best source for testing deny rules |
 
 To get current external IP of any host: `ssh <host> "curl -4 -s https://ifconfig.me"`
 
-**Important:** raptor-node-staging shares the operator home's external IP (both behind the same router NAT), so it cannot be used as an "untrusted" source for testing deny rules. To verify deny rules, check iptables packet counters on the target (`sudo iptables -L ufw-user-input -n -v`) — internet bots provide a steady stream of blocked SSH attempts.
+raffle-raptor-prod is the best available source for testing SSH deny rules since it has a stable public IP not in any homelab allow list. To verify deny rules without an untrusted source, check iptables packet counters on the target (`sudo iptables -L ufw-user-input -n -v`).
 
 ## Key files
 
