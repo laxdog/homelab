@@ -85,6 +85,10 @@ docker_hosts:
       ansible_host: 10.20.30.163
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
+    rr-worker-prod-proxmox: &id023
+      ansible_host: 10.20.30.173
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
     static-sites: &id016
       ansible_host: 10.20.30.161
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
@@ -114,6 +118,7 @@ guests:
     nginx-proxy-manager: *id013
     organizr: *id014
     rr-application-staging-proxmox: *id015
+    rr-worker-prod-proxmox: *id023
     static-sites: *id016
     tailscale-gateway: &id020
       ansible_host: 10.20.30.171
@@ -145,6 +150,7 @@ lxcs:
     observability: *id021
     organizr: *id014
     rr-application-staging-proxmox: *id015
+    rr-worker-prod-proxmox: *id023
     static-sites: *id016
 media_hosts:
   hosts:
@@ -229,6 +235,7 @@ promtail_hosts:
       ansible_host: 100.82.170.21
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
+    rr-worker-prod-proxmox: *id023
     rr-worker-staging-home: *id019
   vars:
     promtail_docker_logs: false

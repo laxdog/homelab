@@ -39,6 +39,8 @@ Significant infrastructure changes by date. Agents should add entries here for m
 - Nagios checks for prod VPS: PING, SSH, Disk, Tailscale, NTP via Tailscale IP
 - SSH hardened on prod VPS: UFW restricts port 22 to operator home, mum's house, Tailscale only
 - Renamed remote nodes to role-based naming convention: raptor-node-staging → rr-node-staging-local, mums-house-mbp → rr-node-prod-mums, raffle-raptor-prod → rr-node-prod-vps
+- CT173 (rr-worker-prod-proxmox) created — 2 cores, 2GB RAM, 16GB on ssd-mirror, Docker, Tailscale (100.104.174.2), Promtail, Nagios checks
+- remote-node-baseline WiFi tasks extracted to include_tasks with wifi_enabled conditional — headless LXCs can now skip WiFi management
 - Second rename pass to rr-type-env-location convention: raffle-raptor-dev → rr-application-staging-proxmox, rr-node-prod-vps → rr-application-prod-vps, rr-node-staging-local → rr-worker-staging-home, rr-node-prod-mums → rr-worker-prod-mums
 - Domain architecture documented in AGENTS.md (laxdog.uk internal vs lax.dog external, DNS-01 cert model)
 - Full docs consistency pass: storage.md rewritten, 8 other docs updated for post-migration accuracy

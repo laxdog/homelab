@@ -401,6 +401,30 @@ remote_nodes:
         tailscale: true
         cpu_temp: false
         ntp: true
+    rr-worker-prod-proxmox:
+      ip: 10.20.30.173
+      tailscale_ip: 100.104.174.2
+      ssh_user: root
+      location_label: proxmox
+      hostname: rr-worker-prod-proxmox
+      environment: prod
+      roles: []
+      wifi_enabled: false
+      wifi_only: false
+      tailscale:
+        advertise_routes: []
+        advertise_exit_node: false
+        accept_dns: false
+      battery:
+        enabled: false
+      powertop:
+        enabled: false
+      nagios:
+        ping: true
+        disk: true
+        tailscale: true
+        cpu_temp: false
+        ntp: true
 batocera:
   defaults:
     ssh_user: root
@@ -605,6 +629,14 @@ services:
       promtail:
         port: 9080
         version: "2.9.10"
+    rr-worker-prod-proxmox:
+      id: 173
+      ip: 10.20.30.173
+      cores: 2
+      memory_mb: 2048
+      disk_gb: 16
+      roles:
+      - docker
 proxmox_metadata:
   enabled: true
   oidc_services:

@@ -43,6 +43,7 @@ Nagios checks for RR (all on VM133):
 | rr-application-prod-vps | Prod scraper VPS | Remote VPS (159.195.59.97) | 100.82.170.21 |
 | rr-worker-prod-mums | Prod remote node | Mum's house | 100.118.218.126 |
 | rr-worker-staging-home | Staging test node | Operator home LAN | 100.88.35.124 |
+| rr-worker-prod-proxmox (CT173) | Prod worker LXC on Proxmox | Homelab | 100.104.174.2 |
 | rr-application-staging-proxmox (CT163) | Staging app LXC on Proxmox | Homelab | 100.92.43.108 |
 
 ## Known issues
