@@ -12,10 +12,10 @@ RR worker nodes run the RR worker container only (no web, alerter, nginx, or loc
 
 ## Egress model
 
-- Staging workers: Gluetun/VPN (unique exit IP per worker — never share an exit IP)
-- Prod workers: bare residential NAT (unique residential IP per worker)
-- Every worker must have a unique egress IP
-- TUN device is always provisioned — RR decides whether to use Gluetun
+- **Every worker gets a unique egress IP. No sharing.**
+- **Prod workers**: bare NAT, no VPN.
+- **Staging workers**: VPN, unique exit IP per worker. Implementation options: Gluetun container on the node, or routing via VM171 tailscale-gateway → Mullvad exit.
+- TUN device is always provisioned — allows Gluetun as an option.
 
 ## Proxmox spec
 
@@ -206,7 +206,7 @@ Provide:
 - TUN device available (`/dev/net/tun`)
 - Docker installed
 - Nagios + Promtail active
-- Egress model is RR's decision
+- Egress model: prod workers use bare NAT, staging workers use VPN with unique IP. Staging implementation (Gluetun container on the node vs VM171 Mullvad exit) is RR's choice of mechanism.
 
 ### RR agent responsibilities (after homelab confirms node is ready)
 

@@ -85,19 +85,26 @@ Steps:
 | Node | Egress IP | Method | Notes |
 |---|---|---|---|
 | VM120 media-stack | 193.32.126.214 | Mullvad FR (unpinned) | arr stack downloads |
-| rr-application-staging-proxmox (CT163) | 185.195.232.169 | Mullvad UK London | RR staging scraper |
-| rr-application-prod-vps | 185.248.85.55 | Mullvad UK London | RR prod scraper |
-| rr-worker-staging-home | 212.56.120.65 | Bare NAT | Intentional — operator home |
-| rr-worker-prod-proxmox (CT173) | 212.56.120.65 | Bare NAT | Intentional — shares operator home NAT |
-| rr-worker-prod-mums | 109.155.65.157 | Bare NAT | Intentional — mum's residential IP |
+| rr-application-staging-proxmox (CT163) | 185.248.85.16 | Mullvad UK (unpinned — rotates) | RR staging scraper. Snapshot 2026-04-17. |
+| rr-application-prod-vps | 146.70.119.78 | Mullvad UK (unpinned — rotates) | RR prod scraper. Snapshot 2026-04-17. |
+| rr-worker-staging-home | 212.56.120.65 | Bare NAT (deviation) | Target: VPN with unique IP via VM171 → Mullvad exit (see deviation note below) |
+| rr-worker-prod-proxmox (CT173) | 212.56.120.65 | Bare NAT | Currently shares IP with rr-worker-staging-home — resolves when staging-home moves to VPN |
+| rr-worker-prod-mums | 109.155.65.157 | Bare NAT | mum's residential IP (unique) |
 | rr-application-prod-vps (host) | 159.195.59.97 | Direct VPS IP | SSH, Tailscale, HTTPS |
 | Operator home | 212.56.120.65 | ISP static | — |
 | Mum's house | 109.155.65.157 | ISP dynamic (BT/EE) | May change |
 
+## Egress Policy
+
+- **Every RR worker gets a unique egress IP. No sharing.**
+- **Prod workers**: bare NAT, no VPN.
+- **Staging workers**: VPN, unique exit IP per worker. `rr-worker-staging-home` will egress via VM171 tailscale-gateway → Mullvad exit (backlogged).
+- **App nodes**: Mullvad via Gluetun. IPs rotate within Mullvad UK because `SERVER_HOSTNAMES` is unpinned — **documented IPs are snapshots, not stable identifiers**.
+
 ## Notes
 
 - VM120 Gluetun is unpinned (Mullvad France, no `SERVER_HOSTNAMES`) — consider pinning to prevent exit IP rotation
-- rr-worker-staging-home and rr-worker-prod-proxmox share egress IP 212.56.120.65 — acceptable per RR for worker nodes (they don't scrape directly)
+- App-node egress IPs (CT163, prod VPS) rotate within Mullvad UK because Gluetun is unpinned (no `SERVER_HOSTNAMES`). Expect rotation after every Gluetun restart or key rotation. Do not build allow-lists or fingerprint rules against these IPs without pinning first.
+- **Known deviation**: `rr-worker-staging-home` and `rr-worker-prod-proxmox` (CT173) both egress via `212.56.120.65`, violating the unique-egress-per-worker policy. Resolves when staging-home moves to VPN via VM171 Mullvad exit — see `docs/backlog.md` item "Configure VM171 as Mullvad exit node".
 - Mullvad device inventory should be audited whenever a device is added or removed
 - **Never exceed 5 devices** — check this doc before registering a new WireGuard key
-- Egress IPs for Gluetun nodes may change after container restart if server is not pinned
