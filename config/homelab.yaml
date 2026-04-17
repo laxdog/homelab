@@ -635,6 +635,7 @@ services:
       cores: 2
       memory_mb: 2048
       disk_gb: 16
+      tun_required: true
       roles:
       - docker
 proxmox_metadata:
