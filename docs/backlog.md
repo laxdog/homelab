@@ -19,6 +19,18 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
 
 ## Medium Priority
 
+- [ ] Reconcile tailscale `accept_dns` (and other per-node settings) on non-router nodes
+  - Context: `remote_nodes.nodes.<name>.tailscale.accept_dns` and `services.{vms,lxcs}.<name>.tailscale.accept_dns` are only wired into a `tailscale up` helper by the `tailscale_router` role. Guests without that role (e.g. CT173 rr-worker-prod-proxmox, `roles: [docker]`) silently ignore the declared value — nothing reconciles runtime Tailscale state against config. CT173 hit this on 2026-04-17: declared `accept_dns: false`, runtime was enabled, tailscaled took over `/etc/resolv.conf` and wrote it empty (MagicDNS disabled tailnet-wide, no resolvers pushed), breaking all DNS. Fix options: (a) extend enforcement to all tailscale-joined guests via an idempotent `tailscale set --accept-dns=...` task in a baseline role; or (b) explicitly document that `accept_dns` in `config/homelab.yaml` is `tailscale_router`-role-only, and surface the constraint at config validation time. (a) is preferred — the config is the source of truth. The runbook fix (separate item below) is a workaround for this.
+  - Effort: medium
+  - Scope: homelab
+  - Added: 2026-04-17
+
+- [ ] Runbook add-rr-worker-node.md Step 8 missing `--accept-dns=false`
+  - Context: the hardcoded `tailscale up --hostname=... --accept-routes=false` in Step 8 omits `--accept-dns=false`. New workers default to accept-dns=true, tailscaled takes over `/etc/resolv.conf`, and because MagicDNS is disabled tailnet-wide the result is an empty resolv.conf (DNS broken). Every new worker provisioned from this runbook hits this. Workaround-grade fix; the real fix is reconciling `accept_dns` at the config layer (item above).
+  - Effort: low
+  - Scope: homelab
+  - Added: 2026-04-17
+
 - [ ] NPM upstream healthcheck on restart
   - Context: NPM proxies to backends before they are ready after full estate restart, causing brief 502s. Options: nginx upstream health config, NPM startup delay, or replace NPM with Caddy/Traefik.
   - Effort: medium
