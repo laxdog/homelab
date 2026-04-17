@@ -116,6 +116,8 @@ rr-application-prod-vps is the best available source for testing SSH deny rules 
 | `ansible/secrets-wifi.yml` | Vault-encrypted WiFi PSKs |
 | `ansible/secrets-rr-staging.yml` | Vault-encrypted RR DB credentials |
 | `~/.ansible_vault_pass` | Vault password file |
+| `docs/vpn.md` | Mullvad device inventory, egress IP map, Tailscale exit node docs |
+| `docs/runbooks/add-rr-worker-node.md` | Runbook for provisioning new RR worker LXCs |
 
 ## Domain architecture
 

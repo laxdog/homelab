@@ -54,6 +54,12 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Scope: homelab
   - Added: 2026-04-15
 
+- [ ] Configure VM171 as Mullvad exit node
+  - Context: VM171 is already a Tailscale exit node. Adding Mullvad WireGuard would route Tailscale exit traffic via Mullvad IP. Requires freeing a Mullvad device slot (delete stable bunny once confirmed safe) and generating a new WireGuard keypair for VM171. Would allow phone and other Tailscale clients to use Mullvad egress without consuming a separate device slot per node.
+  - Effort: medium
+  - Scope: homelab
+  - Added: 2026-04-17
+
 - [x] Create rr-worker-prod-proxmox — DONE: CT173 created, Tailscale 100.104.174.2, Nagios + Promtail deployed
   - Context: future prod worker node on Proxmox. Will be a new LXC running RR worker only, connecting to rr-application-prod-vps DB via Tailscale. RR agent has this in their backlog too.
   - Effort: medium
