@@ -7,9 +7,9 @@ For significant changes see `docs/changelog.md`.
 For runbooks see `docs/runbooks/`.
 
 ## Current session context
-- Last updated: 2026-04-15
+- Last updated: 2026-04-17
 - Current HEAD: (updated at final commit below)
-- Session summary: Loki log aggregation added to CT172 observability stack. Loki 2.9.10 deployed alongside Prometheus/Grafana. Promtail Ansible role created and deployed to 20 hosts (15 LXCs, 3 VMs, PVE host, rr-worker-staging-home, rr-worker-prod-mums). Docker container log scraping on VM120 + CT172. CT172 RAM bumped 1GB→2GB. loki.laxdog.uk proxy host added. VM133 SSH unreachable (backlogged). Terraform plan requires credentials (not in env).
+- Session summary: Loki log aggregation on CT172 (21 hosts + Promtail). VM133 fixed (Tailscale accept-routes conflict). rr-application-prod-vps joined to Tailnet (100.82.170.21), SSH hardened with UFW. Two rename passes to rr-type-env-location convention across all nodes and docs. CT173 (rr-worker-prod-proxmox) created with Docker/Tailscale/Nagios/Promtail. remote-node-baseline WiFi tasks extracted to conditional include (wifi_enabled). Mullvad device inventory documented (docs/vpn.md). Tailscale split DNS and exit node investigated and documented.
 
 ## Durable user preferences
 - Safety-first over speed

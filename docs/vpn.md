@@ -43,21 +43,38 @@ When using VM171 as exit node:
 
 ### Split DNS config
 
-Configured in the Tailscale admin console. Pushed to all clients via the Tailscale control plane.
+Configured in the Tailscale admin console:
+- **Domain**: `laxdog.uk`
+- **Nameserver**: `10.20.30.53` (AdGuard, CT153)
+- **UseWithExitNode**: `true` — `laxdog.uk` resolves via AdGuard even when using VM171 as exit node
 
-```
-laxdog.uk → 10.20.30.53 (AdGuard)
-  UseWithExitNode: true
-```
+**MagicDNS**: disabled (`MagicDNSEnabled: false`)
+- Tailscale node hostnames are not resolvable by DNS
+- Use Tailscale IPs directly, or enable MagicDNS in the admin console if needed
 
-- All `*.laxdog.uk` queries route to AdGuard via the Tailscale network, even when a client is using an exit node
-- This means `grafana.laxdog.uk`, `nagios.laxdog.uk`, etc. all resolve correctly from any Tailscale client
-- Verified working on VM133 (nagios): `resolvectl` shows `tailscale0` handling `~laxdog.uk` via `10.20.30.53`
+**Global DNS override**: not configured
+- Non-`laxdog.uk` queries use the phone's own DNS
+- To enable AdGuard ad blocking on the phone, add `10.20.30.53` as a global nameserver in the Tailscale admin console
 
-### DNS gaps
+Verified working on VM133 (nagios): `resolvectl` shows `tailscale0` handling `~laxdog.uk` via `10.20.30.53`.
 
-- **No global DNS override** — only `laxdog.uk` is routed to AdGuard. A phone on the exit node does NOT get ad blocking for non-laxdog.uk queries. To enable full ad blocking, add AdGuard as a global nameserver in the Tailscale admin console.
-- **MagicDNS disabled** — Tailscale node names (e.g. `rr-worker-prod-proxmox`) cannot be resolved via DNS. Must use Tailscale IPs. Enable MagicDNS in the admin console if name resolution is needed.
+### Phone exit node behaviour (VM171)
+
+When using VM171 as Tailscale exit node:
+1. All traffic exits via `212.56.120.65` (homelab public IP, or Mullvad IP once VM171 is configured with Mullvad)
+2. `laxdog.uk` queries go to AdGuard (`10.20.30.53`) — internal services accessible
+3. Other DNS goes to the phone's carrier/ISP DNS (or AdGuard if global override is enabled)
+
+### VM171 Tailscale config note
+
+VM171 has `accept_dns: false` (`CorpDNS: false`) — it ignores Tailscale-pushed DNS and uses the homelab network DNS (AdGuard) directly via eth0. This is correct behaviour for a subnet router/exit node.
+
+### Optional enhancements
+
+- Enable MagicDNS in Tailscale admin console for hostname resolution on the phone
+- Add `10.20.30.53` as global Tailscale DNS for ad blocking on the phone when on the exit node
+
+Both are low risk and can be done at any time via the Tailscale admin console — no homelab agent action needed.
 
 ### Adding Mullvad to VM171
 

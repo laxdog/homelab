@@ -42,6 +42,8 @@ Significant infrastructure changes by date. Agents should add entries here for m
 - CT173 (rr-worker-prod-proxmox) created — 2 cores, 2GB RAM, 16GB on ssd-mirror, Docker, Tailscale (100.104.174.2), Promtail, Nagios checks
 - remote-node-baseline WiFi tasks extracted to include_tasks with wifi_enabled conditional — headless LXCs can now skip WiFi management
 - Second rename pass to rr-type-env-location convention: raffle-raptor-dev → rr-application-staging-proxmox, rr-node-prod-vps → rr-application-prod-vps, rr-node-staging-local → rr-worker-staging-home, rr-node-prod-mums → rr-worker-prod-mums
+- docs/vpn.md created: Mullvad device inventory (5 devices mapped), egress IP map, Tailscale exit node + split DNS docs
+- docs/runbooks/add-rr-worker-node.md created: full provisioning runbook for new RR worker LXCs
 - Domain architecture documented in AGENTS.md (laxdog.uk internal vs lax.dog external, DNS-01 cert model)
 - Full docs consistency pass: storage.md rewritten, 8 other docs updated for post-migration accuracy
 
