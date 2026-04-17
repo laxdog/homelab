@@ -8,7 +8,7 @@ For runbooks see `docs/runbooks/`.
 
 ## Current session context
 - Last updated: 2026-04-17
-- Current HEAD: (updated at final commit below)
+- Current HEAD: 674071e
 - Session summary: Loki log aggregation on CT172 (21 hosts + Promtail). VM133 fixed (Tailscale accept-routes conflict). rr-application-prod-vps joined to Tailnet (100.82.170.21), SSH hardened with UFW. Two rename passes to rr-type-env-location convention across all nodes and docs. CT173 (rr-worker-prod-proxmox) created with Docker/Tailscale/Nagios/Promtail. remote-node-baseline WiFi tasks extracted to conditional include (wifi_enabled). Mullvad device inventory documented (docs/vpn.md). Tailscale split DNS and exit node investigated and documented.
 
 ## Durable user preferences
