@@ -2,6 +2,10 @@
 
 Significant infrastructure changes by date. Agents should add entries here for major changes.
 
+## 2026-04-17
+- CT173 DNS fix: `tailscale set --accept-dns=false` + restored `/etc/resolv.conf` to PVE-standard `nameserver 10.20.30.53`. Root cause: runbook Step 8 `tailscale up` was missing `--accept-dns=false`, tailscaled took over resolv.conf and wrote it empty (tailnet has MagicDNS disabled, no resolvers pushed to this node). Two durability gaps filed in `docs/backlog.md` — the primary fix is reconciling `accept_dns` at the config layer for non-router nodes.
+- RR worker egress policy tightened in `docs/vpn.md` and `docs/runbooks/add-rr-worker-node.md`: every worker gets a unique egress IP (no sharing). Prod = bare NAT, staging = VPN. staging-home/CT173 shared 212.56.120.65 flagged as a known deviation pending VM171 Mullvad exit deployment. App-node Mullvad IPs documented as rotating snapshots, not stable.
+
 ## 2026-04-14
 - VM122 HA migrated from 10.20.30.134 to 10.20.30.122 (IP convention fix)
 - All 19 guests migrated from NVMe/tank to SSD (ssd-fast + ssd-mirror pools)
