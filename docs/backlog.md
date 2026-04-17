@@ -54,6 +54,12 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Scope: homelab
   - Added: 2026-04-15
 
+- [ ] Investigate Tailscale native Mullvad integration as alternative to VM171 Mullvad exit node setup
+  - Context: Tailscale has a beta native Mullvad integration that lets you use Mullvad exit nodes directly in the Tailscale client without consuming a Mullvad device slot or running Gluetun on VM171. Worth evaluating once stable. Current plan (VM171 + Gluetun) is on hold pending a free Mullvad device slot.
+  - Effort: low (investigation only)
+  - Scope: homelab
+  - Added: 2026-04-17
+
 - [ ] Configure VM171 as Mullvad exit node
   - Context: VM171 is already a Tailscale exit node. Adding Mullvad WireGuard would route Tailscale exit traffic via Mullvad IP. Requires freeing a Mullvad device slot (delete stable bunny once confirmed safe) and generating a new WireGuard keypair for VM171. Would allow phone and other Tailscale clients to use Mullvad egress without consuming a separate device slot per node.
   - Effort: medium
