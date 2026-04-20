@@ -31,11 +31,20 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Scope: homelab (RR drives the compose change)
   - Added: 2026-04-20
 
-- [ ] Reconcile tailscale `accept_dns` (and other per-node settings) on non-router nodes
-  - Context: `remote_nodes.nodes.<name>.tailscale.accept_dns` and `services.{vms,lxcs}.<name>.tailscale.accept_dns` are only wired into a `tailscale up` helper by the `tailscale_router` role. Guests without that role (e.g. CT173 rr-worker-prod-proxmox, `roles: [docker]`) silently ignore the declared value — nothing reconciles runtime Tailscale state against config. CT173 hit this on 2026-04-17: declared `accept_dns: false`, runtime was enabled, tailscaled took over `/etc/resolv.conf` and wrote it empty (MagicDNS disabled tailnet-wide, no resolvers pushed), breaking all DNS. Fix options: (a) extend enforcement to all tailscale-joined guests via an idempotent `tailscale set --accept-dns=...` task in a baseline role; or (b) explicitly document that `accept_dns` in `config/homelab.yaml` is `tailscale_router`-role-only, and surface the constraint at config validation time. (a) is preferred — the config is the source of truth. The runbook fix (separate item below) is a workaround for this.
+- [ ] Reconcile tailscale per-node prefs (`accept_dns`, `exit_node`, `advertise_exit_node`, `advertise_routes`) on non-router nodes
+  - Context: the `tailscale-router` role renders a `tailscale-phase1-up` helper that bakes in declared `--advertise-*` and `--accept-dns` flags, but only runs once during operator bootstrap. Nothing in the repo reconciles runtime Tailscale state against `config/homelab.yaml` after that — if a node's runtime prefs drift (reboot, `tailscaled.state` reset, manual operator change), config and reality diverge silently. Guests without the `tailscale-router` role (e.g. CT173 `roles: [docker]`) ignore the config entirely.
+
+    Two incidents so far:
+
+    1. **CT173 DNS (2026-04-17)**: `accept_dns: false` declared in homelab.yaml, runtime was `accept_dns=true`, tailscaled took over `/etc/resolv.conf` and wrote an empty one (MagicDNS disabled tailnet-wide, no resolvers pushed) — DNS completely broken.
+    2. **staging-home exit-node cutover (2026-04-20)**: no field exists in homelab.yaml to declare "this node CONSUMES VM171 as its exit node". The `tailscale set --exit-node=tailscale-gateway --exit-node-allow-lan-access=true` call was applied live only. If staging-home reboots and loses tailscaled prefs, the runtime setting silently reverts — staging-home's egress would fall back to bare NAT, violating the unique-egress-per-worker policy without warning.
+
+    Scope the fix broadly enough to cover: inbound DNS handling (`--accept-dns`), exit-node consumption (`--exit-node`, `--exit-node-allow-lan-access`), exit-node advertising (`--advertise-exit-node`), subnet route advertising (`--advertise-routes`), and route acceptance (`--accept-routes`, noting the LAN-adjacency gotcha in AGENTS.md — some nodes MUST be `false`).
+
+    Fix options: (a) idempotent `tailscale set` task in a baseline role that runs on every play, sourcing values from `config.services.{vms,lxcs}.<name>.tailscale` and `config.remote_nodes.nodes.<name>.tailscale`; extend the schema with an `exit_node` consumer field; or (b) document that these fields in homelab.yaml are aspirational for non-router nodes and surface the constraint at validation time. (a) is preferred — the config should be the source of truth.
   - Effort: medium
   - Scope: homelab
-  - Added: 2026-04-17
+  - Added: 2026-04-17, extended 2026-04-20 to cover exit-node consumption
 
 - [ ] Runbook add-rr-worker-node.md Step 8 missing `--accept-dns=false`
   - Context: the hardcoded `tailscale up --hostname=... --accept-routes=false` in Step 8 omits `--accept-dns=false`. New workers default to accept-dns=true, tailscaled takes over `/etc/resolv.conf`, and because MagicDNS is disabled tailnet-wide the result is an empty resolv.conf (DNS broken). Every new worker provisioned from this runbook hits this. Workaround-grade fix; the real fix is reconciling `accept_dns` at the config layer (item above).
