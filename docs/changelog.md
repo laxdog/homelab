@@ -2,6 +2,13 @@
 
 Significant infrastructure changes by date. Agents should add entries here for major changes.
 
+## 2026-04-20
+- VM171 (tailscale-gateway) now egresses via Mullvad. Device `normal koala` on `gb-lon-wg-001` (Mullvad-owned, pinned). Role `mullvad-exit` deployed via Ansible: `wg-quick@wg0` up, iptables FORWARD kill-switch (`MULLVAD-EXIT-FWD` chain, installed by `mullvad-exit-killswitch.service` ordered `Before=wg-quick`) blocks eth0 leak path. VM171 own egress + forwarded Tailscale exit-node traffic now routes through Mullvad UK (`141.98.252.0/24` pool). Mullvad slot count 5/5.
+- Tailnet / wg-quick coexistence bug found and fixed: wg-quick's pri-5209 policy rule catches de-NAT'd reply packets destined for tailnet CGNAT and loops them back via wg0. Fix: pri-5200 rule sending `100.64.0.0/10` and `fd7a:115c:a1e0::/48` to Tailscale's table 52, installed via wg0.conf PostUp/PreDown in the role.
+- Mullvad server `gb-lon-wg-201` (known eel's pin) confirmed inactive via API. CT163 Gluetun is silently failing over somewhere in the xtom subnet — investigation + migration to Mullvad-owned servers filed as backlog items.
+- Verified new Mullvad mapping: VM171's derived public key matches `normal koala` in Mullvad account. Device inventory 5/5, verification note dated 2026-04-20.
+- Known post-Mullvad tradeoff documented in vpn.md: `Self.Online: false` expected (strict Mullvad NAT breaks UDP hole-punching for remote peers). LAN peers unaffected; remote peers fall back to DERP (40-260 ms, ~10 Mbps cap). No remote client uses VM171 as exit node today. Port-forward UDP 41641 on home router filed as backlog for future need.
+
 ## 2026-04-17
 - CT173 DNS fix: `tailscale set --accept-dns=false` + restored `/etc/resolv.conf` to PVE-standard `nameserver 10.20.30.53`. Root cause: runbook Step 8 `tailscale up` was missing `--accept-dns=false`, tailscaled took over resolv.conf and wrote it empty (tailnet has MagicDNS disabled, no resolvers pushed to this node). Two durability gaps filed in `docs/backlog.md` — the primary fix is reconciling `accept_dns` at the config layer for non-router nodes.
 - RR worker egress policy tightened in `docs/vpn.md` and `docs/runbooks/add-rr-worker-node.md`: every worker gets a unique egress IP (no sharing). Prod = bare NAT, staging = VPN. staging-home/CT173 shared 212.56.120.65 flagged as a known deviation pending VM171 Mullvad exit deployment. App-node Mullvad IPs documented as rotating snapshots, not stable.

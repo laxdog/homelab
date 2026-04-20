@@ -84,11 +84,21 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Scope: homelab
   - Added: 2026-04-17
 
-- [ ] Configure VM171 as Mullvad exit node
-  - Context: VM171 is already a Tailscale exit node. Adding Mullvad WireGuard would route Tailscale exit traffic via Mullvad IP. Requires freeing a Mullvad device slot (delete stable bunny once confirmed safe) and generating a new WireGuard keypair for VM171. Would allow phone and other Tailscale clients to use Mullvad egress without consuming a separate device slot per node.
-  - Effort: medium
+- [x] Configure VM171 as Mullvad exit node — DONE 2026-04-20
+  - Context: VM171 is a Tailscale exit node; Mullvad WireGuard now routes its own and forwarded exit-node traffic via Mullvad. Mullvad device `normal koala` on `gb-lon-wg-001` (Mullvad-owned, pinned). Role `mullvad-exit`, runbook `docs/runbooks/add-mullvad-exit-node.md`. Verification: wg0 up, egress `141.98.252.208`, kill-switch blocks leak when wg0 down.
+  - Added: 2026-04-17, Completed: 2026-04-20
+
+- [ ] Cut rr-worker-staging-home over to VM171 Mullvad exit
+  - Context: VM171 is ready (2026-04-20). Cutover is a separate deferred decision. Applying gives staging-home unique Mullvad egress (`141.98.252.0/24` pool) and closes the known-deviation shared `212.56.120.65` with CT173 (CT173 stays bare-NAT and becomes unique once staging-home moves off). LAN path to CT163 postgres must be preserved — use `tailscale set --exit-node=100.120.120.126 --exit-node-allow-lan-access=true` to keep 10.20.30.0/24 reachable directly. Remote staging-home users unaffected (staging-home is on LAN, direct P2P to VM171 via `10.20.30.171` is unaffected by Mullvad NAT).
+  - Effort: low (tailscale set on staging-home + verify DB proxy still reachable)
   - Scope: homelab
-  - Added: 2026-04-17
+  - Added: 2026-04-20
+
+- [ ] Port-forward UDP 41641 to VM171 if a remote Tailscale client needs it as exit node
+  - Context: VM171's Mullvad egress uses strict NAT → remote tailnet peers (mums, prod VPS, operator phone) can't direct-connect to VM171 for exit-node forwarding; fall back to DERP relay (40-260 ms, ~10 Mbps cap). Not needed today — no remote client uses VM171 as exit node, staging-home (the one planned consumer) is on LAN. If that changes, port-forward UDP 41641 on the home router (external → `10.20.30.171`) to restore NAT traversal. See `docs/vpn.md` §"Future: unblocking direct P2P".
+  - Effort: low (ASUS NVRAM dhcp_staticlist / port-forward entry)
+  - Scope: homelab
+  - Added: 2026-04-20
 
 - [x] Create rr-worker-prod-proxmox — DONE: CT173 created, Tailscale 100.104.174.2, Nagios + Promtail deployed
   - Context: future prod worker node on Proxmox. Will be a new LXC running RR worker only, connecting to rr-application-prod-vps DB via Tailscale. RR agent has this in their backlog too.
