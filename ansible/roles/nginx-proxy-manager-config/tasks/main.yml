@@ -336,7 +336,7 @@
       hsts_subdomains: "{{ current_host.hsts_subdomains | default(false) }}"
       advanced_config: "{{ desired_advanced_config }}"
       meta: "{{ current_host.meta | default({'letsencrypt_agree': false, 'dns_challenge': false, 'letsencrypt_email': ''}) }}"
-      locations: "{{ current_host.locations | default([]) }}"
+      locations: "{{ current_host.locations | default([], true) }}"
   loop: "{{ npm_proxy_hosts_effective }}"
   vars:
     current_host: >-
