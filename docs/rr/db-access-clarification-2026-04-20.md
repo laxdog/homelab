@@ -83,3 +83,12 @@ Follow-up round (rr_worker):
 | VM171 → CT163:5432 | BLOCK (no regression) | ✓ |
 
 psql auth from mums and CT173 not exercised end-to-end — neither host has `psql` installed. RR's worker container has the pg client and is the real test. Password in homelab vault — superseded in the follow-up round below (see `rr_worker_prod_db_password`).
+
+## Final round summary (paraphrased)
+
+- **RR clarified** that `rr_discovery_prod` was hypothetical — they asked instead for `rr_worker` on prod with `SELECT, INSERT, UPDATE` grants matching staging.
+- **Homelab recon surfaced config/reality drift** on both environments: `rr_discovery_*` users were orphaned (present but unused), while `rr_worker` was already provisioned by RR directly with broader grants than any written spec.
+- **Prod resolved** — role extended with strict-grants + `remove_users` mechanisms, prod config updated, `rr_worker` provisioned with exactly `SELECT, INSERT, UPDATE`, `rr_discovery_prod` dropped, pg_hba cleaned up.
+- **Staging drift backlogged**, not touched this round (`rr_worker` password there is RR-managed; coordinated cleanup scheduled for later).
+- **Impact warning issued to RR**: prod `rr_worker` no longer has `DELETE`, `REFERENCES`, `TRIGGER`, or `TRUNCATE`. If the worker code uses those, it will fail — worth a grep before deploy.
+- **Password handed off out-of-band** per the §"Secret handoff" in `docs/agents/raffle-raptor.md`.
