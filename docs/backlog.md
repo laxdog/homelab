@@ -88,11 +88,9 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Context: VM171 is a Tailscale exit node; Mullvad WireGuard now routes its own and forwarded exit-node traffic via Mullvad. Mullvad device `normal koala` on `gb-lon-wg-001` (Mullvad-owned, pinned). Role `mullvad-exit`, runbook `docs/runbooks/add-mullvad-exit-node.md`. Verification: wg0 up, egress `141.98.252.208`, kill-switch blocks leak when wg0 down.
   - Added: 2026-04-17, Completed: 2026-04-20
 
-- [ ] Cut rr-worker-staging-home over to VM171 Mullvad exit
-  - Context: VM171 is ready (2026-04-20). Cutover is a separate deferred decision. Applying gives staging-home unique Mullvad egress (`141.98.252.0/24` pool) and closes the known-deviation shared `212.56.120.65` with CT173 (CT173 stays bare-NAT and becomes unique once staging-home moves off). LAN path to CT163 postgres must be preserved — use `tailscale set --exit-node=100.120.120.126 --exit-node-allow-lan-access=true` to keep 10.20.30.0/24 reachable directly. Remote staging-home users unaffected (staging-home is on LAN, direct P2P to VM171 via `10.20.30.171` is unaffected by Mullvad NAT).
-  - Effort: low (tailscale set on staging-home + verify DB proxy still reachable)
-  - Scope: homelab
-  - Added: 2026-04-20
+- [x] Cut rr-worker-staging-home over to VM171 Mullvad exit — DONE 2026-04-20
+  - Context: staging-home now egresses via VM171 → Mullvad UK (`141.98.252.208`). `--exit-node-allow-lan-access=true` keeps 10.20.30.0/24 reachable directly. Required flipping `advertise_exit_node: false` on staging-home (Tailscale rejects simultaneous advertise+consume). Unique-egress-per-worker policy now satisfied (CT173 holds 212.56.120.65 uniquely). Runtime exit-node setting NOT yet reconciled from repo — tied to existing backlog item on non-router tailscale settings reconciliation.
+  - Added: 2026-04-20, Completed: 2026-04-20
 
 - [ ] Port-forward UDP 41641 to VM171 if a remote Tailscale client needs it as exit node
   - Context: VM171's Mullvad egress uses strict NAT → remote tailnet peers (mums, prod VPS, operator phone) can't direct-connect to VM171 for exit-node forwarding; fall back to DERP relay (40-260 ms, ~10 Mbps cap). Not needed today — no remote client uses VM171 as exit node, staging-home (the one planned consumer) is on LAN. If that changes, port-forward UDP 41641 on the home router (external → `10.20.30.171`) to restore NAT traversal. See `docs/vpn.md` §"Future: unblocking direct P2P".

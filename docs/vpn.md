@@ -114,8 +114,8 @@ LAN clients (CT163, CT173, staging-home, etc.) are unaffected either way — the
 | VM171 tailscale-gateway | 141.98.252.208 | Mullvad UK London (gb-lon-wg-001, **pinned**) | Host egress + Tailscale exit-node forwarded traffic. Snapshot 2026-04-20; SNAT pool so egress IP can shift within 141.98.252.0/24. |
 | rr-application-staging-proxmox (CT163) | 185.248.85.16 | Mullvad UK (unpinned — rotates) | RR staging scraper. Snapshot 2026-04-17. |
 | rr-application-prod-vps | 146.70.119.78 | Mullvad UK (unpinned — rotates) | RR prod scraper. Snapshot 2026-04-17. |
-| rr-worker-staging-home | 212.56.120.65 | Bare NAT (deviation) | Target: VPN with unique IP via VM171 → Mullvad exit (see deviation note below) |
-| rr-worker-prod-proxmox (CT173) | 212.56.120.65 | Bare NAT | Currently shares IP with rr-worker-staging-home — resolves when staging-home moves to VPN |
+| rr-worker-staging-home | 141.98.252.208 | Mullvad UK London via VM171 (Tailscale exit node) | Cut over 2026-04-20. `--exit-node-allow-lan-access=true` keeps LAN-direct paths (CT163 DB proxy, AdGuard, NPM). SNAT pool — snapshot IP. |
+| rr-worker-prod-proxmox (CT173) | 212.56.120.65 | Bare NAT | Operator home static IP (unique — staging-home moved to Mullvad via VM171 on 2026-04-20) |
 | rr-worker-prod-mums | 109.155.65.157 | Bare NAT | mum's residential IP (unique) |
 | rr-application-prod-vps (host) | 159.195.59.97 | Direct VPS IP | SSH, Tailscale, HTTPS |
 | Operator home | 212.56.120.65 | ISP static | — |
@@ -125,13 +125,12 @@ LAN clients (CT163, CT173, staging-home, etc.) are unaffected either way — the
 
 - **Every RR worker gets a unique egress IP. No sharing.**
 - **Prod workers**: bare NAT, no VPN.
-- **Staging workers**: VPN, unique exit IP per worker. `rr-worker-staging-home` will egress via VM171 tailscale-gateway → Mullvad exit. VM171 is ready as of 2026-04-20; staging-home cutover is a deferred decision (see backlog).
+- **Staging workers**: VPN, unique exit IP per worker. `rr-worker-staging-home` egresses via VM171 tailscale-gateway → Mullvad UK London (cut over 2026-04-20).
 - **App nodes**: Mullvad via Gluetun. IPs rotate within Mullvad UK because `SERVER_HOSTNAMES` is unpinned — **documented IPs are snapshots, not stable identifiers**.
 
 ## Notes
 
 - VM120 Gluetun is unpinned (Mullvad France, no `SERVER_HOSTNAMES`) — consider pinning to prevent exit IP rotation
 - App-node egress IPs (CT163, prod VPS) rotate within Mullvad UK because Gluetun is unpinned (no `SERVER_HOSTNAMES`). Expect rotation after every Gluetun restart or key rotation. Do not build allow-lists or fingerprint rules against these IPs without pinning first.
-- **Known deviation**: `rr-worker-staging-home` and `rr-worker-prod-proxmox` (CT173) both egress via `212.56.120.65`, violating the unique-egress-per-worker policy. VM171 Mullvad exit is ready (2026-04-20). Resolves when staging-home is cut over — tracked in `docs/backlog.md` as "Cut rr-worker-staging-home over to VM171 Mullvad exit".
 - Mullvad device inventory should be audited whenever a device is added or removed
 - **Never exceed 5 devices** — check this doc before registering a new WireGuard key
