@@ -73,8 +73,8 @@ Both Claude and Codex agents pick up AGENTS.md automatically. All agents operati
 
 | Name | LAN IP | Tailscale IP | Hardware | Location |
 |---|---|---|---|---|
-| rr-worker-staging-home | 10.20.30.153 | 100.88.35.124 | ThinkPad X270 | staging |
-| rr-worker-prod-mums | 10.20.30.75 | 100.118.218.126 | MacBook Pro 12,1 (2015) | remote (Mum's House) |
+| rr-worker-staging-home | 10.20.30.153 | 100.88.35.124 | ThinkPad X270 / Ubuntu 24.04 | staging |
+| rr-worker-prod-mums | 10.20.30.75 | 100.118.218.126 | MacBook Pro 12,1 (2015) / Ubuntu 24.04 | remote (Mum's House) |
 
 Both managed by `remote-node-baseline` + `tailscale-router` roles. Battery management (TLP on X270), powertop, chrony, WiFi sync, Nagios monitoring all deployed.
 

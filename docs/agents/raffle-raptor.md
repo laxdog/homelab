@@ -46,6 +46,15 @@ Nagios checks for RR (all on VM133):
 | rr-worker-prod-proxmox (CT173) | Prod worker LXC on Proxmox | Homelab | 100.104.174.2 |
 | rr-application-staging-proxmox (CT163) | Staging app LXC on Proxmox | Homelab | 100.92.43.108 |
 
+## Docker on RR worker nodes
+
+The RR-worker nodes split into two camps for Docker provisioning:
+
+- **CT173 (`rr-worker-prod-proxmox`)**: in `docker_hosts` (via `roles: [docker]`). Homelab's `docker-host` role installs and maintains Docker. RR worker runs inside that managed stack.
+- **`rr-worker-prod-mums`**: NOT in `docker_hosts`. Homelab does not install Docker. RR's worker compose installs Docker on demand via `pre_tasks` in their own role. This is by design — homelab doesn't manage RR's runtime software for remote nodes.
+
+(Staging-home is currently out of scope for RR worker deployment; Docker provisioning there will follow whichever model matches its workload once deployed.)
+
 ## Known issues
 - **overdue_count WARN on prod statusz** — RR agent investigating worker capacity. Homelab action: none until RR agent reports back.
 - **502s on rr-application-staging-proxmox (2026-04-08)** — traced to planned maintenance restart (two full-estate stopall/startall cycles for SSD hardware install). Closed as known incident.
