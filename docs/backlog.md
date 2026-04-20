@@ -19,6 +19,18 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
 
 ## Medium Priority
 
+- [ ] CT163 Gluetun: `known eel` pinned to inactive server, egressing unexpectedly
+  - Context: `known eel` device (CT163) is registered against `gb-lon-wg-201` per `docs/vpn.md`, but the Mullvad API (checked 2026-04-20 via `https://api.mullvad.net/www/relays/wireguard/`) shows that server is currently `active: false`. CT163 Gluetun is still egressing from the `185.248.85.0/24` subnet (e.g. `185.248.85.16` observed on 2026-04-17) — which is the xtom-provider range the inactive `gb-lon-wg-201/202` sit in. Gluetun appears to be auto-failing over to another xtom server (203 or 204) or the provider is doing opaque NAT, but our pinning intent is violated. Investigate by running `docker exec raffle-raptor-gluetun-1 wg show` to see the actual handshake peer, compare against the `SERVER_HOSTNAMES` env (or whatever pinning config RR uses), and determine why Gluetun isn't failing hard on an inactive pin.
+  - Effort: low (investigation)
+  - Scope: homelab (RR coordination may be required if Gluetun env lives in RR's compose)
+  - Added: 2026-04-20
+
+- [ ] Migrate `known eel` (CT163) and `well raven` (prod VPS) Mullvad pins to Mullvad-owned servers
+  - Context: both currently pinned to rented providers — `known eel` on xtom (`gb-lon-wg-201`, inactive), `well raven` on M247 (`gb-lon-wg-301`). Mullvad-owned servers (`gb-lon-wg-001` through `gb-lon-wg-008`, provider `31173`, `owned=true`) are a stronger trust signal. VM171 Mullvad exit is being set up on `gb-lon-wg-001` — standardise the rest of the fleet on the same Mullvad-owned pool. Resolves the "egressing from inactive subnet" mystery above as a side effect. Scope: update Gluetun `SERVER_HOSTNAMES` (or equivalent pinning) on each node, verify replacement servers are `active=true` via the Mullvad API before pinning, then update `docs/vpn.md` Device Inventory. Since the Gluetun config for CT163 and prod VPS lives in RR's compose (not this repo), RR orchestrator needs to drive the change.
+  - Effort: medium (two nodes, cross-repo coordination)
+  - Scope: homelab (RR drives the compose change)
+  - Added: 2026-04-20
+
 - [ ] Reconcile tailscale `accept_dns` (and other per-node settings) on non-router nodes
   - Context: `remote_nodes.nodes.<name>.tailscale.accept_dns` and `services.{vms,lxcs}.<name>.tailscale.accept_dns` are only wired into a `tailscale up` helper by the `tailscale_router` role. Guests without that role (e.g. CT173 rr-worker-prod-proxmox, `roles: [docker]`) silently ignore the declared value — nothing reconciles runtime Tailscale state against config. CT173 hit this on 2026-04-17: declared `accept_dns: false`, runtime was enabled, tailscaled took over `/etc/resolv.conf` and wrote it empty (MagicDNS disabled tailnet-wide, no resolvers pushed), breaking all DNS. Fix options: (a) extend enforcement to all tailscale-joined guests via an idempotent `tailscale set --accept-dns=...` task in a baseline role; or (b) explicitly document that `accept_dns` in `config/homelab.yaml` is `tailscale_router`-role-only, and surface the constraint at config validation time. (a) is preferred — the config is the source of truth. The runbook fix (separate item below) is a workaround for this.
   - Effort: medium
