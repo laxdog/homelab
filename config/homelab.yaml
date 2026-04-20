@@ -387,7 +387,8 @@ remote_nodes:
       location_label: prod VPS
       hostname: rr-application-prod-vps
       environment: prod
-      roles: []
+      roles:
+      - rr_db_access
       wifi_only: false
       tailscale:
         advertise_routes: []
@@ -404,6 +405,17 @@ remote_nodes:
         tailscale: true
         cpu_temp: false
         ntp: true
+      rr_db_access:
+        enabled: true
+        db_container: raffle-raptor-db-1
+        database: raffle_raptor
+        username: rr_discovery_prod
+        password_var: rr_discovery_prod_db_password
+        allowed_tailscale_source:
+        - 100.118.218.126/32  # rr-worker-prod-mums
+        - 100.104.174.2/32    # rr-worker-prod-proxmox (CT173)
+        port: 5432
+        sslmode: disable
     rr-worker-prod-proxmox:
       ip: 10.20.30.173
       tailscale_ip: 100.104.174.2
