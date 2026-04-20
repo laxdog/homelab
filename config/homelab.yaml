@@ -359,7 +359,7 @@ remote_nodes:
       wifi_only: true
       tailscale:
         advertise_routes: []
-        advertise_exit_node: true
+        advertise_exit_node: false  # 2026-04-20: staging-home now CONSUMES VM171 as exit; Tailscale forbids simultaneous advertise+use.
         accept_dns: false
       battery:
         enabled: true
