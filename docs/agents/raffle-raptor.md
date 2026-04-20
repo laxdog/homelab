@@ -59,8 +59,8 @@ The RR-worker nodes split into two camps for Docker provisioning:
 
 DB worker passwords are vaulted in this repo and must be copied into RR's compose **out-of-band**. No automated handoff exists today — operator extracts the value from the homelab vault and pastes it into RR's side.
 
-- Staging worker password: `rr_discovery_staging_db_password` in `ansible/secrets-rr-staging.yml`
-- Prod worker password: `rr_discovery_prod_db_password` in `ansible/secrets.yml`
+- Staging worker password: `rr_discovery_staging_db_password` in `ansible/secrets-rr-staging.yml` (see "Staging config/reality drift" in backlog — the live worker actually connects as `rr_worker`, not `rr_discovery_staging`)
+- Prod worker password: `rr_worker_prod_db_password` in `ansible/secrets.yml`
 
 > **Follow-up:** consolidate to a single vault file. The two-file split predates the prod rollout — staging was historically carved out into its own vault file; prod landed in the main vault; keeping both is a wart worth cleaning up later.
 
@@ -75,7 +75,7 @@ Example for prod:
 
 ```bash
 ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass ansible localhost -i 'localhost,' -c local \
-  -m debug -a 'var=rr_discovery_prod_db_password' -e @ansible/secrets.yml
+  -m debug -a 'var=rr_worker_prod_db_password' -e @ansible/secrets.yml
 ```
 
 **Operator action only.** Where RR places the value on their side (compose env var, per-worker config, secrets manager, etc.) is RR's decision — homelab documents what the password is and where it lives, not how it gets consumed downstream.

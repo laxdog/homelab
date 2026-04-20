@@ -122,6 +122,12 @@ _(none currently)_
   - Scope: homelab
   - Added: 2026-04-20
 
+- [ ] Staging config/reality drift on RR DB access — rr_discovery_staging orphaned, rr_worker RR-managed
+  - Context: CT163's `rr_db_access` config declares `username: rr_discovery_staging` with `grants: [SELECT]` (via role default) and vaults `rr_discovery_staging_db_password` in `ansible/secrets-rr-staging.yml`. Live state (confirmed 2026-04-20 during prod cleanup): the staging worker actually connects as `rr_worker`, not `rr_discovery_staging`. Both users exist; both have identical `SELECT, INSERT, UPDATE, DELETE, REFERENCES, TRIGGER, TRUNCATE` grants on 15 tables — much broader than role-declared. `rr_discovery_staging` is orphaned (no active sessions). `rr_worker`'s password was set by RR directly and is not in homelab vault. Cleanup is analogous to prod's 2026-04-20 rr_worker adoption: update config to `username: rr_worker` + `grants: [SELECT, INSERT, UPDATE]` + `remove_users: [rr_discovery_staging]`, generate + vault `rr_worker_staging_db_password`, apply — and **RR needs to pick up the new password before the next worker reconnect**, same coordinated handoff as prod. Not urgent; staging is currently working (just not per config).
+  - Effort: low (same mechanism as prod)
+  - Scope: homelab tracks state; RR coordinates password handoff
+  - Added: 2026-04-20
+
 - [ ] Reconcile unique-egress policy wording with RR's /24-pool interpretation
   - Context: `docs/vpn.md` §Egress Policy says "Every RR worker gets a unique egress IP. No sharing." RR has accepted that two staging workers sharing a single Mullvad /24 egress pool — but observing distinct egress IPs within that pool — satisfies the spirit of the unique-egress rule. Our policy text is stricter than RR's interpretation. Either tighten to match the policy (which rules out pool-sharing entirely) or loosen to match RR's interpretation (unique observed IP, not necessarily unique pool). Not urgent today; raised here so it gets discussed when the next staging worker is provisioned or when policy is revisited.
   - Effort: low (documentation decision)

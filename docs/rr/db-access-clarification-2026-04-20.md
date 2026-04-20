@@ -27,12 +27,52 @@ Three things needed before homelab can mirror this on prod VPS:
   - Role creates the user with SELECT-only grants on public schema + `pg_hba` rule scoped to the DB container's gateway IP.
 - `allowed_tailscale_source` set to two /32 entries: `100.118.218.126/32` (mums), `100.104.174.2/32` (CT173). Not tailnet-wide.
 
+## Follow-up round — rr_worker adoption (2026-04-20, later)
+
+RR clarified: drop `rr_discovery_prod`, provision `rr_worker` on prod with DML grants matching staging exactly. Grants: `GRANT SELECT, INSERT, UPDATE`.
+
+Homelab recon surfaced config/reality drift on both environments before proceeding:
+
+- Staging's ansible config declares `rr_discovery_staging` as the worker user, but the live worker actually connects as **`rr_worker`** (two idle sessions in `pg_stat_activity`). `rr_discovery_staging` is orphaned.
+- Both `rr_discovery_*` and `rr_worker` had identical grants including `DELETE, REFERENCES, TRIGGER, TRUNCATE` on top of `SELECT, INSERT, UPDATE` — much broader than the role's declared SELECT-only. Someone ran ad-hoc `GRANT` statements outside the role's management.
+- `rr_worker` was **already provisioned on both environments by RR directly** with passwords not known to homelab.
+
+Prod implementation (strict, per RR's written spec):
+
+- Role extended with `grants` config (list of priv keywords; default `['SELECT']`) — REVOKE ALL then GRANT declared set. Not additive — if a priv isn't listed, rr_worker won't have it.
+- Role extended with `remove_users` config — runs `REASSIGN OWNED + DROP OWNED + DROP ROLE IF EXISTS` (identifier-safe via `format('%I', ...)` inside PL/pgSQL EXECUTE). Terminates active sessions first.
+- Config change on prod VPS: `username: rr_worker`, `password_var: rr_worker_prod_db_password`, `grants: [SELECT, INSERT, UPDATE]`, `remove_users: [rr_discovery_prod]`.
+- Vault: new `rr_worker_prod_db_password` (32 random chars); `rr_discovery_prod_db_password` removed.
+- Password for rr_worker on prod was overwritten by the role's `ALTER ROLE` — whatever RR had set before is gone. **RR needs to pick up the new password from homelab vault before deploying prod workers.** See `docs/agents/raffle-raptor.md` §"Secret handoff".
+
+### Verified post-apply
+
+| check | result |
+|---|---|
+| `rr_worker` grants on prod | `SELECT, INSERT, UPDATE` on 14 tables (exactly) — `DELETE/REFERENCES/TRIGGER/TRUNCATE` removed |
+| `rr_discovery_prod` | dropped; no longer in pg_roles |
+| pg_hba.conf | `rr_worker` rules present (172.30.0.1/32 scram, reject else); `rr_discovery_prod` rules stripped |
+| mums + CT173 TCP → prod:5432 | ALLOW (unchanged) |
+| VM171 TCP → prod:5432 | BLOCK (unchanged) |
+
+### Staging untouched this round
+
+Per RR's request, staging was not modified. Staging's config/reality drift (orphaned `rr_discovery_staging`; `rr_worker` password RR-managed and not in homelab vault) is filed as a backlog item for a future coordinated cleanup.
+
+### Impact warning for RR
+
+**Prod `rr_worker` now has `SELECT, INSERT, UPDATE` only.** Before this session it had `SELECT, INSERT, UPDATE, DELETE, REFERENCES, TRIGGER, TRUNCATE`. If the prod worker code uses `DELETE` or `TRUNCATE`, it will fail — this is RR getting what RR's written spec asked for, but worth verifying against the actual codebase before deploying prod workers.
+
 ## Delivered commits
 
+Original round:
 - `f81f400` refactor(rr-db-access): rename from rr-staging-db-access + support multi-source
 - `7cc8b43` feat(rr-db-access): add prod VPS — rr_discovery_prod via Tailscale
 
-## Verified 2026-04-20
+Follow-up round (rr_worker):
+- role changes + strict grants + remove_users + config update + vault swap + docs (see `git log --oneline` after this file was committed)
+
+## Verified 2026-04-20 (initial round, rr_discovery_prod)
 
 | from → to | expect | got |
 |---|---|---|
@@ -42,4 +82,4 @@ Three things needed before homelab can mirror this on prod VPS:
 | staging-home → CT163:5432 | ALLOW (no regression) | ✓ |
 | VM171 → CT163:5432 | BLOCK (no regression) | ✓ |
 
-psql auth from mums and CT173 not exercised end-to-end — neither host has `psql` installed. RR's worker container has the pg client and is the real test. Password for `rr_discovery_prod` is in homelab vault at `rr_discovery_prod_db_password`; RR needs to retrieve it from the operator out-of-band (homelab doesn't share vault with RR).
+psql auth from mums and CT173 not exercised end-to-end — neither host has `psql` installed. RR's worker container has the pg client and is the real test. Password in homelab vault — superseded in the follow-up round below (see `rr_worker_prod_db_password`).
