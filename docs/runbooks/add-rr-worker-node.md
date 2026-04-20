@@ -54,6 +54,7 @@ rr-worker-<env>-<location>:
   tun_required: true
   roles:
   - docker
+  - tailscale_router  # installs Tailscale + renders phase1-up helper + reconciles prefs. Role name is misleading for leaf workers (see backlog item on broader rename); functionally it's what we want.
 ```
 
 Under `remote_nodes.nodes`:
@@ -120,28 +121,31 @@ ansible-playbook ansible/playbooks/guests.yml --limit rr-worker-<env>-<location>
 
 This runs guest-baseline, docker-host, log-policy, and promtail roles automatically.
 
-### 7. Install Tailscale
+### 7. Install Tailscale + render phase1-up helper (via `tailscale_router` role)
+
+The role assignment in Step 2 means Step 6's ansible apply already did this — the `tailscale-router` role installs the `tailscale` package, enables `tailscaled`, sets forwarding sysctls, renders `/usr/local/sbin/tailscale-phase1-up` from the declared config, and runs config-layer assertions (e.g. LAN-adjacency gotcha).
+
+Verify the helper exists:
 
 ```bash
-ssh root@10.20.30.<ID> "curl -fsSL https://tailscale.com/install.sh | sh"
-ssh root@10.20.30.<ID> "systemctl enable --now tailscaled"
+ssh root@10.20.30.<ID> "ls -la /usr/local/sbin/tailscale-phase1-up"
 ```
 
 ### 8. Join Tailscale
 
 ```bash
-ssh root@10.20.30.<ID> "tailscale up --hostname=rr-worker-<env>-<location> --accept-routes=false"
+ssh root@10.20.30.<ID> "/usr/local/sbin/tailscale-phase1-up"
 ```
 
-**IMPORTANT:** `--accept-routes=false` is mandatory for LAN-resident guests. See AGENTS.md known gotcha.
+The helper's flags reflect declared config (`--accept-dns`, `--accept-routes`, `--advertise-exit-node`, optional `--exit-node` / `--exit-node-allow-lan-access`, optional `--advertise-routes`). No flags are hardcoded in this runbook — they come from `config/homelab.yaml`. This eliminates the join→first-apply window where hardcoded flags could drift from declared config (the 2026-04-17 CT173 DNS incident).
 
-Authenticate via the login URL. Get Tailscale IP:
+Authenticate via the login URL. Get the assigned Tailscale IP:
 
 ```bash
 ssh root@10.20.30.<ID> "tailscale ip -4"
 ```
 
-Update `homelab.yaml` with the Tailscale IP (`tailscale_ip` field).
+Update `homelab.yaml` with the Tailscale IP (`tailscale_ip` field under `remote_nodes.nodes.<host>`). Re-run ansible after the update; the role's "Reconcile tailscale runtime prefs" task will confirm runtime matches declared on subsequent runs.
 
 ### 9. Deploy Nagios checks
 
