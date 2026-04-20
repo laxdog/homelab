@@ -361,6 +361,9 @@ remote_nodes:
         advertise_routes: []
         advertise_exit_node: false  # 2026-04-20: staging-home now CONSUMES VM171 as exit; Tailscale forbids simultaneous advertise+use.
         accept_dns: false
+        accept_routes: false  # MUST stay false — staging-home is LAN-resident via WiFi (10.20.30.153); AGENTS.md LAN-adjacency gotcha. Enforced by tailscale-router role assertion.
+        exit_node: tailscale-gateway
+        exit_node_allow_lan_access: true
       battery:
         enabled: true
         start_threshold: 40
