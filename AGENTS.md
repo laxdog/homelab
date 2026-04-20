@@ -163,6 +163,35 @@ This homelab uses two domains with fundamentally different access models.
 - Cert issues on `laxdog.uk` = NPM cert problem. The internal cert (cert 17) uses DNS-01 challenge via Cloudflare API. New SANs are added by running `certbot certonly --expand` inside the NPM container with the updated domain list.
 - Cert issues on `lax.dog` = Cloudflare / LE problem (check Cloudflare dashboard)
 
+## Running Ansible applies
+
+Full apply is not low-risk. Known patterns that have caused outages:
+
+- **AdGuard role flushes all rewrites and relies on downstream tasks to repopulate.** Any failure between the template render/restart and the `/control/rewrite/add` tasks = DNS outage for all internal `*.laxdog.uk` hostnames until rewrites are manually restored. (Backlog item.)
+- **`docker-host` role has an apt conflict between `docker-compose-plugin` and `docker-compose-v2`** that can leave `docker.service` broken on hosts where both Ubuntu's `docker-compose-v2` and Docker's `docker-compose-plugin` want `/usr/libexec/docker/cli-plugins/docker-compose`. Failure leaves `docker-ce` in dpkg `iU` state, all containers on the host go down. (Backlog item.)
+
+Until these are fixed:
+
+- Prefer narrow `--limit <host>` and `--tags <name>` when reconciling drift. Scope the blast radius before every apply.
+- If a broad apply is necessary, run outside peak use and have recovery commands ready:
+  - **AdGuard rewrites** (bulk restore via direct API — skips the role entirely):
+    ```bash
+    ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass
+    ADMIN_PW=$(ansible localhost -i 'localhost,' -c local -m debug -a 'var=adguard_admin_password' -e @ansible/secrets.yml | grep -oP '"adguard_admin_password": "\K[^"]*')
+    python3 -c "import yaml; [print(r['domain'], r['answer']) for r in yaml.safe_load(open('config/homelab.yaml'))['adguard']['rewrites']]" \
+      | while read d a; do curl -s -u "admin:$ADMIN_PW" -X POST -H 'Content-Type: application/json' \
+        -d "{\"domain\":\"$d\",\"answer\":\"$a\"}" http://10.20.30.53:80/control/rewrite/add; done
+    ```
+  - **docker-compose apt conflict** (force-overwrite + socket+service restart):
+    ```bash
+    ssh root@<host> 'apt-get install -y -o Dpkg::Options::=--force-overwrite docker-compose-plugin && \
+      dpkg --configure -a && \
+      systemctl reset-failed docker.service && \
+      systemctl start docker.socket docker.service'
+    ```
+
+See commit `6825272` for full context on the 2026-04-20 `loki.laxdog.uk` reconcile where both patterns fired and caused a brief multi-minute internal-DNS outage plus CT172 observability stack downtime.
+
 ## Universal conventions
 
 These apply to ALL agents.
