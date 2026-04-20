@@ -1,0 +1,96 @@
+---
+- name: Merge per-host mullvad_exit config from homelab.yaml
+  ansible.builtin.set_fact:
+    mullvad_exit: >-
+      {{
+        mullvad_exit
+        | combine(
+            (config.services | default({})).get('vms', {}).get(inventory_hostname, {}).get('mullvad_exit', {}),
+            recursive=True
+          )
+      }}
+
+- name: Validate required mullvad-exit config
+  ansible.builtin.assert:
+    that:
+      - mullvad_exit_private_key | length > 0
+      - mullvad_exit.interface_addresses | length > 0
+      - mullvad_exit.endpoint_ip | length > 0
+      - mullvad_exit.peer_public_key | length > 0
+    fail_msg: >-
+      mullvad-exit role requires: mullvad_exit_private_key (vault),
+      mullvad_exit.interface_addresses, mullvad_exit.endpoint_ip, and
+      mullvad_exit.peer_public_key. Check config/homelab.yaml
+      services.vms.{{ inventory_hostname }}.mullvad_exit and the vault.
+
+- name: Install wireguard-tools
+  ansible.builtin.apt:
+    name: wireguard-tools
+    state: present
+    update_cache: true
+
+- name: Ensure /etc/wireguard exists with secure perms
+  ansible.builtin.file:
+    path: /etc/wireguard
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Render {{ mullvad_exit.interface }}.conf
+  ansible.builtin.template:
+    src: wg0.conf.j2
+    dest: "/etc/wireguard/{{ mullvad_exit.interface }}.conf"
+    owner: root
+    group: root
+    mode: '0600'
+  notify: Restart wg-quick
+
+- name: Render kill-switch script
+  ansible.builtin.template:
+    src: mullvad-exit-killswitch.sh.j2
+    dest: /usr/local/sbin/mullvad-exit-killswitch
+    owner: root
+    group: root
+    mode: '0755'
+  notify: Reapply kill-switch
+
+- name: Install kill-switch systemd unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/mullvad-exit-killswitch.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Mullvad exit kill-switch (iptables FORWARD rules)
+      Before=wg-quick@{{ mullvad_exit.interface }}.service
+      DefaultDependencies=no
+      After=local-fs.target
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/local/sbin/mullvad-exit-killswitch up
+      ExecStop=/usr/local/sbin/mullvad-exit-killswitch down
+
+      [Install]
+      WantedBy=multi-user.target
+  register: killswitch_unit
+
+- name: Reload systemd if unit changed
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: killswitch_unit.changed
+
+- name: Enable and start kill-switch service
+  ansible.builtin.systemd:
+    name: mullvad-exit-killswitch
+    enabled: true
+    state: started
+
+- name: Enable and start wg-quick@{{ mullvad_exit.interface }}
+  ansible.builtin.systemd:
+    name: "wg-quick@{{ mullvad_exit.interface }}"
+    enabled: true
+    state: started

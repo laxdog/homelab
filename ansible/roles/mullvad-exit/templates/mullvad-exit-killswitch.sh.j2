@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+#
+# Kill-switch for VM171 Mullvad exit.
+#
+# FORWARD rules allow:
+#   - Tailscale -> wg0 (Mullvad egress for exit-node clients)
+#   - Tailscale -> LAN (subnet routing) and reverse
+# FORWARD rules drop:
+#   - Any other forwarded traffic entering on tailscale0
+#     (kill-switch: prevents leak via eth0 if wg0 is down)
+#
+# Installed at boot BEFORE wg-quick@wg0 via systemd ordering, so there is
+# no window in which forwarded traffic could egress eth0 before wg0 comes
+# up. VM171's own OUTPUT traffic is NOT in scope — Tailscale control plane
+# and SSH must remain reachable for recovery.
+
+set -euo pipefail
+
+CHAIN="MULLVAD-EXIT-FWD"
+CHAIN6="MULLVAD-EXIT-FWD6"
+WGIF="{{ mullvad_exit.interface }}"
+
+up() {
+  # IPv4 =====================================================================
+  iptables -w -N "$CHAIN" 2>/dev/null || iptables -w -F "$CHAIN"
+  iptables -w -C FORWARD -j "$CHAIN" 2>/dev/null \
+    || iptables -w -I FORWARD 1 -j "$CHAIN"
+
+  # LAN subnet routing (bidirectional).
+{% for cidr in mullvad_exit.lan_cidrs %}
+  iptables -w -A "$CHAIN" -i tailscale0 -o eth0 -d {{ cidr }} -j ACCEPT
+  iptables -w -A "$CHAIN" -i eth0 -s {{ cidr }} -o tailscale0 -j ACCEPT
+{% endfor %}
+
+  # Tailscale clients -> Mullvad egress.
+  iptables -w -A "$CHAIN" -i tailscale0 -o "$WGIF" -j ACCEPT
+  iptables -w -A "$CHAIN" -i "$WGIF" -o tailscale0 \
+    -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+  # Kill-switch: anything else from tailscale0 is dropped (no eth0 leak).
+  iptables -w -A "$CHAIN" -i tailscale0 -j DROP
+
+  # NAT outgoing via wg0.
+  iptables -w -t nat -C POSTROUTING -o "$WGIF" -j MASQUERADE 2>/dev/null \
+    || iptables -w -t nat -A POSTROUTING -o "$WGIF" -j MASQUERADE
+
+  # IPv6 =====================================================================
+  ip6tables -w -N "$CHAIN6" 2>/dev/null || ip6tables -w -F "$CHAIN6"
+  ip6tables -w -C FORWARD -j "$CHAIN6" 2>/dev/null \
+    || ip6tables -w -I FORWARD 1 -j "$CHAIN6"
+  ip6tables -w -A "$CHAIN6" -i tailscale0 -o "$WGIF" -j ACCEPT
+  ip6tables -w -A "$CHAIN6" -i "$WGIF" -o tailscale0 \
+    -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+  ip6tables -w -A "$CHAIN6" -i tailscale0 -j DROP
+  ip6tables -w -t nat -C POSTROUTING -o "$WGIF" -j MASQUERADE 2>/dev/null \
+    || ip6tables -w -t nat -A POSTROUTING -o "$WGIF" -j MASQUERADE
+}
+
+down() {
+  iptables -w -D FORWARD -j "$CHAIN" 2>/dev/null || true
+  iptables -w -F "$CHAIN" 2>/dev/null || true
+  iptables -w -X "$CHAIN" 2>/dev/null || true
+  iptables -w -t nat -D POSTROUTING -o "$WGIF" -j MASQUERADE 2>/dev/null || true
+
+  ip6tables -w -D FORWARD -j "$CHAIN6" 2>/dev/null || true
+  ip6tables -w -F "$CHAIN6" 2>/dev/null || true
+  ip6tables -w -X "$CHAIN6" 2>/dev/null || true
+  ip6tables -w -t nat -D POSTROUTING -o "$WGIF" -j MASQUERADE 2>/dev/null || true
+}
+
+case "${1:-}" in
+  up)   up ;;
+  down) down ;;
+  *)    echo "Usage: $0 {up|down}" >&2; exit 1 ;;
+esac

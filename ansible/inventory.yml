@@ -19,7 +19,7 @@ authentik_hosts:
 batocera_hosts:
   hosts:
     batocera-crt1:
-      ansible_host: 10.20.30.212
+      ansible_host: 10.20.30.206
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
 browser_hosts:
@@ -45,10 +45,6 @@ docker_hosts:
     authentik: *id001
     browser: *id002
     couchdb: *id003
-    observability: &id021
-      ansible_host: 10.20.30.172
-      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
-      ansible_ssh_user: root
     freshrss: &id004
       ansible_host: 10.20.30.157
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
@@ -77,19 +73,23 @@ docker_hosts:
       ansible_host: 10.20.30.154
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
-    organizr: &id014
+    observability: &id014
+      ansible_host: 10.20.30.172
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+    organizr: &id015
       ansible_host: 10.20.30.164
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
-    rr-application-staging-proxmox: &id015
+    rr-application-staging-proxmox: &id016
       ansible_host: 10.20.30.163
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
-    rr-worker-prod-proxmox: &id023
+    rr-worker-prod-proxmox: &id017
       ansible_host: 10.20.30.173
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
-    static-sites: &id016
+    static-sites: &id018
       ansible_host: 10.20.30.161
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
@@ -109,18 +109,18 @@ guests:
     heimdall: *id009
     jellyfin-hw: *id010
     media-stack: *id011
-    observability: *id021
-    nagios: &id017
+    nagios: &id020
       ansible_host: 10.20.30.133
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: ubuntu
     netalertx: *id012
     nginx-proxy-manager: *id013
-    organizr: *id014
-    rr-application-staging-proxmox: *id015
-    rr-worker-prod-proxmox: *id023
-    static-sites: *id016
-    tailscale-gateway: &id020
+    observability: *id014
+    organizr: *id015
+    rr-application-staging-proxmox: *id016
+    rr-worker-prod-proxmox: *id017
+    static-sites: *id018
+    tailscale-gateway: &id019
       ansible_host: 10.20.30.171
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: ubuntu
@@ -147,17 +147,20 @@ lxcs:
     jellyfin-hw: *id010
     netalertx: *id012
     nginx-proxy-manager: *id013
-    observability: *id021
-    organizr: *id014
-    rr-application-staging-proxmox: *id015
-    rr-worker-prod-proxmox: *id023
-    static-sites: *id016
+    observability: *id014
+    organizr: *id015
+    rr-application-staging-proxmox: *id016
+    rr-worker-prod-proxmox: *id017
+    static-sites: *id018
 media_hosts:
   hosts:
     media-stack: *id011
+mullvad_exit_hosts:
+  hosts:
+    tailscale-gateway: *id019
 nagios_hosts:
   hosts:
-    nagios: *id017
+    nagios: *id020
 netalertx_hosts:
   hosts:
     netalertx: *id012
@@ -169,7 +172,7 @@ nginx_proxy_manager_hosts:
     nginx-proxy-manager: *id013
 organizr_hosts:
   hosts:
-    organizr: *id014
+    organizr: *id015
 proxmox_hosts:
   hosts:
     proxmox:
@@ -178,78 +181,40 @@ proxmox_hosts:
       ansible_ssh_user: root
 python_bot_hosts:
   hosts:
-    rr-application-staging-proxmox: *id015
+    rr-application-staging-proxmox: *id016
 remote_node_baseline_hosts:
   hosts:
-    rr-worker-prod-mums: &id018
-      ansible_host: 100.118.218.126
+    rr-worker-prod-mums: &id021
+      ansible_host: 10.20.30.75
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
-    rr-worker-staging-home: &id019
-      ansible_host: 100.88.35.124
+    rr-worker-staging-home: &id022
+      ansible_host: 10.20.30.153
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
 remote_nodes_hosts:
   hosts:
-    rr-worker-prod-mums: *id018
-    rr-worker-staging-home: *id019
-static_sites_hosts:
-  hosts:
-    static-sites: *id016
-tailscale_router_hosts:
-  hosts:
-    rr-worker-prod-mums: *id018
-    rr-application-staging-proxmox: *id015
-    rr-worker-staging-home: *id019
-    tailscale-gateway: *id020
-observability_hosts:
-  hosts:
-    observability: *id021
-promtail_hosts:
-  hosts:
-    adguard: *id005
-    apt-cacher-ng: *id006
-    authentik: *id001
-    browser: *id002
-    couchdb: *id003
-    dashboard: *id007
-    freshrss: *id004
-    healthchecks: *id008
-    heimdall: *id009
-    jellyfin-hw: *id010
-    media-stack: *id011
-    nagios: *id017
-    netalertx: *id012
-    nginx-proxy-manager: *id013
-    observability: *id021
-    organizr: *id014
-    proxmox:
-      ansible_host: 10.20.30.46
-      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
-      ansible_ssh_user: root
-    rr-application-staging-proxmox: *id015
-    static-sites: *id016
-    tailscale-gateway: *id020
-    rr-worker-prod-mums: *id018
-    rr-application-prod-vps: &id022
-      ansible_host: 100.82.170.21
+    rr-application-prod-vps:
+      ansible_host: 159.195.59.97
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: mrobinson
-    rr-worker-prod-proxmox: *id023
-    rr-worker-staging-home: *id019
-  vars:
-    promtail_docker_logs: false
-raffle_raptor_prod_hosts:
+    rr-worker-prod-mums: *id021
+    rr-worker-prod-proxmox:
+      ansible_host: 10.20.30.173
+      ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
+      ansible_ssh_user: root
+    rr-worker-staging-home: *id022
+static_sites_hosts:
   hosts:
-    rr-application-prod-vps: *id022
-promtail_docker_hosts:
+    static-sites: *id018
+tailscale_router_hosts:
   hosts:
-    media-stack: *id011
-    observability: *id021
-  vars:
-    promtail_docker_logs: true
+    rr-application-staging-proxmox: *id016
+    rr-worker-prod-mums: *id021
+    rr-worker-staging-home: *id022
+    tailscale-gateway: *id019
 vms:
   hosts:
     media-stack: *id011
-    nagios: *id017
-    tailscale-gateway: *id020
+    nagios: *id020
+    tailscale-gateway: *id019

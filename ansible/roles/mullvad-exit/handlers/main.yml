@@ -1,0 +1,10 @@
+---
+- name: Restart wg-quick
+  ansible.builtin.systemd:
+    name: "wg-quick@{{ mullvad_exit.interface }}"
+    state: restarted
+
+- name: Reapply kill-switch
+  ansible.builtin.systemd:
+    name: mullvad-exit-killswitch
+    state: restarted

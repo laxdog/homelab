@@ -1,0 +1,19 @@
+{{ ansible_managed | comment }}
+# Mullvad exit config for {{ inventory_hostname }}.
+# Endpoint hostname (for reference): {{ mullvad_exit.endpoint_host }}
+#
+# DNS directive intentionally omitted — VM171's host resolv.conf points at
+# AdGuard (10.20.30.53) directly, and we do not want wg-quick to touch
+# resolvconf (see CT173 DNS incident 2026-04-17).
+
+[Interface]
+PrivateKey = {{ mullvad_exit_private_key }}
+Address = {{ mullvad_exit.interface_addresses | join(', ') }}
+# Table = auto (wg-quick default) with AllowedIPs = 0.0.0.0/0 uses policy
+# routing via fwmark 0xca6c, installs default route in rt table 51820.
+
+[Peer]
+PublicKey = {{ mullvad_exit.peer_public_key }}
+Endpoint = {{ mullvad_exit.endpoint_ip }}:{{ mullvad_exit.endpoint_port }}
+AllowedIPs = 0.0.0.0/0, ::/0
+PersistentKeepalive = {{ mullvad_exit.keepalive }}

@@ -1,0 +1,26 @@
+---
+# Defaults for mullvad-exit role.
+#
+# Per-host configuration is sourced from config.services.vms.<host>.mullvad_exit
+# (in config/homelab.yaml) and merged over these defaults via set_fact in
+# tasks/main.yml. Secret (private key) is expected in the Ansible vault as
+# `mullvad_exit_private_key` set by the invoking playbook.
+
+mullvad_exit:
+  interface: wg0
+  # Mullvad-assigned per-device addresses (IPv4/IPv6), e.g. ["10.67.1.2/32"].
+  interface_addresses: []
+  # Pinned Mullvad endpoint.
+  endpoint_host: ""      # Hostname for documentation only.
+  endpoint_ip: ""        # IPv4 used in the actual Endpoint= line (no DNS lookup at boot).
+  endpoint_port: 51820
+  # Mullvad server's WireGuard public key.
+  peer_public_key: ""
+  keepalive: 25
+  # LAN CIDRs that MUST continue to route via eth0 (subnet routing).
+  lan_cidrs:
+    - "10.20.30.0/24"
+
+# The vault-sourced private key. The invoking playbook should set this from
+# secrets.yml. Role validates non-empty before rendering.
+mullvad_exit_private_key: ""

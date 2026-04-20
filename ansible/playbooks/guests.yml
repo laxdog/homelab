@@ -46,6 +46,24 @@
   roles:
     - tailscale-router
 
+- name: Configure Mullvad exit node
+  hosts: mullvad_exit_hosts
+  become: true
+  gather_facts: true
+  tags: [mullvad]
+  vars:
+    config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
+  pre_tasks:
+    - name: Load vault secrets when available
+      ansible.builtin.include_vars:
+        file: ../secrets.yml
+      no_log: true
+      when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
+  roles:
+    - role: mullvad-exit
+      vars:
+        mullvad_exit_private_key: "{{ mullvad_vm171_wg_private_key | default('') }}"
+
 - name: Configure RR staging DB access over Tailscale
   hosts: python_bot_hosts
   become: true

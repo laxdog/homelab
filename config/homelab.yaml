@@ -483,10 +483,19 @@ services:
       ip: 10.20.30.171
       roles:
       - tailscale_router
+      - mullvad_exit
       os: ubuntu
       cores: 1
       memory_mb: 1024
       disk_gb: 16
+      mullvad_exit:
+        interface_addresses:
+        - "10.73.245.82/32"
+        - "fc00:bbbb:bbbb:bb01::a:f551/128"
+        endpoint_host: "gb-lon-wg-001.mullvad.net"
+        endpoint_ip: "141.98.252.130"
+        endpoint_port: 51820
+        peer_public_key: "IJJe0TQtuQOyemL4IZn6oHEsMKSPqOuLfD5HoAWEPTY="
   lxcs:
     adguard:
       id: 153
