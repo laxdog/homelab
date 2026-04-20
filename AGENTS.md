@@ -86,6 +86,18 @@ LAN-resident VMs/LXCs that join the Tailnet should NOT have `--accept-routes` en
 
 This was discovered when VM133 (Nagios) went unreachable after Tailscale was installed. Packets arrived on eth0 but replies were routed out tailscale0. All current Tailscale guests (VM133, CT163, VM171) have been verified with `RouteAll: false`.
 
+### Tailscale prefs — config is source of truth
+
+For nodes with the `tailscale_router` role (currently VM171, CT163, rr-worker-staging-home, rr-worker-prod-mums, plus new RR workers provisioned via `docs/runbooks/add-rr-worker-node.md`), per-node Tailscale prefs — `accept_dns`, `accept_routes`, `advertise_exit_node`, `advertise_routes`, `exit_node`, `exit_node_allow_lan_access` — are declared in `config/homelab.yaml` and reconciled by `tailscale set` on every `scripts/run.py guests` (or equivalent ansible apply).
+
+Manual `tailscale set` on these nodes is **ephemeral** — the next ansible apply will revert it to declared values. For persistent changes, edit the config and re-run the play.
+
+Two config-layer assertions run at role-apply time and fail fast on bad config:
+- `advertise_exit_node: true` + `exit_node: <nonempty>` — Tailscale rejects this combination at runtime. Caught at config time with a clearer error.
+- LAN-resident node (IP in `10.20.30.0/24`) + `accept_routes: true` — triggers the LAN-adjacency gotcha above. Caught at config time.
+
+Nodes **without** the `tailscale_router` role are NOT reconciled today — their runtime Tailscale prefs can drift silently from declared values. Extending reconciliation to non-router nodes is backlogged.
+
 ### Firewall testing
 
 When testing firewall rules that restrict access by source IP, the following hosts are available as test sources:
