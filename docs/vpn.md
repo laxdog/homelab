@@ -132,5 +132,12 @@ LAN clients (CT163, CT173, staging-home, etc.) are unaffected either way — the
 
 - VM120 Gluetun is unpinned (Mullvad France, no `SERVER_HOSTNAMES`) — consider pinning to prevent exit IP rotation
 - App-node egress IPs (CT163, prod VPS) rotate within Mullvad UK because Gluetun is unpinned (no `SERVER_HOSTNAMES`). Expect rotation after every Gluetun restart or key rotation. Do not build allow-lists or fingerprint rules against these IPs without pinning first.
+- **Mullvad egress NAT model — partially known, partially assumed.**
+  - Ingress endpoint (`ipv4_addr_in` from the Mullvad API) and external egress are *different IPs within the same /24* on Mullvad-owned servers.
+  - VM171 (gb-lon-wg-001): ingress `141.98.252.130`, egress `141.98.252.208`.
+  - CT163 after migration to gb-lon-wg-002: ingress `141.98.252.222`, egress `141.98.252.239` (per RR orchestrator, 2026-04-20).
+  - Egress appears **stable per-session**: VM171 held `141.98.252.208` across 3 days and one kill-switch bounce. Behaviour across `wg-quick` restart or key rotation is not tested.
+  - Assumed but not verified: Mullvad-owned London servers (`gb-lon-wg-001..008`) all egress from `141.98.252.0/24`. Two data points.
+  - If single-IP pinning of egress becomes load-bearing anywhere, verify the guarantee with Mullvad support. For allow-lists, **/24 granularity is safer** than pinning a single egress IP.
 - Mullvad device inventory should be audited whenever a device is added or removed
 - **Never exceed 5 devices** — check this doc before registering a new WireGuard key
