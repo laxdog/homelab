@@ -1,22 +1,26 @@
 ---
-- name: Resolve RR staging DB access config
+- name: Resolve RR DB access config
   ansible.builtin.set_fact:
     rr_db_access_cfg: >-
       {{
         (
-          (config.services | default({})).get('vms', {}).get(inventory_hostname, {}).get('rr_staging_db_access', {})
+          (config.services | default({})).get('vms', {}).get(inventory_hostname, {}).get('rr_db_access', {})
         )
         | combine(
-            (config.services | default({})).get('lxcs', {}).get(inventory_hostname, {}).get('rr_staging_db_access', {}),
+            (config.services | default({})).get('lxcs', {}).get(inventory_hostname, {}).get('rr_db_access', {}),
+            recursive=True
+          )
+        | combine(
+            (config.remote_nodes | default({})).get('nodes', {}).get(inventory_hostname, {}).get('rr_db_access', {}),
             recursive=True
           )
       }}
 
-- name: Skip host when RR staging DB access is not enabled
+- name: Skip host when RR DB access is not enabled
   ansible.builtin.meta: end_host
   when: not (rr_db_access_cfg.enabled | default(false) | bool)
 
-- name: Assert required RR staging DB access settings are present
+- name: Assert required RR DB access settings are present
   ansible.builtin.assert:
     that:
       - rr_db_access_cfg.db_container | default('') | length > 0
@@ -24,7 +28,7 @@
       - rr_db_access_cfg.username | default('') | length > 0
       - rr_db_access_cfg.password_var | default('') | length > 0
       - rr_db_access_cfg.allowed_tailscale_source | default('') | length > 0
-    fail_msg: "Missing required rr_staging_db_access config for {{ inventory_hostname }}"
+    fail_msg: "Missing required rr_db_access config for {{ inventory_hostname }}"
 
 - name: Assert vaulted DB password is available
   ansible.builtin.assert:
@@ -32,7 +36,7 @@
       - lookup('vars', rr_db_access_cfg.password_var, default='') | length > 0
     fail_msg: "Missing vaulted password variable '{{ rr_db_access_cfg.password_var }}'"
 
-- name: Install RR staging DB access prerequisites
+- name: Install RR DB access prerequisites
   ansible.builtin.apt:
     name:
       - socat
@@ -41,7 +45,7 @@
     state: present
     update_cache: true
 
-- name: Install RR staging DB Tailscale proxy script
+- name: Install RR DB Tailscale proxy script
   ansible.builtin.template:
     src: rr-db-ts-proxy.sh.j2
     dest: /usr/local/sbin/rr-db-ts-proxy
@@ -49,7 +53,7 @@
     group: root
     mode: '0755'
 
-- name: Install RR staging DB Tailscale proxy service
+- name: Install RR DB Tailscale proxy service
   ansible.builtin.template:
     src: rr-db-ts-proxy.service.j2
     dest: /etc/systemd/system/rr-db-ts-proxy.service
@@ -57,7 +61,7 @@
     group: root
     mode: '0644'
 
-- name: Install RR staging DB ingress firewall script
+- name: Install RR DB ingress firewall script
   ansible.builtin.template:
     src: rr-db-ts-firewall.sh.j2
     dest: /usr/local/sbin/rr-db-ts-firewall
@@ -65,7 +69,7 @@
     group: root
     mode: '0755'
 
-- name: Install RR staging DB ingress firewall service
+- name: Install RR DB ingress firewall service
   ansible.builtin.template:
     src: rr-db-ts-firewall.service.j2
     dest: /etc/systemd/system/rr-db-ts-firewall.service
@@ -73,21 +77,21 @@
     group: root
     mode: '0644'
 
-- name: Reload systemd for RR staging DB access units
+- name: Reload systemd for RR DB access units
   ansible.builtin.systemd:
     daemon_reload: true
 
-- name: Enable and start RR staging DB ingress firewall service
+- name: Enable and start RR DB ingress firewall service
   ansible.builtin.systemd:
     name: rr-db-ts-firewall.service
     enabled: true
     state: started
 
-- name: Apply RR staging DB ingress firewall rules now
+- name: Apply RR DB ingress firewall rules now
   ansible.builtin.command: /usr/local/sbin/rr-db-ts-firewall
   changed_when: false
 
-- name: Enable and start RR staging DB Tailscale proxy service
+- name: Enable and start RR DB Tailscale proxy service
   ansible.builtin.systemd:
     name: rr-db-ts-proxy.service
     enabled: true
@@ -112,7 +116,7 @@
       - rr_db_container_gateway | default('') | length > 0
     fail_msg: "Unable to determine DB container gateway IP for pg_hba allow list."
 
-- name: Enforce pg_hba rules for RR discovery user
+- name: Enforce pg_hba rules for RR worker user
   ansible.builtin.shell: |
     set -euo pipefail
     docker exec {{ rr_db_access_cfg.db_container }} sh -lc '
@@ -131,7 +135,7 @@
     executable: /bin/bash
   changed_when: false
 
-- name: Ensure RR discovery DB user and read-only grants
+- name: Ensure RR worker DB user and read-only grants
   ansible.builtin.shell: |
     set -euo pipefail
     docker exec -i {{ rr_db_access_cfg.db_container }} psql -U {{ rr_db_access_cfg.admin_user | default('postgres') }} -d {{ rr_db_access_cfg.database }} <<'SQL'

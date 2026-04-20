@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+CHAIN="RR-DB-INGRESS"
+PORT="{{ rr_db_access_cfg.port | default(5432) }}"
+
+# Normalize allowed_tailscale_source to a list (string → single-entry list).
+{% set sources = rr_db_access_cfg.allowed_tailscale_source
+     if (rr_db_access_cfg.allowed_tailscale_source is iterable
+         and rr_db_access_cfg.allowed_tailscale_source is not string)
+     else [rr_db_access_cfg.allowed_tailscale_source] %}
+
+# Migration (once-off, idempotent thereafter): strip any direct
+# ACCEPT/DROP rules on tailscale0:${PORT} from INPUT. Pre-chain-era
+# versions of this role installed them directly in INPUT; the chain
+# approach supersedes them. Subsequent runs find nothing to delete
+# and fall through to the chain setup below.
+while true; do
+  line=$(iptables -nvL INPUT --line-numbers 2>/dev/null \
+    | awk -v p="${PORT}" '
+      ($4 == "ACCEPT" || $4 == "DROP") && $7 == "tailscale0" && $0 ~ "dpt:" p {
+        print $1; exit
+      }
+    ')
+  [ -z "$line" ] && break
+  iptables -D INPUT "$line"
+done
+
+# Build the chain fresh every run (idempotent via flush+refill).
+iptables -N "$CHAIN" 2>/dev/null || iptables -F "$CHAIN"
+
+{% for src in sources %}
+iptables -A "$CHAIN" -i tailscale0 -p tcp --dport ${PORT} -s {{ src | regex_replace('/32$', '') }} -j ACCEPT
+{% endfor %}
+iptables -A "$CHAIN" -i tailscale0 -p tcp --dport ${PORT} -j DROP
+
+# Ensure INPUT jumps to our chain at position 1 — must come before
+# ts-input / ufw-* chains, otherwise tailnet traffic is accepted by
+# those before the DROP fires.
+if ! iptables -C INPUT -i tailscale0 -p tcp --dport ${PORT} -j "$CHAIN" 2>/dev/null; then
+  iptables -I INPUT 1 -i tailscale0 -p tcp --dport ${PORT} -j "$CHAIN"
+fi

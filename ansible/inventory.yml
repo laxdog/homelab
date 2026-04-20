@@ -179,9 +179,6 @@ proxmox_hosts:
       ansible_host: 10.20.30.46
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
-python_bot_hosts:
-  hosts:
-    rr-application-staging-proxmox: *id016
 remote_node_baseline_hosts:
   hosts:
     rr-worker-prod-mums: &id021
@@ -204,6 +201,9 @@ remote_nodes_hosts:
       ansible_ssh_private_key_file: /home/mrobinson/.ssh/id_rsa
       ansible_ssh_user: root
     rr-worker-staging-home: *id022
+rr_db_access_hosts:
+  hosts:
+    rr-application-staging-proxmox: *id016
 static_sites_hosts:
   hosts:
     static-sites: *id018

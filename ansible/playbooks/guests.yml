@@ -64,8 +64,8 @@
       vars:
         mullvad_exit_private_key: "{{ mullvad_vm171_wg_private_key | default('') }}"
 
-- name: Configure RR staging DB access over Tailscale
-  hosts: python_bot_hosts
+- name: Configure RR DB access over Tailscale
+  hosts: rr_db_access_hosts
   become: true
   gather_facts: true
   vars:
@@ -84,7 +84,7 @@
         - lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
         - lookup('ansible.builtin.file', playbook_dir ~ '/../secrets-rr-staging.yml', errors='ignore') | length > 0
   roles:
-    - rr-staging-db-access
+    - rr-db-access
 
 - name: Configure Nginx Proxy Manager
   hosts: nginx_proxy_manager_hosts

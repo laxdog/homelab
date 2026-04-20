@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-TS_IP="$(tailscale ip -4 | head -n1)"
-DB_IP="$(docker inspect -f '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' {{ rr_db_access_cfg.db_container }})"
-exec socat TCP4-LISTEN:{{ rr_db_access_cfg.port | default(5432) }},bind=${TS_IP},reuseaddr,fork,range={{ rr_db_access_cfg.allowed_tailscale_source }} TCP:${DB_IP}:5432

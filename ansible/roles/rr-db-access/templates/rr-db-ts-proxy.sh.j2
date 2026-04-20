@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+TS_IP="$(tailscale ip -4 | head -n1)"
+DB_IP="$(docker inspect -f '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' {{ rr_db_access_cfg.db_container }})"
+# socat's `range=` takes a single CIDR; we use the tailnet CGNAT range
+# (or a caller-overridden `socat_source_cidr`) as a pre-filter. iptables
+# enforces the precise per-source /32 allow list (see rr-db-ts-firewall).
+SOCAT_RANGE="{{ rr_db_access_cfg.socat_source_cidr | default('100.64.0.0/10') }}"
+exec socat TCP4-LISTEN:{{ rr_db_access_cfg.port | default(5432) }},bind=${TS_IP},reuseaddr,fork,range=${SOCAT_RANGE} TCP:${DB_IP}:5432
