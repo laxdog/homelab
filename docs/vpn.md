@@ -13,7 +13,7 @@ Keep this up to date whenever devices are added or removed.
 |---|---|---|---|---|
 | live panda | VM120 media-stack (Gluetun) | `cOcvD/tp...` | Mullvad France (unpinned) | 2026-03-22 |
 | known eel | CT163 rr-application-staging-proxmox (Gluetun) | `eFY1vCT...` | Mullvad UK London (gb-lon-wg-002, Mullvad-owned) | 2026-02-26 |
-| well raven | rr-application-prod-vps (Gluetun) | `WqjCL+V...` | Mullvad UK London (gb-lon-wg-301) | 2026-02-26 |
+| well raven | rr-application-prod-vps (Gluetun) | `WqjCL+V...` | Mullvad UK London (gb-lon-wg-003, Mullvad-owned — RR migration 2026-04-20, Phase 5 allowlist update pending) | 2026-02-26 |
 | holy llama | Operator phone/laptop (Mullvad app direct, not via Gluetun) | `T+saClF...` | — | 2026-02-06 |
 | normal koala | VM171 tailscale-gateway (wg-quick, role `mullvad-exit`) | `smCBm+S...` | Mullvad UK London (gb-lon-wg-001, pinned — Mullvad-owned) | 2026-04-20 |
 
@@ -21,7 +21,7 @@ Keep this up to date whenever devices are added or removed.
 
 **Mapping verified 2026-04-17** (live panda, known eel, well raven) and **2026-04-20** (normal koala) by deriving the X25519 public key from each node's WireGuard private key and matching against the Mullvad account. `holy llama` is the only device not tied to a homelab-managed node — presumed to be the operator's Mullvad app on phone or laptop connecting directly.
 
-> **Caveat — RR-managed Gluetun config**: CT163 and prod VPS run their Gluetun containers from RR's compose (not this repo). The `Server` column here reflects what the RR orchestrator reports; homelab Ansible does not independently verify `SERVER_HOSTNAMES` or the peer pubkey on these nodes. Pin changes are driven by the RR orchestrator. CT163 migration to `gb-lon-wg-002` was reported by RR on 2026-04-20; prod VPS migration to `gb-lon-wg-003` is still pending per RR.
+> **Caveat — RR-managed Gluetun config**: CT163 and prod VPS run their Gluetun containers from RR's compose (not this repo). The `Server` column here reflects what the RR orchestrator reports; homelab Ansible does not independently verify `SERVER_HOSTNAMES` or the peer pubkey on these nodes. Pin changes are driven by the RR orchestrator. CT163 migration to `gb-lon-wg-002` completed 2026-04-20; prod VPS migration to `gb-lon-wg-003` reported complete on RR's side 2026-04-20 with `VPN_EGRESS_IP_ALLOWLIST` update pending their Phase 5 follow-up — until that lands, the prod VPS Gluetun container may be running with a stale allowlist and failing egress-IP validation. Homelab will update the egress map snapshot once RR confirms Phase 5 complete.
 
 ## WireGuard Private Keys
 
@@ -113,7 +113,7 @@ LAN clients (CT163, CT173, staging-home, etc.) are unaffected either way — the
 | VM120 media-stack | 193.32.126.214 | Mullvad FR (unpinned) | arr stack downloads |
 | VM171 tailscale-gateway | 141.98.252.208 | Mullvad UK London (gb-lon-wg-001, **pinned**) | Host egress + Tailscale exit-node forwarded traffic. Snapshot 2026-04-20; SNAT pool so egress IP can shift within 141.98.252.0/24. |
 | rr-application-staging-proxmox (CT163) | 141.98.252.239 | Mullvad UK London via Gluetun (gb-lon-wg-002, Mullvad-owned, **pinned**) | RR staging scraper. Migrated off `gb-lon-wg-201` (xtom, inactive) on 2026-04-20 — RR-reported. SNAT pool so egress IP can shift within `141.98.252.0/24`. |
-| rr-application-prod-vps | 146.70.119.78 | Mullvad UK (unpinned — rotates) | RR prod scraper. Snapshot 2026-04-17. |
+| rr-application-prod-vps | *pending* | Mullvad UK London (gb-lon-wg-003, Mullvad-owned, **pinned** — RR migration 2026-04-20) | RR prod scraper. RR updated `SERVER_HOSTNAMES` 2026-04-20; `VPN_EGRESS_IP_ALLOWLIST` update pending RR Phase 5 follow-up. Current egress not confirmed by homelab — do not fingerprint. Pre-migration snapshot was `146.70.119.78` (gb-lon-wg-301 M247). |
 | rr-worker-staging-home | 141.98.252.208 | Mullvad UK London via VM171 (Tailscale exit node) | Cut over 2026-04-20. `--exit-node-allow-lan-access=true` keeps LAN-direct paths (CT163 DB proxy, AdGuard, NPM). SNAT pool — snapshot IP. |
 | rr-worker-prod-proxmox (CT173) | 212.56.120.65 | Bare NAT | Operator home static IP (unique — staging-home moved to Mullvad via VM171 on 2026-04-20) |
 | rr-worker-prod-mums | 109.155.65.157 | Bare NAT | mum's residential IP (unique) |
@@ -135,9 +135,11 @@ LAN clients (CT163, CT173, staging-home, etc.) are unaffected either way — the
 - **Mullvad egress NAT model — partially known, partially assumed.**
   - Ingress endpoint (`ipv4_addr_in` from the Mullvad API) and external egress are *different IPs within the same /24* on Mullvad-owned servers.
   - VM171 (gb-lon-wg-001): ingress `141.98.252.130`, egress `141.98.252.208`.
-  - CT163 after migration to gb-lon-wg-002: ingress `141.98.252.222`, egress `141.98.252.239` (per RR orchestrator, 2026-04-20).
-  - Egress appears **stable per-session**: VM171 held `141.98.252.208` across 3 days and one kill-switch bounce. Behaviour across `wg-quick` restart or key rotation is not tested.
-  - Assumed but not verified: Mullvad-owned London servers (`gb-lon-wg-001..008`) all egress from `141.98.252.0/24`. Two data points.
+  - CT163 (gb-lon-wg-002): ingress `141.98.252.222`, egress `141.98.252.239` (RR-reported, 2026-04-20).
+  - Prod VPS (gb-lon-wg-003): ingress per Mullvad API is `185.195.232.66`; egress TBD — RR Phase 5 allowlist update pending before the container can confirm egress.
+  - Three migrations tracked; two with confirmed egress, one pending. The `141.98.252.0/24` assumption is being re-examined given gb-lon-wg-003's ingress sits in `185.195.232.0/24` (Mullvad-owned subnet block spans multiple /24s — server ingress and egress pools may not share a /24 across all 001..008).
+  - Egress appears **stable per-session**: VM171 held `141.98.252.208` across 3+ days and one kill-switch bounce. Behaviour across `wg-quick` restart or key rotation is not tested.
+  - **RR has moved to /24 CIDR allowlist matching** on their Gluetun `VPN_EGRESS_IP_ALLOWLIST` (in line with the safer-than-single-IP recommendation below) — pending Phase 5.
   - If single-IP pinning of egress becomes load-bearing anywhere, verify the guarantee with Mullvad support. For allow-lists, **/24 granularity is safer** than pinning a single egress IP.
 - Mullvad device inventory should be audited whenever a device is added or removed
 - **Never exceed 5 devices** — check this doc before registering a new WireGuard key
