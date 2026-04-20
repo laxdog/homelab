@@ -26,6 +26,34 @@
           )
       }}
 
+- name: Determine if host is LAN-resident (10.20.30.0/24)
+  ansible.builtin.set_fact:
+    tailscale_node_is_lan_resident: >-
+      {{ (ansible_all_ipv4_addresses | default([])
+          | select('match', '^10\\.20\\.30\\.') | list | length) > 0 }}
+
+- name: Assert advertise_exit_node and exit_node are not both set
+  ansible.builtin.assert:
+    that:
+      - not ((tailscale_node_cfg.advertise_exit_node | default(false) | bool)
+             and ((tailscale_node_cfg.exit_node | default('')) | length > 0))
+    fail_msg: >-
+      Cannot advertise an exit node and consume one simultaneously.
+      Set advertise_exit_node: false if exit_node is set (or vice versa).
+      Current config: advertise_exit_node={{ tailscale_node_cfg.advertise_exit_node | default(false) }},
+      exit_node='{{ tailscale_node_cfg.exit_node | default('') }}'.
+
+- name: Assert accept_routes respects the LAN-adjacency gotcha (AGENTS.md)
+  ansible.builtin.assert:
+    that:
+      - not ((tailscale_node_cfg.accept_routes | default(false) | bool)
+             and tailscale_node_is_lan_resident)
+    fail_msg: >-
+      LAN-resident node with accept_routes=true triggers the AGENTS.md
+      LAN-adjacency gotcha: inbound LAN traffic reply packets route out
+      tailscale0 instead of eth0, breaking inbound connectivity. Set
+      accept_routes: false on LAN-resident guests.
+
 - name: Install prerequisites for Tailscale apt repository
   ansible.builtin.apt:
     name:
@@ -82,11 +110,18 @@
     mode: '0755'
     content: |
       #!/usr/bin/env bash
+      # Managed by tailscale-router role. Flags reflect declared config
+      # in homelab.yaml (global + per-host). Post-join, prefs are kept
+      # in sync by the "Reconcile tailscale runtime prefs" task on every
+      # ansible apply.
       set -euo pipefail
       tailscale up \
         {% if (tailscale_node_cfg.advertise_routes | default([]) | length) > 0 %}--advertise-routes={{ (tailscale_node_cfg.advertise_routes | default([])) | join(',') }} \
-        {% endif %}{% if tailscale_node_cfg.advertise_exit_node | default(true) %}--advertise-exit-node \
-        {% endif %}--accept-dns={{ 'true' if (tailscale_node_cfg.accept_dns | default(false) | bool) else 'false' }}
+        {% endif %}{% if tailscale_node_cfg.advertise_exit_node | default(false) | bool %}--advertise-exit-node \
+        {% endif %}{% if (tailscale_node_cfg.exit_node | default('')) | length > 0 %}--exit-node={{ tailscale_node_cfg.exit_node }} \
+        --exit-node-allow-lan-access={{ 'true' if (tailscale_node_cfg.exit_node_allow_lan_access | default(false) | bool) else 'false' }} \
+        {% endif %}--accept-routes={{ 'true' if (tailscale_node_cfg.accept_routes | default(false) | bool) else 'false' }} \
+        --accept-dns={{ 'true' if (tailscale_node_cfg.accept_dns | default(false) | bool) else 'false' }}
 
 - name: Check Tailscale backend state (informational only in phase 1)
   ansible.builtin.command: tailscale status --json
@@ -94,11 +129,32 @@
   changed_when: false
   failed_when: false
 
+- name: Reconcile tailscale runtime prefs from config
+  # Idempotent: `tailscale set` is a no-op when runtime already matches.
+  # changed_when: false because `set` doesn't emit diff-able stdout;
+  # true drift detection would require a pre/post `tailscale debug prefs`
+  # comparison which is not worth the complexity today.
+  ansible.builtin.command:
+    cmd: >-
+      tailscale set
+      --accept-dns={{ 'true' if (tailscale_node_cfg.accept_dns | default(false) | bool) else 'false' }}
+      --accept-routes={{ 'true' if (tailscale_node_cfg.accept_routes | default(false) | bool) else 'false' }}
+      --advertise-exit-node={{ 'true' if (tailscale_node_cfg.advertise_exit_node | default(false) | bool) else 'false' }}
+      --exit-node={{ tailscale_node_cfg.exit_node | default('') }}
+      --exit-node-allow-lan-access={{ 'true' if (tailscale_node_cfg.exit_node_allow_lan_access | default(false) | bool) else 'false' }}
+      --advertise-routes={{ (tailscale_node_cfg.advertise_routes | default([])) | join(',') }}
+  when:
+    - not (tailscale_status_json.skipped | default(false))
+    - (tailscale_status_json.rc | default(1)) == 0
+    - ((tailscale_status_json.stdout | default('{}', true) | from_json).BackendState | default('')) == 'Running'
+  changed_when: false
+
 - name: Show manual-login hint when node is not yet joined
   ansible.builtin.debug:
     msg: >-
-      {{ inventory_hostname }} is installed but not joined yet (state={{ (tailscale_status_json.stdout | default('{}') | from_json).BackendState | default('unknown') }}).
+      {{ inventory_hostname }} is installed but not joined yet (state={{ (tailscale_status_json.stdout | default('{}', true) | from_json).BackendState | default('unknown') }}).
       Run /usr/local/sbin/tailscale-phase1-up and complete the login + admin approvals.
   when:
-    - tailscale_status_json.rc == 0
-    - ((tailscale_status_json.stdout | default('{}') | from_json).BackendState | default('')) != 'Running'
+    - not (tailscale_status_json.skipped | default(false))
+    - (tailscale_status_json.rc | default(1)) == 0
+    - ((tailscale_status_json.stdout | default('{}', true) | from_json).BackendState | default('')) != 'Running'
