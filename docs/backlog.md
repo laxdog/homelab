@@ -19,6 +19,18 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
 
 ## Medium Priority
 
+- [ ] AdGuard role: stop flushing rewrites on every run
+  - Context: the adguard role renders `AdGuardHome.yaml` from a template that emits `rewrites: []`, restarts AdGuard, and then relies on downstream API tasks (`/control/rewrite/add`) to repopulate rewrites. If ANY task between the restart and the rewrite-add tasks fails (today: `/control/safesearch/status` returned 404 because that endpoint has drifted in current AdGuard versions), the play halts and ALL `*.laxdog.uk` rewrites are wiped in the interim. Today this broke DNS for all 31 internal hostnames for ~2 minutes until rewrites were restored by direct API calls. Fix: either have the template render the declared rewrites (with `enabled: true`) and skip the API-repopulate step, or make the rewrite-add tasks run BEFORE any task that could fail. Also fix the safesearch API call (404) — endpoint has moved in newer AdGuard releases.
+  - Effort: medium
+  - Scope: homelab
+  - Added: 2026-04-20
+
+- [ ] CT172 apt: `docker-compose-plugin` vs `docker-compose-v2` file collision
+  - Context: the docker-host role's canonical Docker apt source pulls `docker-compose-plugin` which owns `/usr/libexec/docker/cli-plugins/docker-compose`; Ubuntu's `docker-compose-v2` (already installed from Noble's repos) owns the same file. Ansible apply against CT172 today hit this and dpkg left `docker-ce` in `iU` (unpacked-not-configured) state, breaking `docker.service`. Recovered manually via `--force-overwrite` + `systemctl start docker.socket docker.service`. Current state is `--force-overwrite`d — the file belongs to `docker-compose-plugin` but both packages are `ii`. Next apt upgrade may re-trigger the conflict. Fix: remove `docker-compose-v2` from the image/install (role shouldn't rely on Ubuntu's version), OR remove `docker-compose-plugin` from the role's install list if Ubuntu's version is sufficient.
+  - Effort: low
+  - Scope: homelab
+  - Added: 2026-04-20
+
 - [ ] CT163 Gluetun: `known eel` pinned to inactive server, egressing unexpectedly
   - Context: `known eel` device (CT163) is registered against `gb-lon-wg-201` per `docs/vpn.md`, but the Mullvad API (checked 2026-04-20 via `https://api.mullvad.net/www/relays/wireguard/`) shows that server is currently `active: false`. CT163 Gluetun is still egressing from the `185.248.85.0/24` subnet (e.g. `185.248.85.16` observed on 2026-04-17) — which is the xtom-provider range the inactive `gb-lon-wg-201/202` sit in. Gluetun appears to be auto-failing over to another xtom server (203 or 204) or the provider is doing opaque NAT, but our pinning intent is violated. Investigate by running `docker exec raffle-raptor-gluetun-1 wg show` to see the actual handshake peer, compare against the `SERVER_HOSTNAMES` env (or whatever pinning config RR uses), and determine why Gluetun isn't failing hard on an inactive pin.
   - Effort: low (investigation)

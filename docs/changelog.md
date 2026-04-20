@@ -2,6 +2,14 @@
 
 Significant infrastructure changes by date. Agents should add entries here for major changes.
 
+## 2026-04-20 (later)
+- `loki.laxdog.uk` drift reconciled. Root cause: declared in `config/homelab.yaml` five days earlier (commit `d644d90`) but Ansible apply hadn't fully run against adguard + NPM since. Full apply today revealed three role bugs that all contributed:
+  1. **NPM update task payload** (fixed, commit `9e2e0f5`): `locations: null` from NPM's API tripped `| default([])` and caused a 400 on Update, which halted the loop and blocked the Create task — meaning no new proxy hosts (Loki) got created, and existing grafana/prometheus updates also failed.
+  2. **AdGuard role flushes rewrites on every run**: the template renders `rewrites: []` (loop over `config.adguard.rewrites` somehow produces empty) then restarts AdGuard, relying on subsequent API `/control/rewrite/add` tasks to repopulate. Today the `/control/safesearch/status` task 404d (API endpoint drift in AdGuard) and halted the play before the rewrite-add tasks ran — ALL 31 `*.laxdog.uk` rewrites were wiped for ~2 minutes until I restored them via direct API calls. High-risk pattern; filed to backlog.
+  3. **CT172 apt conflict**: `docker-compose-plugin` tried to install and collided with `docker-compose-v2` over `/usr/libexec/docker/cli-plugins/docker-compose`. dpkg left docker-ce in `iU` state, docker.service failed to start, all observability containers went down. Recovered by `--force-overwrite` + `systemctl start docker.socket docker.service`, then `docker start` on the stopped containers. Filed to backlog.
+- Loki end-state: `https://loki.laxdog.uk/ready` returns 200 "ready"; cert 22 (new LE cert auto-created by NPM role with loki in SAN list) is in use on proxy host 64.conf; AdGuard rewrite present; backend healthy.
+- Grafana + Prometheus unchanged and still serving.
+
 ## 2026-04-20
 - VM171 (tailscale-gateway) now egresses via Mullvad. Device `normal koala` on `gb-lon-wg-001` (Mullvad-owned, pinned). Role `mullvad-exit` deployed via Ansible: `wg-quick@wg0` up, iptables FORWARD kill-switch (`MULLVAD-EXIT-FWD` chain, installed by `mullvad-exit-killswitch.service` ordered `Before=wg-quick`) blocks eth0 leak path. VM171 own egress + forwarded Tailscale exit-node traffic now routes through Mullvad UK (`141.98.252.0/24` pool). Mullvad slot count 5/5.
 - Tailnet / wg-quick coexistence bug found and fixed: wg-quick's pri-5209 policy rule catches de-NAT'd reply packets destined for tailnet CGNAT and loops them back via wg0. Fix: pri-5200 rule sending `100.64.0.0/10` and `fd7a:115c:a1e0::/48` to Tailscale's table 52, installed via wg0.conf PostUp/PreDown in the role.
