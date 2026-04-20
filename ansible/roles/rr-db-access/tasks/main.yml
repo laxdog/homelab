@@ -30,6 +30,17 @@
       - rr_db_access_cfg.allowed_tailscale_source | default('') | length > 0
     fail_msg: "Missing required rr_db_access config for {{ inventory_hostname }}"
 
+- name: Assert grants are valid SQL privilege keywords
+  ansible.builtin.assert:
+    that:
+      - (rr_db_access_cfg.grants | default(['SELECT']))
+          | difference(['SELECT','INSERT','UPDATE','DELETE','REFERENCES','TRIGGER','TRUNCATE'])
+          | length == 0
+    fail_msg: >-
+      rr_db_access.grants must be a subset of
+      [SELECT, INSERT, UPDATE, DELETE, REFERENCES, TRIGGER, TRUNCATE].
+      Got: {{ rr_db_access_cfg.grants | default(['SELECT']) }}
+
 - name: Assert vaulted DB password is available
   ansible.builtin.assert:
     that:
@@ -116,18 +127,25 @@
       - rr_db_container_gateway | default('') | length > 0
     fail_msg: "Unable to determine DB container gateway IP for pg_hba allow list."
 
-- name: Enforce pg_hba rules for RR worker user
+- name: Enforce pg_hba rules for RR worker user (and strip entries for remove_users)
   ansible.builtin.shell: |
     set -euo pipefail
     docker exec {{ rr_db_access_cfg.db_container }} sh -lc '
       set -e
       HBA={{ rr_db_access_cfg.pg_hba_file | default("/var/lib/postgresql/data/pg_hba.conf") }}
       TMP=$(mktemp)
-      printf "host {{ rr_db_access_cfg.database }} {{ rr_db_access_cfg.username }} {{ rr_db_container_gateway }}/32 scram-sha-256\n" > "$TMP"
-      printf "host {{ rr_db_access_cfg.database }} {{ rr_db_access_cfg.username }} 0.0.0.0/0 reject\n" >> "$TMP"
-      printf "host {{ rr_db_access_cfg.database }} {{ rr_db_access_cfg.username }} ::0/0 reject\n" >> "$TMP"
-      grep -vF "{{ rr_db_access_cfg.username }}" "$HBA" >> "$TMP"
-      cat "$TMP" > "$HBA"
+      # Start from existing HBA, then strip entries for the managed user and any removed users.
+      cp "$HBA" "$TMP"
+      {% for u in [rr_db_access_cfg.username] + (rr_db_access_cfg.remove_users | default([])) %}
+      grep -vF "{{ u }}" "$TMP" > "$TMP.new" && mv "$TMP.new" "$TMP"
+      {% endfor %}
+      # Prepend fresh rules for the current managed user.
+      {
+        printf "host {{ rr_db_access_cfg.database }} {{ rr_db_access_cfg.username }} {{ rr_db_container_gateway }}/32 scram-sha-256\n"
+        printf "host {{ rr_db_access_cfg.database }} {{ rr_db_access_cfg.username }} 0.0.0.0/0 reject\n"
+        printf "host {{ rr_db_access_cfg.database }} {{ rr_db_access_cfg.username }} ::0/0 reject\n"
+        cat "$TMP"
+      } > "$HBA"
       rm -f "$TMP"
       psql -U {{ rr_db_access_cfg.admin_user | default("postgres") }} -d {{ rr_db_access_cfg.database }} -c "SELECT pg_reload_conf();" >/dev/null
     '
@@ -135,7 +153,7 @@
     executable: /bin/bash
   changed_when: false
 
-- name: Ensure RR worker DB user and read-only grants
+- name: Ensure RR worker DB user and strict grants
   ansible.builtin.shell: |
     set -euo pipefail
     docker exec -i {{ rr_db_access_cfg.db_container }} psql -U {{ rr_db_access_cfg.admin_user | default('postgres') }} -d {{ rr_db_access_cfg.database }} <<'SQL'
@@ -149,15 +167,57 @@
     END
     $$;
 
+    -- Strict grants: role owns what privileges this user has on public schema.
+    -- Revoke everything, then grant exactly the declared set. If RR's app needs
+    -- a privilege that isn't in rr_db_access.grants, it will fail — by design.
+    REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {{ rr_db_access_cfg.username }};
+    REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {{ rr_db_access_cfg.username }};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM {{ rr_db_access_cfg.username }};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM {{ rr_db_access_cfg.username }};
+
     REVOKE ALL ON DATABASE {{ rr_db_access_cfg.database }} FROM {{ rr_db_access_cfg.username }};
     GRANT CONNECT ON DATABASE {{ rr_db_access_cfg.database }} TO {{ rr_db_access_cfg.username }};
     GRANT USAGE ON SCHEMA public TO {{ rr_db_access_cfg.username }};
-    GRANT SELECT ON ALL TABLES IN SCHEMA public TO {{ rr_db_access_cfg.username }};
+
+    GRANT {{ (rr_db_access_cfg.grants | default(['SELECT'])) | join(', ') }} ON ALL TABLES IN SCHEMA public TO {{ rr_db_access_cfg.username }};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT {{ (rr_db_access_cfg.grants | default(['SELECT'])) | join(', ') }} ON TABLES TO {{ rr_db_access_cfg.username }};
+
+    -- Sequences: default to SELECT (covers nextval/currval for SERIAL columns).
+    -- Widening sequence grants beyond SELECT is a separate concern; add a
+    -- sequence_grants config field if ever needed.
     GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO {{ rr_db_access_cfg.username }};
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO {{ rr_db_access_cfg.username }};
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON SEQUENCES TO {{ rr_db_access_cfg.username }};
     SQL
   args:
     executable: /bin/bash
   changed_when: false
   no_log: true
+
+- name: Remove users listed in remove_users
+  # Uses format('%I', ...) to safely quote role identifiers inside EXECUTE.
+  # Terminates any active sessions, releases owned objects / grants, then drops.
+  # Idempotent via IF EXISTS guard — no-op when the role is already absent.
+  ansible.builtin.shell: |
+    set -euo pipefail
+    docker exec -i {{ rr_db_access_cfg.db_container }} psql -U {{ rr_db_access_cfg.admin_user | default('postgres') }} -d {{ rr_db_access_cfg.database }} <<'SQL'
+    DO $$
+    DECLARE
+      target_role TEXT := '{{ item }}';
+    BEGIN
+      IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = target_role) THEN
+        PERFORM pg_terminate_backend(pid)
+          FROM pg_stat_activity
+          WHERE usename = target_role;
+        EXECUTE format('REASSIGN OWNED BY %I TO postgres', target_role);
+        EXECUTE format('DROP OWNED BY %I', target_role);
+        EXECUTE format('DROP ROLE %I', target_role);
+      END IF;
+    END
+    $$;
+    SQL
+  args:
+    executable: /bin/bash
+  loop: "{{ rr_db_access_cfg.remove_users | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  changed_when: false

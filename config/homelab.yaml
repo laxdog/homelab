@@ -409,8 +409,11 @@ remote_nodes:
         enabled: true
         db_container: raffle-raptor-db-1
         database: raffle_raptor
-        username: rr_discovery_prod
-        password_var: rr_discovery_prod_db_password
+        username: rr_worker
+        password_var: rr_worker_prod_db_password
+        grants: [SELECT, INSERT, UPDATE]
+        remove_users:
+        - rr_discovery_prod
         allowed_tailscale_source:
         - 100.118.218.126/32  # rr-worker-prod-mums
         - 100.104.174.2/32    # rr-worker-prod-proxmox (CT173)
