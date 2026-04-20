@@ -31,11 +31,10 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Scope: homelab
   - Added: 2026-04-20
 
-- [ ] CT163 Gluetun: `known eel` pinned to inactive server, egressing unexpectedly
-  - Context: `known eel` device (CT163) is registered against `gb-lon-wg-201` per `docs/vpn.md`, but the Mullvad API (checked 2026-04-20 via `https://api.mullvad.net/www/relays/wireguard/`) shows that server is currently `active: false`. CT163 Gluetun is still egressing from the `185.248.85.0/24` subnet (e.g. `185.248.85.16` observed on 2026-04-17) — which is the xtom-provider range the inactive `gb-lon-wg-201/202` sit in. Gluetun appears to be auto-failing over to another xtom server (203 or 204) or the provider is doing opaque NAT, but our pinning intent is violated. Investigate by running `docker exec raffle-raptor-gluetun-1 wg show` to see the actual handshake peer, compare against the `SERVER_HOSTNAMES` env (or whatever pinning config RR uses), and determine why Gluetun isn't failing hard on an inactive pin.
-  - Effort: low (investigation)
-  - Scope: homelab (RR coordination may be required if Gluetun env lives in RR's compose)
-  - Added: 2026-04-20
+- [x] CT163 Gluetun: `known eel` pinned to inactive server, egressing unexpectedly — RESOLVED 2026-04-20
+  - Root cause: Mullvad API `active=false` means "no new registrations accepted", not "existing tunnels terminated". CT163's handshake with `gb-lon-wg-201` was established before the server went inactive, so the tunnel held. Would have failed on next Gluetun restart.
+  - Resolved by: CT163 migrated to `gb-lon-wg-002` on 2026-04-20 (RR-driven).
+  - Added: 2026-04-20, Completed: 2026-04-20
 
 - [ ] Migrate `well raven` (prod VPS) Mullvad pin to Mullvad-owned server
   - Context: CT163 (`known eel`) migrated 2026-04-20 to `gb-lon-wg-002` (Mullvad-owned, provider `31173`) — per RR orchestrator report; egress now `141.98.252.239`. Prod VPS (`well raven`) still pinned to `gb-lon-wg-301` on M247 (rented). Migration target per RR is `gb-lon-wg-003`. Same pattern as CT163: RR updates Gluetun `SERVER_HOSTNAMES` in their compose, verifies replacement is `active=true` via Mullvad API, confirms new egress. Homelab updates `docs/vpn.md` egress map + device inventory once RR reports cutover.
