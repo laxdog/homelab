@@ -12,10 +12,7 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
 
 ## High Priority
 
-- [ ] T420 eBay listing — finalise and publish
-  - Context: memtester result pending, HBA card text to read physically, condition section needed, root password reset, iDRAC factory reset before shipping
-  - Effort: low
-  - Added: 2026-04-14
+_(none currently)_
 
 ## Medium Priority
 
@@ -125,6 +122,11 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Added: 2026-04-15
 
 ## Low Priority
+
+- [ ] T420 eBay listing — finalise and publish
+  - Context: memtester result pending, HBA card text to read physically, condition section needed, root password reset, iDRAC factory reset before shipping
+  - Effort: low
+  - Added: 2026-04-14, Downgraded: 2026-04-20 — no active pressure to sell
 
 - [ ] Stale WiFi profiles on rr-worker-prod-mums
   - Context: 4 profiles with GNOME keyring passwords (EE-R2F2CJ, Castlewood Guest WiFi, theinternet, VM0513311) — inaccessible and dead weight.
