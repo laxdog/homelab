@@ -650,6 +650,11 @@ services:
       tun_required: true
       roles:
       - docker
+      users:
+      - name: mrobinson
+        groups:
+        - sudo
+        passwordless_sudo: true
 proxmox_metadata:
   enabled: true
   oidc_services:
