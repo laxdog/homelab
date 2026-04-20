@@ -37,11 +37,11 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Scope: homelab (RR coordination may be required if Gluetun env lives in RR's compose)
   - Added: 2026-04-20
 
-- [ ] Migrate `known eel` (CT163) and `well raven` (prod VPS) Mullvad pins to Mullvad-owned servers
-  - Context: both currently pinned to rented providers — `known eel` on xtom (`gb-lon-wg-201`, inactive), `well raven` on M247 (`gb-lon-wg-301`). Mullvad-owned servers (`gb-lon-wg-001` through `gb-lon-wg-008`, provider `31173`, `owned=true`) are a stronger trust signal. VM171 Mullvad exit is being set up on `gb-lon-wg-001` — standardise the rest of the fleet on the same Mullvad-owned pool. Resolves the "egressing from inactive subnet" mystery above as a side effect. Scope: update Gluetun `SERVER_HOSTNAMES` (or equivalent pinning) on each node, verify replacement servers are `active=true` via the Mullvad API before pinning, then update `docs/vpn.md` Device Inventory. Since the Gluetun config for CT163 and prod VPS lives in RR's compose (not this repo), RR orchestrator needs to drive the change.
-  - Effort: medium (two nodes, cross-repo coordination)
-  - Scope: homelab (RR drives the compose change)
-  - Added: 2026-04-20
+- [ ] Migrate `well raven` (prod VPS) Mullvad pin to Mullvad-owned server
+  - Context: CT163 (`known eel`) migrated 2026-04-20 to `gb-lon-wg-002` (Mullvad-owned, provider `31173`) — per RR orchestrator report; egress now `141.98.252.239`. Prod VPS (`well raven`) still pinned to `gb-lon-wg-301` on M247 (rented). Migration target per RR is `gb-lon-wg-003`. Same pattern as CT163: RR updates Gluetun `SERVER_HOSTNAMES` in their compose, verifies replacement is `active=true` via Mullvad API, confirms new egress. Homelab updates `docs/vpn.md` egress map + device inventory once RR reports cutover.
+  - Effort: low (one node, RR-driven)
+  - Scope: homelab tracks state; RR drives the compose change
+  - Added: 2026-04-20, CT163 half completed 2026-04-20
 
 - [ ] Reconcile tailscale per-node prefs (`accept_dns`, `exit_node`, `advertise_exit_node`, `advertise_routes`) on non-router nodes
   - Context: the `tailscale-router` role renders a `tailscale-phase1-up` helper that bakes in declared `--advertise-*` and `--accept-dns` flags, but only runs once during operator bootstrap. Nothing in the repo reconciles runtime Tailscale state against `config/homelab.yaml` after that — if a node's runtime prefs drift (reboot, `tailscaled.state` reset, manual operator change), config and reality diverge silently. Guests without the `tailscale-router` role (e.g. CT173 `roles: [docker]`) ignore the config entirely.

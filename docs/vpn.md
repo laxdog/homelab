@@ -12,7 +12,7 @@ Keep this up to date whenever devices are added or removed.
 | Mullvad Name | Node | WG Public Key (partial) | Server | Created |
 |---|---|---|---|---|
 | live panda | VM120 media-stack (Gluetun) | `cOcvD/tp...` | Mullvad France (unpinned) | 2026-03-22 |
-| known eel | CT163 rr-application-staging-proxmox (Gluetun) | `eFY1vCT...` | Mullvad UK London (gb-lon-wg-201 — **inactive per API**) | 2026-02-26 |
+| known eel | CT163 rr-application-staging-proxmox (Gluetun) | `eFY1vCT...` | Mullvad UK London (gb-lon-wg-002, Mullvad-owned) | 2026-02-26 |
 | well raven | rr-application-prod-vps (Gluetun) | `WqjCL+V...` | Mullvad UK London (gb-lon-wg-301) | 2026-02-26 |
 | holy llama | Operator phone/laptop (Mullvad app direct, not via Gluetun) | `T+saClF...` | — | 2026-02-06 |
 | normal koala | VM171 tailscale-gateway (wg-quick, role `mullvad-exit`) | `smCBm+S...` | Mullvad UK London (gb-lon-wg-001, pinned — Mullvad-owned) | 2026-04-20 |
@@ -21,7 +21,7 @@ Keep this up to date whenever devices are added or removed.
 
 **Mapping verified 2026-04-17** (live panda, known eel, well raven) and **2026-04-20** (normal koala) by deriving the X25519 public key from each node's WireGuard private key and matching against the Mullvad account. `holy llama` is the only device not tied to a homelab-managed node — presumed to be the operator's Mullvad app on phone or laptop connecting directly.
 
-> **Note on `gb-lon-wg-201`**: Mullvad API reports this server `active=false` as of 2026-04-20. CT163's observed egress is still in the 185.248.85.0/24 (xtom) subnet, suggesting Gluetun is silently failing over. Investigation tracked in backlog; migration to Mullvad-owned servers (gb-lon-wg-001..008) also backlogged.
+> **Caveat — RR-managed Gluetun config**: CT163 and prod VPS run their Gluetun containers from RR's compose (not this repo). The `Server` column here reflects what the RR orchestrator reports; homelab Ansible does not independently verify `SERVER_HOSTNAMES` or the peer pubkey on these nodes. Pin changes are driven by the RR orchestrator. CT163 migration to `gb-lon-wg-002` was reported by RR on 2026-04-20; prod VPS migration to `gb-lon-wg-003` is still pending per RR.
 
 ## WireGuard Private Keys
 
@@ -112,7 +112,7 @@ LAN clients (CT163, CT173, staging-home, etc.) are unaffected either way — the
 |---|---|---|---|
 | VM120 media-stack | 193.32.126.214 | Mullvad FR (unpinned) | arr stack downloads |
 | VM171 tailscale-gateway | 141.98.252.208 | Mullvad UK London (gb-lon-wg-001, **pinned**) | Host egress + Tailscale exit-node forwarded traffic. Snapshot 2026-04-20; SNAT pool so egress IP can shift within 141.98.252.0/24. |
-| rr-application-staging-proxmox (CT163) | 185.248.85.16 | Mullvad UK (unpinned — rotates) | RR staging scraper. Snapshot 2026-04-17. |
+| rr-application-staging-proxmox (CT163) | 141.98.252.239 | Mullvad UK London via Gluetun (gb-lon-wg-002, Mullvad-owned, **pinned**) | RR staging scraper. Migrated off `gb-lon-wg-201` (xtom, inactive) on 2026-04-20 — RR-reported. SNAT pool so egress IP can shift within `141.98.252.0/24`. |
 | rr-application-prod-vps | 146.70.119.78 | Mullvad UK (unpinned — rotates) | RR prod scraper. Snapshot 2026-04-17. |
 | rr-worker-staging-home | 141.98.252.208 | Mullvad UK London via VM171 (Tailscale exit node) | Cut over 2026-04-20. `--exit-node-allow-lan-access=true` keeps LAN-direct paths (CT163 DB proxy, AdGuard, NPM). SNAT pool — snapshot IP. |
 | rr-worker-prod-proxmox (CT173) | 212.56.120.65 | Bare NAT | Operator home static IP (unique — staging-home moved to Mullvad via VM171 on 2026-04-20) |
@@ -131,7 +131,7 @@ LAN clients (CT163, CT173, staging-home, etc.) are unaffected either way — the
 ## Notes
 
 - VM120 Gluetun is unpinned (Mullvad France, no `SERVER_HOSTNAMES`) — consider pinning to prevent exit IP rotation
-- App-node egress IPs (CT163, prod VPS) rotate within Mullvad UK because Gluetun is unpinned (no `SERVER_HOSTNAMES`). Expect rotation after every Gluetun restart or key rotation. Do not build allow-lists or fingerprint rules against these IPs without pinning first.
+- VM120 media-stack egress rotates within Mullvad FR because its Gluetun is unpinned (no `SERVER_HOSTNAMES`). CT163 (`gb-lon-wg-002`) and prod VPS (`gb-lon-wg-301`) are both pinned — no server rotation expected, subject to Mullvad's SNAT behaviour documented below. Do not build allow-lists against VM120 egress without pinning first.
 - **Mullvad egress NAT model — partially known, partially assumed.**
   - Ingress endpoint (`ipv4_addr_in` from the Mullvad API) and external egress are *different IPs within the same /24* on Mullvad-owned servers.
   - VM171 (gb-lon-wg-001): ingress `141.98.252.130`, egress `141.98.252.208`.
