@@ -33,11 +33,11 @@ _(none currently)_
   - Resolved by: CT163 migrated to `gb-lon-wg-002` on 2026-04-20 (RR-driven).
   - Added: 2026-04-20, Completed: 2026-04-20
 
-- [ ] Migrate `well raven` (prod VPS) Mullvad pin to Mullvad-owned server
-  - Context: CT163 (`known eel`) migrated 2026-04-20 to `gb-lon-wg-002` (Mullvad-owned, provider `31173`) — per RR orchestrator report; egress now `141.98.252.239`. Prod VPS (`well raven`) still pinned to `gb-lon-wg-301` on M247 (rented). Migration target per RR is `gb-lon-wg-003`. Same pattern as CT163: RR updates Gluetun `SERVER_HOSTNAMES` in their compose, verifies replacement is `active=true` via Mullvad API, confirms new egress. Homelab updates `docs/vpn.md` egress map + device inventory once RR reports cutover.
-  - Effort: low (one node, RR-driven)
-  - Scope: homelab tracks state; RR drives the compose change
-  - Added: 2026-04-20, CT163 half completed 2026-04-20
+- [ ] `well raven` (prod VPS) migration — awaiting RR Phase 5 allowlist follow-up
+  - Context: RR confirmed BACKLOG #46 complete on their side 2026-04-20 — prod VPS `SERVER_HOSTNAMES` updated from `gb-lon-wg-301` (M247) to `gb-lon-wg-003` (Mullvad-owned, `31173`). `VPN_EGRESS_IP_ALLOWLIST` update deferred to RR's Phase 5; until that lands, the Gluetun container on prod VPS may be running with a stale single-IP allowlist (`146.70.119.78`) that no longer matches the new egress pool, so the container may be failing its egress-IP check and dropping scrapes. Homelab action: update `docs/vpn.md` egress map snapshot once RR confirms Phase 5 complete and reports a confirmed egress IP.
+  - Effort: low (documentation only, triggered by RR)
+  - Scope: homelab tracks state; RR drives the remaining change
+  - Added: 2026-04-20, CT163 part completed 2026-04-20, prod VPS SERVER_HOSTNAMES change 2026-04-20 RR-reported, Phase 5 outstanding
 
 - [ ] Extend tailscale pref reconciliation to non-router nodes (partial progress)
   - **Done 2026-04-20** for nodes with the `tailscale_router` role (VM171, CT163, staging-home, mums — and new RR workers going forward, which now carry the role per the updated runbook). The role has: config-merge → pre-flight assertions (advertise+consume collision, LAN-adjacency gotcha) → idempotent `tailscale set` gated on BackendState=Running. Schema extended with `exit_node`, `exit_node_allow_lan_access`, `accept_routes`.
