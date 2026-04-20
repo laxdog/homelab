@@ -11,6 +11,19 @@ PrivateKey = {{ mullvad_exit_private_key }}
 Address = {{ mullvad_exit.interface_addresses | join(', ') }}
 # Table = auto (wg-quick default) with AllowedIPs = 0.0.0.0/0 uses policy
 # routing via fwmark 0xca6c, installs default route in rt table 51820.
+#
+# Tailscale coexistence: wg-quick's rule at pri ~5209 ("not fwmark 0xca6c
+# lookup 51820") catches any dst lacking the wg-fwmark and routes it via
+# wg0 — including de-NAT'd reply packets destined for tailnet peers
+# (100.64.0.0/10 / fd7a:115c:a1e0::/48), which Tailscale expects to route
+# via its own table 52. Without these PostUp rules, reply packets loop
+# back through wg0 instead of reaching tailscale0, breaking exit-node
+# forwarding. The higher-priority (5200) rules below send tailnet-bound
+# traffic to table 52 first.
+PostUp = ip -4 rule add priority 5200 to 100.64.0.0/10 lookup 52
+PostUp = ip -6 rule add priority 5200 to fd7a:115c:a1e0::/48 lookup 52
+PreDown = ip -4 rule del priority 5200 to 100.64.0.0/10 lookup 52 || true
+PreDown = ip -6 rule del priority 5200 to fd7a:115c:a1e0::/48 lookup 52 || true
 
 [Peer]
 PublicKey = {{ mullvad_exit.peer_public_key }}
