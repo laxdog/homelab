@@ -118,6 +118,18 @@ _(none currently)_
   - Effort: low
   - Added: 2026-04-14, Downgraded: 2026-04-20 — no active pressure to sell
 
+- [ ] OS-level hostname drift on both remote nodes
+  - Context: Both remote nodes still report their pre-rename OS hostnames: `rr-worker-prod-mums` live hostname is `mums-house-mbp`, `rr-worker-staging-home` live hostname is `raptor-node-staging` (even older — from the first rename pass). Tailscale advertises the current names correctly, but `/etc/hostname` and `/etc/hosts` are stale. `remote-node-baseline` role documents "hostname + /etc/hosts mapping" as one of its concerns — either the hostname task isn't actually running on these nodes, or it ran before the rename and hasn't been re-applied. Next time `python3 scripts/run.py remote-nodes` is run, investigate why hostname doesn't reconcile; fix if the role logic is broken. Low-impact (cosmetic for local login prompt and `/etc/hostname`; Tailscale identity is correct) but an example of declared-vs-runtime drift.
+  - Effort: low
+  - Scope: homelab
+  - Added: 2026-04-20
+
+- [ ] Reconcile unique-egress policy wording with RR's /24-pool interpretation
+  - Context: `docs/vpn.md` §Egress Policy says "Every RR worker gets a unique egress IP. No sharing." RR has accepted that two staging workers sharing a single Mullvad /24 egress pool — but observing distinct egress IPs within that pool — satisfies the spirit of the unique-egress rule. Our policy text is stricter than RR's interpretation. Either tighten to match the policy (which rules out pool-sharing entirely) or loosen to match RR's interpretation (unique observed IP, not necessarily unique pool). Not urgent today; raised here so it gets discussed when the next staging worker is provisioned or when policy is revisited.
+  - Effort: low (documentation decision)
+  - Scope: homelab + RR coordination
+  - Added: 2026-04-20
+
 - [ ] Stale WiFi profiles on rr-worker-prod-mums
   - Context: 4 profiles with GNOME keyring passwords (EE-R2F2CJ, Castlewood Guest WiFi, theinternet, VM0513311) — inaccessible and dead weight.
   - Effort: low
