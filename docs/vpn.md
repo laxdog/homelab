@@ -11,13 +11,14 @@ Keep this up to date whenever devices are added or removed.
 
 | Mullvad Name | Node | WG Public Key (partial) | Server | Created |
 |---|---|---|---|---|
-| live panda | VM120 media-stack | `cOcvD/tp...` | Mullvad France (unpinned) | 2026-03-22 |
-| known eel | CT163 rr-application-staging-proxmox | `eFY1vCT...` | Mullvad UK London (gb-lon-wg-201) | 2026-02-26 |
-| well raven | rr-application-prod-vps | `WqjCL+V...` | Mullvad UK London (gb-lon-wg-301) | 2026-02-26 |
-| holy llama | Operator phone | `T+saClF...` | — | 2026-02-06 |
-| stable bunny | UNKNOWN — candidate for deletion | `v9eaJAJ...` | — | 2026-02-06 |
+| live panda | VM120 media-stack (Gluetun) | `cOcvD/tp...` | Mullvad France (unpinned) | 2026-03-22 |
+| known eel | CT163 rr-application-staging-proxmox (Gluetun) | `eFY1vCT...` | Mullvad UK London (gb-lon-wg-201) | 2026-02-26 |
+| well raven | rr-application-prod-vps (Gluetun) | `WqjCL+V...` | Mullvad UK London (gb-lon-wg-301) | 2026-02-26 |
+| holy llama | Operator phone/laptop (Mullvad app direct, not via Gluetun) | `T+saClF...` | — | 2026-02-06 |
 
-**5/5 device slots used.** Must delete a device before registering a new key.
+**4/5 device slots used** — one slot free (`stable bunny` deleted from the account). Must delete a device before registering a new key when at 5/5.
+
+**Mapping verified 2026-04-17** by deriving the X25519 public key from `WIREGUARD_PRIVATE_KEY` in each Gluetun container's env and matching against the public keys in the Mullvad account. All three Gluetun nodes (VM120, CT163, prod VPS) mapped cleanly. `holy llama` is the only device not tied to a homelab Gluetun node — presumed to be the operator's Mullvad app on phone or laptop connecting directly. Confirm by opening Mullvad app on personal devices if verification is needed.
 
 ## WireGuard Private Keys
 
@@ -69,10 +70,10 @@ VM171 has `accept_dns: false` (`CorpDNS: false`) — it ignores Tailscale-pushed
 
 ### Adding Mullvad to VM171
 
-Placeholder — to be completed once a device slot is freed.
+Slot freed 2026-04-17 (`stable bunny` deleted). Remaining steps to be completed.
 
 Steps:
-1. Delete `stable bunny` from Mullvad account (confirm it's safe first)
+1. ~~Delete `stable bunny` from Mullvad account~~ — **DONE 2026-04-17**
 2. Generate new WireGuard keypair for VM171
 3. Register public key in Mullvad account
 4. Install Gluetun or `wg-quick` on VM171
