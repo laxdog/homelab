@@ -22,7 +22,10 @@ dns:
 {% for upstream in config.adguard.dns.upstream_dns %}
     - {{ upstream }}
 {% endfor %}
-  bootstrap_dns: "{{ config.adguard.dns.bootstrap_dns | first }}"
+  bootstrap_dns:
+{% for ns in config.adguard.dns.bootstrap_dns %}
+    - {{ ns }}
+{% endfor %}
   cache_optimistic: {{ (config.adguard.dns.cache_optimistic | default(false)) | bool | lower }}
   resolve_clients: {{ (config.adguard.dns.resolve_clients | default(false)) | bool | lower }}
   use_private_ptr_resolvers: {{ (config.adguard.dns.use_private_ptr_resolvers | default(false)) | bool | lower }}
@@ -40,6 +43,52 @@ filters:
     id: {{ loop.index }}
 {% endfor %}
 
+user_rules:
+{% for rule in config.adguard.user_rules | default([]) %}
+  - {{ rule | to_json }}
+{% endfor %}
+
+clients:
+  runtime_sources:
+    whois: true
+    arp: true
+    rdns: true
+    dhcp: true
+    hosts: true
+  persistent:
+{% for c in config.adguard.client_overrides | default([]) %}
+    - safe_search:
+        enabled: false
+        bing: false
+        duckduckgo: false
+        ecosia: false
+        google: false
+        pixabay: false
+        yandex: false
+        youtube: false
+      blocked_services:
+        schedule:
+          time_zone: Local
+        ids: []
+      name: "{{ c.name }}"
+      ids:
+{% for id in c.ids | default([]) %}
+        - "{{ id }}"
+{% endfor %}
+      tags: []
+      upstreams: []
+      uid: "{{ c.name | to_uuid }}"
+      upstreams_cache_size: 0
+      upstreams_cache_enabled: false
+      use_global_settings: {{ (c.use_global_settings | default(true)) | bool | lower }}
+      filtering_enabled: {{ (c.filtering_enabled | default(true)) | bool | lower }}
+      parental_enabled: false
+      safebrowsing_enabled: false
+      use_global_blocked_services: {{ (c.use_global_blocked_services | default(true)) | bool | lower }}
+      ignore_querylog: false
+      ignore_statistics: false
+{% endfor %}
+
 filtering:
   safe_search:
     enabled: {{ (config.adguard.filtering.safe_search.enabled | default(false)) | bool | lower }}
@@ -55,4 +104,13 @@ filtering:
 {% for rewrite in config.adguard.rewrites | default([]) %}
     - domain: "{{ rewrite.domain }}"
       answer: "{{ rewrite.answer }}"
+      enabled: true
 {% endfor %}
+
+# Pin the schema version so AdGuard does NOT run its config_migrator on our
+# rendered file. We write schema-33 shape (clients as map, bootstrap_dns as
+# list, etc.); without this pin, AdGuard sees missing schema_version, assumes
+# schema 0, runs 0→33 migrations, and crashes at the 5→6 step when it finds
+# our already-v33-shaped clients key. Bump this number if we ever move to a
+# newer AdGuard whose internal schema_version has advanced.
+schema_version: 33

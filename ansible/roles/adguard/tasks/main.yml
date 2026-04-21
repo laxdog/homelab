@@ -93,15 +93,18 @@
   register: adguard_config_rendered
   notify: Restart AdGuardHome
 
-# The template render is intentionally a partial seed of AdGuardHome.yaml
-# (it does not contain persistent clients, user rules, or rewrites — those
-# are managed by API tasks below). The template render therefore wipes
-# those dynamic sections from disk on every run. We must restart AdGuardHome
-# *now* so that subsequent API tasks see the post-render empty state and
-# fully rebuild it via drift detection. Without this flush, the API tasks
-# would read the still-loaded in-memory state, find no drift, write nothing,
-# and the end-of-play restart would then load the stripped file and lose
-# all dynamic state.
+# The template render is a full seed of AdGuardHome.yaml — it renders DNS
+# config, filter lists, safe_search, rewrites, user_rules, and persistent
+# clients from config/homelab.yaml. This means a single restart now brings
+# AdGuard up with the full declared state; downstream API tasks are a
+# belt-and-braces drift reconcile, not the load-bearing repopulate they
+# used to be (before user_rules + clients moved into the template).
+#
+# We still flush handlers here so the API tasks below see a live daemon
+# with post-render state, and so any API drift-apply happens against a
+# consistent snapshot. If an API task halts the play, the already-rendered
+# template state survives — no section gets silently wiped on the next
+# run.
 - name: Apply AdGuardHome restart immediately so API tasks see fresh state
   ansible.builtin.meta: flush_handlers
 
@@ -171,7 +174,7 @@
     status_code: 200
   when: adguard_dns_config_need_update | default(false)
 
-- name: Read current AdGuard safe-search status
+- name: Read current AdGuard safe-search settings
   ansible.builtin.uri:
     url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/safesearch/status"
     method: GET
@@ -183,31 +186,36 @@
   register: adguard_safesearch_status
   when: config.adguard.filtering.safe_search is defined
 
-- name: Disable AdGuard safe-search when configured
-  ansible.builtin.uri:
-    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/safesearch/disable"
-    method: POST
-    user: "{{ config.adguard.admin_user }}"
-    password: "{{ adguard_admin_password }}"
-    force_basic_auth: true
-    status_code: 200
-  when:
-    - config.adguard.filtering.safe_search is defined
-    - not (config.adguard.filtering.safe_search.enabled | default(false) | bool)
-    - adguard_safesearch_status.json.enabled | default(false) | bool
+- name: Compute desired AdGuard safe-search payload
+  ansible.builtin.set_fact:
+    adguard_safesearch_desired:
+      enabled: "{{ (config.adguard.filtering.safe_search.enabled | default(false)) | bool }}"
+      bing: "{{ (config.adguard.filtering.safe_search.bing | default(false)) | bool }}"
+      duckduckgo: "{{ (config.adguard.filtering.safe_search.duckduckgo | default(false)) | bool }}"
+      ecosia: "{{ (config.adguard.filtering.safe_search.ecosia | default(false)) | bool }}"
+      google: "{{ (config.adguard.filtering.safe_search.google | default(false)) | bool }}"
+      pixabay: "{{ (config.adguard.filtering.safe_search.pixabay | default(false)) | bool }}"
+      yandex: "{{ (config.adguard.filtering.safe_search.yandex | default(false)) | bool }}"
+      youtube: "{{ (config.adguard.filtering.safe_search.youtube | default(false)) | bool }}"
+  when: config.adguard.filtering.safe_search is defined
 
-- name: Enable AdGuard safe-search when configured
+- name: Update AdGuard safe-search settings
+  # PUT /control/safesearch/settings is the v0.107.30+ unified endpoint.
+  # Idempotent — skipped if live state already matches config.
+  # The legacy POST /control/safesearch/{enable,disable} still work but
+  # can't set per-service booleans; PUT handles the whole object.
   ansible.builtin.uri:
-    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/safesearch/enable"
-    method: POST
+    url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/safesearch/settings"
+    method: PUT
     user: "{{ config.adguard.admin_user }}"
     password: "{{ adguard_admin_password }}"
     force_basic_auth: true
+    body_format: json
+    body: "{{ adguard_safesearch_desired }}"
     status_code: 200
   when:
     - config.adguard.filtering.safe_search is defined
-    - config.adguard.filtering.safe_search.enabled | default(false) | bool
-    - not (adguard_safesearch_status.json.enabled | default(false) | bool)
+    - (adguard_safesearch_status.json | default({})) != adguard_safesearch_desired
 
 - name: Read existing AdGuard clients
   ansible.builtin.uri:
@@ -354,6 +362,11 @@
     - (adguard_existing_rewrites | selectattr('domain', 'equalto', item.domain) | selectattr('answer', 'equalto', item.answer) | list | length) == 0
 
 - name: Ensure AdGuard rewrites exist
+  # AdGuard 0.107.x creates new rewrites with enabled=false by default —
+  # an internal-only domain added via /rewrite/add without this flag will
+  # return NXDOMAIN even though it shows up in /rewrite/list. Set
+  # enabled=true explicitly to keep the API path in sync with the template
+  # (which also renders enabled: true per entry).
   ansible.builtin.uri:
     url: "http://{{ ansible_host }}:{{ config.adguard.bind_port }}/control/rewrite/add"
     method: POST
@@ -364,6 +377,7 @@
     body:
       domain: "{{ item.domain }}"
       answer: "{{ item.answer }}"
+      enabled: true
     status_code: 200
   loop: "{{ config.adguard.rewrites | default([]) }}"
   when:
