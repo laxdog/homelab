@@ -22,7 +22,7 @@ Source of truth: `config/homelab.yaml`.
 - Grafana: https://grafana.laxdog.uk
 - Prometheus: https://prometheus.laxdog.uk
 - Scrapes RR prod + staging /statusz (35 metrics per env)
-- 5 dashboards: Worker Health, Phase Timing, Playwright, Parse & Issues, Infra Health
+- 3 dashboards (API-pushed by RR, no repo provisioning): RR Fleet Overview, RR Phase Timing, RR Alert Overview
 - Complements Nagios — Prometheus provides trending/history, Nagios provides alerting
 
 ## What Nagios checks
