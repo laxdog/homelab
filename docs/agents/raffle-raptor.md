@@ -123,6 +123,16 @@ Written down so divergent assumptions don't silently cause drift.
 - The `host all all all scram-sha-256` tail is declared by the timescaledb image, not by either repo. If the image changes that default (removes it, tightens it, or broadens it to `trust`), `rr_worker` auth could break silently, or the catch-all could start accepting users the curated rules didn't intend to expose.
 - Monitoring gap: no drift-detection on `pg_hba.conf` beyond what the role itself writes. A future hardening pass could have the role strip the catch-all and manage the full file — explicit scope decision deferred.
 
+## Grafana dashboards
+
+RR owns its dashboards end-to-end. Homelab provides the Grafana instance (CT172, `https://grafana.laxdog.uk`) and the API credential; RR ships dashboards as JSON via the API.
+
+- **Push target**: `POST /api/dashboards/db` with `overwrite: true` in the body. Pushing with the same UID updates in place.
+- **UID prefix**: `rr-` — every RR-owned dashboard UID must start with `rr-` so homelab can identify them without digging into labels. Dashboards without this prefix are out of RR's scope to modify.
+- **Authentication**: service-account token, name `rr-orchestrator`, Editor role. Grafana 10+ deprecated `/api/auth/keys`; this is the modern equivalent (service account + token).
+- **Credential handoff**: token handed off out-of-band (secure channel — not in this repo, not in commits). If RR loses the token or needs it rotated, contact the homelab agent to mint a replacement via the same service account (`/api/serviceaccounts/{id}/tokens`).
+- **Scope**: Editor covers dashboard CRUD + datasource read. Not enough for folder/permission/datasource management — if RR needs more, flag it as a scope change before adjusting the role.
+
 ## Known issues
 - **overdue_count WARN on prod statusz** — RR agent investigating worker capacity. Homelab action: none until RR agent reports back.
 - **502s on rr-application-staging-proxmox (2026-04-08)** — traced to planned maintenance restart (two full-estate stopall/startall cycles for SSD hardware install). Closed as known incident.
