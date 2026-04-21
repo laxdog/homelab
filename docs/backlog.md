@@ -35,6 +35,19 @@ _(none currently)_
   - Scope: homelab
   - Added: 2026-04-21
 
+- [ ] Promtail role unification — wire to hosts and reconcile drift
+  - Context: `ansible/roles/promtail/` exists with a full template (journal + syslog + conditional app-log scraper behind `promtail_app_logs`). But no host declares `promtail` in its `roles:` list and no host has a `promtail:` config block with scrape settings, so the `promtail_hosts` inventory group is empty and the play in `guests.yml` has never matched a host. Every live `/etc/promtail/config.yml` on the estate (CT153 adguard, CT154 NPM, CT172 observability, all RR nodes, all LAN services, etc.) was deployed manually out-of-band.
+  - Evidence surfaced 2026-04-21 while adding `/var/log/raffle-raptor/*.log` scraping to 4 RR nodes — had to edit each `/etc/promtail/config.yml` by hand and restart Promtail, because there was no repo-declared path to do it cleanly. Recorded in `docs/agents/raffle-raptor.md` "Promtail app-log shipping".
+  - Scope:
+    - Add `promtail` role to each node's `roles:` list in `config/homelab.yaml` (or introduce a pseudo-role/group so the inventory generator picks them up).
+    - Per-host `promtail:` block with `app_logs`, `app_log_path`, `app_name`, `app_env` for nodes that need app-log scraping; bare block for nodes that only need journal + syslog.
+    - First apply against each host needs careful byte-diff against the existing live config — the role's template will re-render from scratch and may change label ordering / missing fields in ways that trigger a Promtail restart but leave behaviour intact. Plan for a Promtail restart per host.
+    - Decide what to do with non-obvious existing labels (e.g. CT163 uses `host: raffle-raptor-dev` for its syslog scrape but `host: rr-application-staging-proxmox` for the new app-logs block).
+  - Priority: medium. Current state works; cleanup makes future adds (like today's 4 RR nodes) one-line config changes instead of ssh-and-edit loops.
+  - Effort: medium (touches every promtail-running host)
+  - Scope: homelab
+  - Added: 2026-04-21
+
 - [ ] AdGuard role: template-wipe hazard for user_rules + persistent clients
   - Context: 2026-04-21 recon showed the original 2026-04-20 incident description was wrong. Rewrites are in fact rendered by the template (loop at lines 53–58 of `AdGuardHome.yaml.j2`, present since 2026-02-20) and do survive a play halt. The real fragility is with `user_rules` and `clients.persistent`, which the template does NOT render — they flow template-wipe → early-restart → API-repopulate. If ANY task between the restart and their API tasks fails, both are wiped until the next successful apply. Today (2026-04-21) the live AdGuard has 0 user_rules + 0 persistent clients against config declaring 19 + 2 respectively — so the incident *did* wipe state, just not the state the backlog claimed. Safesearch endpoint separately: `/control/safesearch/status` returns 200 on AdGuard 0.107.72 (not 404 as the original entry claimed); the entry was misdiagnosed. Proposed fix: render `user_rules` + `clients.persistent` in the template (same pattern as rewrites) so restart preserves them, keep the API drift-reconcile tasks as belt-and-braces, and replace the safesearch GET-then-enable/disable pattern with a single idempotent PUT to `/control/safesearch/settings` (the v0.107.30+ unified endpoint).
   - Effort: medium
