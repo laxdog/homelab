@@ -210,6 +210,8 @@ static_sites_hosts:
     static-sites: *id018
 tailscale_router_hosts:
   hosts:
+    observability: *id014
+    rr-application-prod-vps: *id023
     rr-application-staging-proxmox: *id016
     rr-worker-prod-mums: *id021
     rr-worker-staging-home: *id022

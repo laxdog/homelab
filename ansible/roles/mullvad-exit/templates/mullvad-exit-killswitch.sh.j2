@@ -28,9 +28,15 @@ up() {
     || iptables -w -I FORWARD 1 -j "$CHAIN"
 
   # LAN subnet routing (bidirectional).
+  # RETURN (not ACCEPT) so packets fall through to ts-forward, which marks
+  # them 0x40000 for ts-postrouting MASQUERADE. Without SNAT, subnet-routed
+  # packets keep the remote peer's tailnet source IP; LAN targets that are
+  # also tailnet members reply directly via their own tailscale0, and
+  # Tailscale drops the reply as spoofed (the subnet router VM171 is the
+  # approved source for 10.20.30.0/24, not the target itself).
 {% for cidr in mullvad_exit.lan_cidrs %}
-  iptables -w -A "$CHAIN" -i tailscale0 -o eth0 -d {{ cidr }} -j ACCEPT
-  iptables -w -A "$CHAIN" -i eth0 -s {{ cidr }} -o tailscale0 -j ACCEPT
+  iptables -w -A "$CHAIN" -i tailscale0 -o eth0 -d {{ cidr }} -j RETURN
+  iptables -w -A "$CHAIN" -i eth0 -s {{ cidr }} -o tailscale0 -j RETURN
 {% endfor %}
 
   # Tailscale clients -> Mullvad egress.

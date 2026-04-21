@@ -333,6 +333,7 @@ remote_nodes:
         advertise_routes: []
         advertise_exit_node: true
         accept_dns: false
+        accept_routes: true  # 2026-04-21: needed for Promtail to reach Loki at 10.20.30.172:3100 via VM171 subnet route. Not LAN-resident (remote via WiFi at mum's house), so LAN-adjacency gotcha doesn't apply.
       battery:
         enabled: false
       powertop:
@@ -389,6 +390,7 @@ remote_nodes:
       environment: prod
       roles:
       - rr_db_access
+      - tailscale_router
       wifi_only: false
       tailscale:
         advertise_routes: []
@@ -506,6 +508,11 @@ services:
       cores: 1
       memory_mb: 1024
       disk_gb: 16
+      tailscale:
+        advertise_routes:
+        - 10.20.30.0/24
+        advertise_exit_node: true
+        accept_dns: false
       mullvad_exit:
         interface_addresses:
         - "10.73.245.82/32"
@@ -650,6 +657,11 @@ services:
       disk_gb: 20
       roles:
       - docker
+      - tailscale_router
+      tailscale:
+        advertise_routes: []
+        advertise_exit_node: false
+        accept_dns: false
       loki:
         port: 3100
         retention_days: 90
