@@ -59,16 +59,18 @@ The RR-worker nodes split into two camps for Docker provisioning:
 
 DB worker passwords are vaulted in this repo and must be copied into RR's compose **out-of-band**. No automated handoff exists today — operator extracts the value from the homelab vault and pastes it into RR's side.
 
-- Staging worker password: `rr_discovery_staging_db_password` in `ansible/secrets-rr-staging.yml` (see "Staging config/reality drift" in backlog — the live worker actually connects as `rr_worker`, not `rr_discovery_staging`)
+- Staging worker password: `rr_worker_staging_db_password` in `ansible/secrets.yml`
 - Prod worker password: `rr_worker_prod_db_password` in `ansible/secrets.yml`
 
-> **Follow-up:** consolidate to a single vault file. The two-file split predates the prod rollout — staging was historically carved out into its own vault file; prod landed in the main vault; keeping both is a wart worth cleaning up later.
+Both entries live in the single `ansible/secrets.yml` vault (the earlier
+`secrets-rr-staging.yml` split was retired on 2026-04-21 when staging was
+migrated from `rr_discovery_staging` to `rr_worker` with strict grants).
 
 Extraction command template (prints plaintext to stdout):
 
 ```bash
 ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass ansible localhost -i 'localhost,' -c local \
-  -m debug -a 'var=<VAULT_VAR_NAME>' -e @ansible/<SECRETS_FILE>
+  -m debug -a 'var=<VAULT_VAR_NAME>' -e @ansible/secrets.yml
 ```
 
 Example for prod:
@@ -76,6 +78,13 @@ Example for prod:
 ```bash
 ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass ansible localhost -i 'localhost,' -c local \
   -m debug -a 'var=rr_worker_prod_db_password' -e @ansible/secrets.yml
+```
+
+Example for staging:
+
+```bash
+ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass ansible localhost -i 'localhost,' -c local \
+  -m debug -a 'var=rr_worker_staging_db_password' -e @ansible/secrets.yml
 ```
 
 **Operator action only.** Where RR places the value on their side (compose env var, per-worker config, secrets manager, etc.) is RR's decision — homelab documents what the password is and where it lives, not how it gets consumed downstream.
