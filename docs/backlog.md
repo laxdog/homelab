@@ -16,6 +16,13 @@ _(none currently)_
 
 ## Medium Priority
 
+- [ ] VM171 Mullvad kill-switch re-verification (wg0-down test)
+  - Context: the mullvad-exit killswitch template changed 2026-04-21 (commit 8a0d76f) — subnet-route rules flipped from terminal `ACCEPT` to `RETURN` so subnet-routed packets fall through to `ts-forward` for SNAT marking. Chain structure proves the kill-switch DROP at the tail still catches any non-subnet / non-Mullvad tailscale0 forwarding, but the end-to-end test (bring wg0 down → confirm exit-node-client traffic drops at eth0) was NOT exercised post-change to avoid interrupting staging-home's live exit-node traffic.
+  - Scope: schedule a ~30s maintenance blip on VM171 wg0, verify that (a) staging-home's egress to internet via VM171 drops during the outage, (b) subnet-route traffic to 10.20.30.0/24 continues to work, (c) once wg0 is back, everything recovers without manual intervention.
+  - Effort: low (setup + tcpdump from staging-home during wg0 stop/start)
+  - Scope: homelab
+  - Added: 2026-04-21
+
 - [ ] Prod VPS hardening — LAN blast radius review
   - Context: prod VPS is on the public internet and, as of 2026-04-21, has `accept_routes: true` to use VM171's `10.20.30.0/24` subnet route (needed for Promtail to reach Loki at `10.20.30.172:3100`). Consequence: if the VPS is compromised, the attacker can reach every LAN host via Tailscale. Previously the VPS only had direct peer access to tailnet-joined nodes.
   - Scope:
