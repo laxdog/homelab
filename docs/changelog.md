@@ -2,6 +2,10 @@
 
 Significant infrastructure changes by date. Agents should add entries here for major changes.
 
+## 2026-04-22
+- CT172 `docker-compose-plugin` vs `docker-compose-v2` apt collision resolved (carried over from the 2026-04-20 incident). Root cause traced via `/var/log/apt/history.log`: on 2026-04-14 someone ran `apt-get install -y docker.io docker-compose-v2` on CT172, installing Ubuntu's native docker stack alongside the Docker CE stack the `docker-host` role maintains. Fleet check confirmed CT172 was the only affected host (14 other docker hosts clean). Purged `docker-compose-v2`, `docker.io`, `containerd` on CT172; `docker.io`'s postrm tried to invoke `/var/lib/docker/nuke-graph-directory.sh` which would have wiped docker-ce's data directory — the LXC's block-device restriction blocked the umount, which incidentally saved the containers. Neutralised the nuke script (moved to `/root/nuke-graph-directory.sh.disabled-20260422`) and completed the purge cleanly. All 4 observability containers (loki, grafana, prometheus, json-exporter) stayed up throughout. `docker compose version` → v5.1.3.
+- `docker-host` role hardened with an "ensure absent" task for Ubuntu-native docker packages (`docker.io`, `docker-compose-v2`, `containerd`) — cheap insurance against repeat manual installs re-introducing the file collision.
+
 ## 2026-04-20 (later)
 - `loki.laxdog.uk` drift reconciled. Root cause: declared in `config/homelab.yaml` five days earlier (commit `d644d90`) but Ansible apply hadn't fully run against adguard + NPM since. Full apply today revealed three role bugs that all contributed:
   1. **NPM update task payload** (fixed, commit `9e2e0f5`): `locations: null` from NPM's API tripped `| default([])` and caused a 400 on Update, which halted the loop and blocked the Create task — meaning no new proxy hosts (Loki) got created, and existing grafana/prometheus updates also failed.
