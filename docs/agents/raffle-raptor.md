@@ -89,6 +89,40 @@ ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass ansible localhost -i 'localhos
 
 **Operator action only.** Where RR places the value on their side (compose env var, per-worker config, secrets manager, etc.) is RR's decision — homelab documents what the password is and where it lives, not how it gets consumed downstream.
 
+## DB access ownership model
+
+Split between the two repos for the Postgres layer behind the Tailscale proxy.
+Written down so divergent assumptions don't silently cause drift.
+
+**Homelab owns (this repo, via `ansible/roles/rr-db-access/`)**
+- Postgres role provisioning for the worker user (`rr_worker` on both envs)
+- Password rotation via the vault — `rr_worker_{staging,prod}_db_password`
+- Grants on `public` schema tables + sequences (REVOKE ALL then GRANT declared set)
+- `pg_hba.conf` curated rules at the top (scram from the docker gateway /32, reject-everywhere for everything else on the worker user)
+- socat listener bound to the host's Tailscale IP + `RR-DB-INGRESS` iptables chain gating tailnet source IPs
+
+**RR owns**
+- DB container lifecycle: image (`timescale/timescaledb:*-pg*`), compose, volumes, restart policy
+- Schema: table structure, indexes, migrations, data
+- What privileges the worker actually needs — i.e. the contract below
+
+**Image provides (neither repo declares)**
+- Baseline `pg_hba.conf` tail: `host all all all scram-sha-256` (stock timescaledb image default)
+- Our security model depends on the role's specific-user rules being inserted **before** this catch-all — they are. The catch-all is only reachable for users we haven't curated.
+
+**Grants contract (current, both envs)**
+- Tables: `SELECT, INSERT, UPDATE` on all tables in `public` (strict — revoked everything else including `DELETE`, `REFERENCES`, `TRIGGER`, `TRUNCATE`)
+- Sequences: `USAGE, SELECT` (USAGE required for `nextval()` on SERIAL/IDENTITY columns; SELECT alone covers `currval`/`lastval` only)
+- Source of truth when a mismatch arises: RR's written spec (e.g. `docs/workers.md` in the RR repo, once it exists). Homelab role declares the grants list in `config/homelab.yaml` under each host's `rr_db_access.grants` key.
+
+**Reproducibility / disaster recovery**
+- If the DB container is recreated with a fresh volume: RR's migrations recreate the schema; homelab's `rr-db-access` role must re-run to recreate the `rr_worker` role, grants, and pg_hba rules. The vaulted password survives — the role `ALTER ROLE … LOGIN PASSWORD` re-installs it into the fresh DB.
+- Order matters: schema first (so `GRANT … ON ALL TABLES` has tables to grant on), then the role apply. Running the role against a freshly-migrated DB is idempotent.
+
+**Known risk — catch-all pg_hba rule is an image default**
+- The `host all all all scram-sha-256` tail is declared by the timescaledb image, not by either repo. If the image changes that default (removes it, tightens it, or broadens it to `trust`), `rr_worker` auth could break silently, or the catch-all could start accepting users the curated rules didn't intend to expose.
+- Monitoring gap: no drift-detection on `pg_hba.conf` beyond what the role itself writes. A future hardening pass could have the role strip the catch-all and manage the full file — explicit scope decision deferred.
+
 ## Known issues
 - **overdue_count WARN on prod statusz** — RR agent investigating worker capacity. Homelab action: none until RR agent reports back.
 - **502s on rr-application-staging-proxmox (2026-04-08)** — traced to planned maintenance restart (two full-estate stopall/startall cycles for SSD hardware install). Closed as known incident.
