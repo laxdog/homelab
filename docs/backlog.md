@@ -16,6 +16,18 @@ _(none currently)_
 
 ## Medium Priority
 
+- [ ] Prod VPS hardening — LAN blast radius review
+  - Context: prod VPS is on the public internet and, as of 2026-04-21, has `accept_routes: true` to use VM171's `10.20.30.0/24` subnet route (needed for Promtail to reach Loki at `10.20.30.172:3100`). Consequence: if the VPS is compromised, the attacker can reach every LAN host via Tailscale. Previously the VPS only had direct peer access to tailnet-joined nodes.
+  - Scope:
+    - UFW/iptables on prod VPS: restrict outbound to the subnet-routed /24 to only the IPs/ports it actually needs (CT172:3100 for Loki, plus anything else justified — audit usage).
+    - Review exposed services on the VPS (SSH, Docker, public-facing app, any inbound Tailscale-exposed services) — attack surface audit.
+    - Consider whether accept_routes should be scoped narrower than the full /24. Tailscale doesn't support route-filtering natively, but iptables on the VPS can restrict which LAN IPs are reachable via tailscale0.
+    - Review SSH hardening (key-only, fail2ban, etc.) — cross-check against current state.
+  - Priority: medium. Not blocking today's work but important given the VPS is internet-facing and now has LAN reachability.
+  - Effort: medium
+  - Scope: homelab
+  - Added: 2026-04-21
+
 - [ ] AdGuard role: stop flushing rewrites on every run
   - Context: the adguard role renders `AdGuardHome.yaml` from a template that emits `rewrites: []`, restarts AdGuard, and then relies on downstream API tasks (`/control/rewrite/add`) to repopulate rewrites. If ANY task between the restart and the rewrite-add tasks fails (today: `/control/safesearch/status` returned 404 because that endpoint has drifted in current AdGuard versions), the play halts and ALL `*.laxdog.uk` rewrites are wiped in the interim. Today this broke DNS for all 31 internal hostnames for ~2 minutes until rewrites were restored by direct API calls. Fix: either have the template render the declared rewrites (with `enabled: true`) and skip the API-repopulate step, or make the rewrite-add tasks run BEFORE any task that could fail. Also fix the safesearch API call (404) — endpoint has moved in newer AdGuard releases.
   - Effort: medium
