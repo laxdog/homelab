@@ -26,6 +26,24 @@ Nagios checks for RR (all on VM133):
 - **rr-application-staging-proxmox**: healthz, statusz, HTTP domain (both laxdog.uk and lax.dog), VPN, snapshot, total-perf, Cloudflare
 - Notifications: prod enabled, dev enabled (re-enabled 2026-04-14)
 
+Prometheus (`config/observability/prometheus.yml`):
+- **rr-prod / rr-staging**: top-level `/statusz` probes (un-filtered — the whole env's state).
+- **rr-workers-prod / rr-workers-staging** (added 2026-04-21): per-worker `/statusz?worker_name=<name>` probes with a `worker_name` Prometheus label for Grafana filtering. Current targets: rr-worker-prod-proxmox, rr-worker-prod-mums, alerter-prod (prod); rr-worker-staging-home, alerter-staging (staging). New workers should be added to the relevant job's `static_configs.targets` list.
+
+## Promtail app-log shipping
+
+`/var/log/raffle-raptor/*.log` is scraped by Promtail on every RR node and shipped to Loki on CT172 under `{job="raffle-raptor", env=<env>, host=<hostname>}`. Hosts currently configured:
+
+| node | env | scrape block deployed |
+|---|---|---|
+| rr-application-prod-vps | prod | earlier (pre-2026-04-21) |
+| rr-application-staging-proxmox (CT163) | staging | 2026-04-21 manual edit |
+| rr-worker-prod-proxmox (CT173) | prod | 2026-04-21 manual edit |
+| rr-worker-prod-mums | prod | 2026-04-21 manual edit |
+| rr-worker-staging-home | staging | 2026-04-21 manual edit |
+
+The 2026-04-21 edits were applied directly to `/etc/promtail/config.yml` on each node + `systemctl restart promtail`, not via Ansible. The `promtail` role in this repo is not currently wired to any host — see the `backlog.md` "Promtail role unification" item for the planned fix. Until that lands, a new RR node needs the block added manually at provisioning time.
+
 ## Prod VPS access
 - **Tailscale IP**: 100.82.170.21 (hostname: rr-application-prod-vps)
 - **Public IP**: 159.195.59.97
