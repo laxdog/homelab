@@ -8,6 +8,21 @@
     state: present
     update_cache: true
 
+# Ubuntu ships its own docker stack in the main archive. If it ever lands
+# on a host (manual `apt install docker.io` / `docker-compose-v2`, or a
+# transitive dep) it collides with Docker CE: both packages claim
+# /usr/libexec/docker/cli-plugins/docker-compose, and dpkg aborts with
+# docker-ce in `iU`. `state: absent` (remove, not purge) deliberately —
+# docker.io's postrm on purge invokes /var/lib/docker/nuke-graph-directory.sh
+# which would wipe docker-ce's shared data directory.
+- name: Ensure Ubuntu-native docker packages are absent
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-compose-v2
+      - containerd
+    state: absent
+
 - name: Ensure keyring directory exists
   ansible.builtin.file:
     path: /etc/apt/keyrings
