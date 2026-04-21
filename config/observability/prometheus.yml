@@ -34,3 +34,54 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: json-exporter:7979
+
+  # Per-worker /statusz probes. The base URL is the same as rr-prod /
+  # rr-staging above; the ?worker_name=<name> query filters the statusz
+  # response to one worker. Uses the blackbox-exporter idiom: URL rides
+  # in __address__, relabel swaps it into __param_target, then resets
+  # __address__ to the json-exporter sidecar. worker_name is pulled from
+  # the URL via regex so Grafana can filter by it.
+  - job_name: rr-workers-prod
+    metrics_path: /probe
+    params:
+      module: [rr_statusz]
+    static_configs:
+      - targets:
+          - 'https://raffle-raptor.lax.dog/statusz?worker_name=rr-worker-prod-proxmox'
+          - 'https://raffle-raptor.lax.dog/statusz?worker_name=rr-worker-prod-mums'
+          - 'https://raffle-raptor.lax.dog/statusz?worker_name=alerter-prod'
+        labels:
+          env: prod
+          service: raffle-raptor
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - source_labels: [__param_target]
+        regex: '.*worker_name=(.*)'
+        target_label: worker_name
+      - target_label: __address__
+        replacement: json-exporter:7979
+
+  - job_name: rr-workers-staging
+    metrics_path: /probe
+    params:
+      module: [rr_statusz]
+    static_configs:
+      - targets:
+          - 'https://raffle-raptor-dev.lax.dog/statusz?worker_name=rr-worker-staging-home'
+          - 'https://raffle-raptor-dev.lax.dog/statusz?worker_name=alerter-staging'
+        labels:
+          env: staging
+          service: raffle-raptor
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - source_labels: [__param_target]
+        regex: '.*worker_name=(.*)'
+        target_label: worker_name
+      - target_label: __address__
+        replacement: json-exporter:7979
