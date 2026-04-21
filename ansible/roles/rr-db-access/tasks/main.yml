@@ -182,11 +182,12 @@
     GRANT {{ (rr_db_access_cfg.grants | default(['SELECT'])) | join(', ') }} ON ALL TABLES IN SCHEMA public TO {{ rr_db_access_cfg.username }};
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT {{ (rr_db_access_cfg.grants | default(['SELECT'])) | join(', ') }} ON TABLES TO {{ rr_db_access_cfg.username }};
 
-    -- Sequences: default to SELECT (covers nextval/currval for SERIAL columns).
-    -- Widening sequence grants beyond SELECT is a separate concern; add a
-    -- sequence_grants config field if ever needed.
-    GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO {{ rr_db_access_cfg.username }};
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON SEQUENCES TO {{ rr_db_access_cfg.username }};
+    -- Sequences: USAGE + SELECT. USAGE is needed for nextval() on SERIAL/
+    -- IDENTITY columns (SELECT alone covers currval/lastval only — inserts
+    -- that allocate a new id fail without USAGE). Widening beyond USAGE+SELECT
+    -- is a separate concern; add a sequence_grants config field if needed.
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {{ rr_db_access_cfg.username }};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO {{ rr_db_access_cfg.username }};
     SQL
   args:
     executable: /bin/bash
