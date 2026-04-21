@@ -600,8 +600,11 @@ services:
         enabled: true
         db_container: raffle-raptor-db-1
         database: raffle_raptor
-        username: rr_discovery_staging
-        password_var: rr_discovery_staging_db_password
+        username: rr_worker
+        password_var: rr_worker_staging_db_password
+        grants: [SELECT, INSERT, UPDATE]
+        remove_users:
+        - rr_discovery_staging
         allowed_tailscale_source:
         - 100.88.35.124/32
         port: 5432

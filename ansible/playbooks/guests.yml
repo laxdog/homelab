@@ -76,13 +76,6 @@
         file: ../secrets.yml
       no_log: true
       when: lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
-    - name: Load RR staging DB access secrets when available
-      ansible.builtin.include_vars:
-        file: ../secrets-rr-staging.yml
-      no_log: true
-      when:
-        - lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | length > 0
-        - lookup('ansible.builtin.file', playbook_dir ~ '/../secrets-rr-staging.yml', errors='ignore') | length > 0
   roles:
     - rr-db-access
 
