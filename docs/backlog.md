@@ -149,6 +149,27 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Scope: homelab
   - Added: 2026-04-15
 
+- [ ] Obsidian / CouchDB sync broken
+  - Context: `couchdb.lax.dog` is still externally exposed in CF (proxied A → home NAT) specifically so that Obsidian's LiveSync plugin on off-LAN devices can reach CouchDB. The external path exists but the sync itself is currently broken — Obsidian clients can't reach the CouchDB server through the external hostname, mechanism unknown (could be NPM config, CouchDB CORS, Obsidian plugin auth, or CF/Authentik interference). `couchdb.laxdog.uk` (internal) works for LAN devices. External record is retained pending diagnosis — do NOT delete `couchdb.lax.dog` from CF until sync is either fixed or moved to Tailscale-only clients.
+  - Scope: diagnose from an off-LAN Obsidian device; fix or decide to retire external path.
+  - Effort: low/medium
+  - Scope: homelab
+  - Added: 2026-04-22
+
+- [ ] Google Home integration on Home Assistant — Authentik exemption or removal on ha.lax.dog
+  - Context: `ha.lax.dog` is currently behind Authentik forward-auth in NPM (`authentik_protect: true`, verified live on CT154 proxy_host 33.conf). DNS recon on 2026-04-22 confirmed NO Google Home / Nabu Casa integration currently active — 0 queries to `*.googleapis.com` / `*.nabu.casa` from HA (10.20.30.122) in the last 8 days of AdGuard query log. If Google Home is adopted (either direct Actions project or via Nabu Casa), Google's fulfillment endpoints MUST be able to hit HA's `/api/google_assistant` without Authentik intercepting — forward-auth will break the Sync/Query/Execute flow. Two options when ready: (a) exempt `/api/google_assistant` path from forward-auth in NPM, or (b) drop forward-auth on `ha.lax.dog` entirely and rely on HA's built-in auth.
+  - Scope: decide approach when/if Google Home is added; update NPM config accordingly.
+  - Effort: low (NPM advanced-config change)
+  - Scope: homelab
+  - Added: 2026-04-22
+
+- [ ] Remove `*.lax.dog` wildcard in Cloudflare
+  - Context: the wildcard CNAME `*.lax.dog → lax.dog` is currently load-bearing for six media-stack services — `cleanuparr`, `prowlarr`, `qbittorrent`, `radarr`, `sabnzbd`, `sonarr`. None of them have explicit CF records; external access goes wildcard → apex A → home NAT → NPM. Created 2020-01-06, last modified 2024-12-20, predates most current homelab work. Can't be deleted until media-stack stops needing external DNS (tailnet-only migration) OR explicit records are added for each. Pre-flight before removal: confirm no other services rely on wildcard (grep NPM and homelab.yaml for `.lax.dog` consumers without explicit records), grep Authentik app registrations for `*.lax.dog` external_hosts, and check the `_acme-challenge` TXT path still works for cert issuance. Related: four records deleted 2026-04-22 (`nagios`, `netalertx`, `proxmox`, `stream`); wildcard covers any stale external links to those but internal laxdog.uk paths are the real substitute.
+  - Scope: migrate media-stack off wildcard; then delete `*.lax.dog` CNAME.
+  - Effort: medium
+  - Scope: homelab
+  - Added: 2026-04-22
+
 ## Low Priority
 
 - [ ] T420 eBay listing — finalise and publish
