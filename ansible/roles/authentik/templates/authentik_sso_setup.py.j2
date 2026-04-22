@@ -199,6 +199,7 @@ def ensure_internal_user(username, password, name):
             "name": name,
             "is_active": True,
             "type": "internal",
+            "path": "users",
         },
     )
     dirty = False
@@ -210,6 +211,9 @@ def ensure_internal_user(username, password, name):
         dirty = True
     if user.type != "internal":
         user.type = "internal"
+        dirty = True
+    if user.path != "users":
+        user.path = "users"
         dirty = True
     if dirty:
         user.save()
@@ -232,9 +236,9 @@ def ensure_ldap_provider():
         defaults={
             "name": ldap["provider_name"],
             "authentication_flow": bind_flow,
-            "authorization_flow": Flow.objects.get(
-                slug="default-provider-authorization-implicit-consent"
-            ),
+            # Authentik's LDAP outpost currently reads bind_flow_slug from the
+            # provider's authorization_flow, not authentication_flow.
+            "authorization_flow": bind_flow,
             "base_dn": ldap["base_dn"],
             "certificate": certificate,
             "tls_server_name": "",

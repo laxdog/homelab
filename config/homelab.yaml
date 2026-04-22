@@ -1384,7 +1384,7 @@ jellyfin:
       version: 22.0.0.0
       source_url: https://repo.jellyfin.org/files/plugin/ldap-authentication/ldap-authentication_22.0.0.0.zip
       directory: ldapauth
-      config_file: Jellyfin.Plugin.LDAP_Auth.xml
+      config_file: LDAP-Auth.xml
     server: 10.20.30.170
     port: 636
     use_ssl: true

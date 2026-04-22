@@ -12,11 +12,11 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
 
 ## High Priority
 
-- [ ] Fix Authentik LDAP bind for Jellyfin groundwork
-  - Context: repo-managed LDAP provider/outpost on CT170 and Jellyfin LDAP plugin/config on CT167 are now in place, but CT167 validation still gets LDAP `Invalid credentials (49)` when binding as `cn=jellyfin-ldap-bind,ou=users,DC=jellyfin,DC=laxdog,DC=uk` against Authentik 2025.2.1. Outpost is healthy, provider/application/outpost objects exist, plugin is loaded, and local Jellyfin `admin` still works. This is the current blocker to a pilot LDAP user login.
-  - Effort: medium
-  - Scope: homelab
-  - Added: 2026-04-22
+- [x] Fix Authentik LDAP bind for Jellyfin groundwork — DONE 2026-04-22
+  - Root cause 1: Authentik LDAP outpost bind flow wiring. The outpost currently reads its bind flow from the provider `authorization_flow`, not `authentication_flow`; our repo-managed setup had set `authentication_flow: default-authentication-flow` but left `authorization_flow` on the implicit-consent provider default. Result: valid bind credentials still returned LDAP `Invalid credentials (49)`. Fixed by updating the Authentik setup template so the Jellyfin LDAP provider sets `authorization_flow` to the intended bind flow and re-applying the narrow Authentik role.
+  - Root cause 2: CT167 Jellyfin plugin config path/serialization drift. The role was managing `Jellyfin.Plugin.LDAP_Auth.xml`, while the installed plugin actually read `LDAP-Auth.xml`. The managed XML also wrote `LdapProfileImageFormat` as `0`; after restart the plugin fell back to its built-in sample config (`CN=BindUser,DC=contoso,DC=com`). Fixed by switching the managed filename to `LDAP-Auth.xml`, serializing `LdapProfileImageFormat` as `Default`, and re-applying the narrow CT167 role.
+  - Outcome: CT167 LDAP bind/search now works, local Jellyfin `admin` still works, and a non-admin pilot LDAP-backed Jellyfin login for `ldapservice` now succeeds. `cjess` remains local and untouched.
+  - Added: 2026-04-22, Completed: 2026-04-22
 
 - [ ] Jellyfin ingress cutover after LDAP bind works
   - Context: `jellyfin.lax.dog` is still behind Authentik forward-auth today. That must be removed once Jellyfin-native LDAP login is validated, otherwise web/native clients will hit stacked auth. Keep `admin` as local break-glass.
