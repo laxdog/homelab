@@ -1131,27 +1131,6 @@ npm:
     access_list: External Public
     ssl: true
     certificate: laxdog-external-le
-  - name: Nagios External
-    domain: nagios.lax.dog
-    forward_host: 10.20.30.133
-    forward_port: 80
-    access_list: External Public
-    ssl: true
-    certificate: laxdog-external-le
-    advanced_config: |
-      location = / {
-        return 302 /nagios/;
-      }
-    authentik_protect: true
-  - name: Proxmox External
-    domain: proxmox.lax.dog
-    forward_scheme: https
-    forward_host: 10.20.30.46
-    forward_port: 8006
-    access_list: External Public
-    ssl: true
-    certificate: laxdog-external-le
-    authentik_protect: true
   - name: Jellyfin External
     domain: jellyfin.lax.dog
     forward_host: 10.20.30.167
@@ -1204,14 +1183,6 @@ npm:
     domain: qbittorrent.lax.dog
     forward_host: 10.20.30.120
     forward_port: 8080
-    access_list: External Public
-    ssl: true
-    certificate: laxdog-external-le
-    authentik_protect: true
-  - name: NetAlertX External
-    domain: netalertx.lax.dog
-    forward_host: 10.20.30.158
-    forward_port: 20211
     access_list: External Public
     ssl: true
     certificate: laxdog-external-le
