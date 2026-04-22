@@ -225,6 +225,17 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Effort: low
   - Added: 2026-04-14
 
+- [ ] apt-cacher-ng stale DNS for CDN-backed repos
+  - Context: 2026-04-22 incident — a 9-day-old apt-cacher-ng process on CT156 was serving dead CloudFront edges for `download.docker.com`. apt-cacher-ng caches backend resolutions/connections internally; CloudFront rotated away from the IPs it had on startup (`18.239.236.x` — all gone), and every CONNECT to the old edges SYN-retried and timed out, surfacing to clients as `HTTP/1.0 502 CONNECT error: Connection timeout`. Current DNS (`108.138.7.x`) was fine when queried directly. Blocked docker-repo apt operations on proxied hosts (CT163, CT173, etc.) until the service was restarted. `pkgs.tailscale.com` wasn't affected this time but will hit the same failure mode whenever its CloudFront fronting moves.
+  - Fix options:
+    - Periodic restart via systemd timer (e.g. weekly) — simplest, no config risk.
+    - Tune apt-cacher-ng's `DnsCacheSeconds` / `PassThroughPattern` to bound internal DNS caching lifetime.
+    - Both — timer as backstop, config tune as primary.
+  - Priority: low. Workaround is a manual `systemctl restart apt-cacher-ng` and it'll recur silently on any CDN IP rotation the cached entries span.
+  - Effort: low
+  - Scope: homelab
+  - Added: 2026-04-22
+
 ## Future
 
 - [ ] Migrate to OPNsense
