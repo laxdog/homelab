@@ -13,6 +13,21 @@
     mode: '0644'
   notify: Restart apt-cacher-ng
 
+# Bound apt-cacher-ng's internal DNS cache so CDN edge rotations
+# don't strand the process on dead IPs. Upstream default is 1800 s,
+# but a 9-day-old process on CT156 was observed serving dead
+# CloudFront edges for download.docker.com (2026-04-22 incident),
+# so we declare the value explicitly rather than relying on the
+# implicit default.
+- name: Bound apt-cacher-ng DNS cache lifetime
+  ansible.builtin.lineinfile:
+    path: /etc/apt-cacher-ng/acng.conf
+    regexp: '^\s*#?\s*DnsCacheSeconds:'
+    line: 'DnsCacheSeconds: 3600'
+    create: true
+    mode: '0644'
+  notify: Restart apt-cacher-ng
+
 - name: Ensure apt-cacher-ng service is running
   ansible.builtin.service:
     name: apt-cacher-ng

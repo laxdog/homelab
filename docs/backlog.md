@@ -225,16 +225,11 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Effort: low
   - Added: 2026-04-14
 
-- [ ] apt-cacher-ng stale DNS for CDN-backed repos
-  - Context: 2026-04-22 incident — a 9-day-old apt-cacher-ng process on CT156 was serving dead CloudFront edges for `download.docker.com`. apt-cacher-ng caches backend resolutions/connections internally; CloudFront rotated away from the IPs it had on startup (`18.239.236.x` — all gone), and every CONNECT to the old edges SYN-retried and timed out, surfacing to clients as `HTTP/1.0 502 CONNECT error: Connection timeout`. Current DNS (`108.138.7.x`) was fine when queried directly. Blocked docker-repo apt operations on proxied hosts (CT163, CT173, etc.) until the service was restarted. `pkgs.tailscale.com` wasn't affected this time but will hit the same failure mode whenever its CloudFront fronting moves.
-  - Fix options:
-    - Periodic restart via systemd timer (e.g. weekly) — simplest, no config risk.
-    - Tune apt-cacher-ng's `DnsCacheSeconds` / `PassThroughPattern` to bound internal DNS caching lifetime.
-    - Both — timer as backstop, config tune as primary.
-  - Priority: low. Workaround is a manual `systemctl restart apt-cacher-ng` and it'll recur silently on any CDN IP rotation the cached entries span.
-  - Effort: low
-  - Scope: homelab
-  - Added: 2026-04-22
+- [x] apt-cacher-ng stale DNS for CDN-backed repos — RESOLVED 2026-04-22
+  - Context: incident 2026-04-22 — a 9-day-old apt-cacher-ng process on CT156 was serving dead CloudFront edges for `download.docker.com`. CloudFront rotated away from the IPs it had on startup (`18.239.236.x` gone); every CONNECT SYN-retried and timed out, surfacing to clients as `HTTP/1.0 502 CONNECT error: Connection timeout`. Blocked docker-repo apt operations on every proxied host (CT163, CT173, etc.) until the service was manually restarted.
+  - Resolved by: declared `DnsCacheSeconds: 3600` explicitly in `/etc/apt-cacher-ng/acng.conf` via the `apt_cacher` role (`ansible/roles/apt_cacher/tasks/main.yml`). Applied to CT156, service restarted via handler, `CONNECT download.docker.com` now returns 200 in ~220 ms. Second apply is idempotent (`changed=0`).
+  - Caveat — if this recurs: the upstream default was already 1800 s, so a 9-day process *should* have re-resolved many times over. If we see another case of stale CDN IPs, the DnsCacheSeconds knob alone won't be enough and a weekly systemd-timer restart as a backstop is the next step. Explicit config also means the value is now auditable in git rather than implicit default.
+  - Added: 2026-04-22, Completed: 2026-04-22
 
 ## Future
 
