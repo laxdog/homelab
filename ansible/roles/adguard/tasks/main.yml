@@ -47,6 +47,55 @@
     content: "nameserver {{ adguard_resolv_nameserver }}\n"
     mode: '0644'
 
+# AdGuard's HostsContainer (runtime_sources.hosts: true) watches /etc/hosts
+# via fsnotify and answers PTR queries for any IP it finds there BEFORE
+# falling through to local_ptr_upstreams. The router upstream has no DHCP
+# record for statically-assigned guests and silently drops those PTRs
+# (2 s i/o timeout in the journal per unknown IP, large bursts during
+# NetAlertX scans). Writing declared guests here makes known-IP PTRs
+# instant and router-independent. local_ptr_upstreams remains set as the
+# catch-all for DHCP-registered devices. Reference: 2026-04-22 PTR recon.
+- name: Build homelab guest PTR entry list from config
+  ansible.builtin.set_fact:
+    adguard_ptr_pairs: >-
+      {%- set entries = [] -%}
+      {%- for n, ip in (config.network.reserved | default({})).items() -%}
+        {%- set _ = entries.append([ip, n]) -%}
+      {%- endfor -%}
+      {%- for n, spec in (config.services.vms | default({})).items() -%}
+        {%- if spec.ip is defined -%}{%- set _ = entries.append([spec.ip, n]) -%}{%- endif -%}
+      {%- endfor -%}
+      {%- for n, spec in (config.services.lxcs | default({})).items() -%}
+        {%- if spec.ip is defined -%}{%- set _ = entries.append([spec.ip, n]) -%}{%- endif -%}
+      {%- endfor -%}
+      {%- for n, spec in ((config.remote_nodes | default({})).nodes | default({})).items() -%}
+        {%- if spec.ip is defined and (spec.ip is match('^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.)')) -%}
+          {%- set _ = entries.append([spec.ip, n]) -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {%- set seen = [] -%}
+      {%- set out = [] -%}
+      {%- for ip, n in entries -%}
+        {%- if ip not in seen -%}
+          {%- set _ = seen.append(ip) -%}
+          {%- set _ = out.append([ip, n]) -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {{ out }}
+  tags: [hosts_ptr_block]
+
+- name: Render homelab guest PTR block in /etc/hosts
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} homelab guest PTR block (managed by adguard role)"
+    block: |
+      # Generated from config/homelab.yaml. Edit the config, not this block.
+      {% for ip, name in adguard_ptr_pairs -%}
+      {{ "%-16s" | format(ip) }} {{ name }}.lax.dog {{ name }}
+      {% endfor -%}
+    mode: '0644'
+  tags: [hosts_ptr_block]
+
 - name: Ensure AdGuardHome install directory exists
   ansible.builtin.file:
     path: "{{ adguard_install_dir }}"
