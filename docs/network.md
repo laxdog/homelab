@@ -40,6 +40,36 @@ Source of truth: `config/homelab.yaml`.
 - External: `lax.dog` (Cloudflare)
 - Internal: `laxdog.uk` (AdGuard rewrites -> NPM)
 
+## External DNS (Cloudflare `lax.dog` zone)
+
+Source of truth for record intent is Cloudflare; this doc captures the decisions behind what's exposed externally vs kept tailnet-only. Services moving to tailnet-only get their `lax.dog` record deleted and are reached via their `laxdog.uk` equivalent on the LAN or via Tailscale.
+
+**Records that remain (9):**
+| Record | Type | Proxy | Reason |
+|---|---|---|---|
+| `lax.dog` | A | proxied | Apex, target of the wildcard CNAME |
+| `*.lax.dog` | CNAME | proxied | Wildcard → apex. Load-bearing: `cleanuparr`, `prowlarr`, `qbittorrent`, `radarr`, `sabnzbd`, `sonarr` all reach external via this. Removal backlogged (see below). |
+| `auth.lax.dog` | A | proxied | Authentik outpost endpoint — must stay external, other external services forward-auth against it |
+| `ha.lax.dog` | A | proxied | Home Assistant, externally accessible behind Authentik forward-auth (pending decision on Google Home integration / forward-auth exemption) |
+| `jellyfin.lax.dog` | A | proxied | Still external pending LDAP bind fix + native-login cutover |
+| `couchdb.lax.dog` | A | proxied | Obsidian CouchDB sync endpoint. Currently broken (see backlog) — record retained until that decision is made |
+| `raffle-raptor.lax.dog` | A | **DNS-only** | Prod RR app, points direct to VPS `159.195.59.97` — not on home NAT |
+| `raffle-raptor-dev.lax.dog` | A | proxied | Staging RR app on home infra |
+| `_acme-challenge.lax.dog` | TXT | n/a | DNS-01 certbot token (Let's Encrypt) |
+
+**Records deleted 2026-04-22** (services moved to tailnet/LAN-only):
+| Record | Type | Replacement | Reason |
+|---|---|---|---|
+| `nagios.lax.dog` | A | `nagios.laxdog.uk` (internal NPM proxy, LAN/Tailscale only) | Monitoring UI doesn't need public exposure |
+| `netalertx.lax.dog` | A | `netalertx.laxdog.uk` | LAN monitoring, same rationale |
+| `proxmox.lax.dog` | A | `proxmox.laxdog.uk` | Hypervisor UI — LAN/Tailscale only, reduces attack surface |
+| `stream.lax.dog` | A | none | Orphan left over from Plex retirement (2026-04-14). No NPM/AdGuard config referred to it. |
+
+All four deletions were pre-flight-verified: AdGuard rewrite for the `laxdog.uk` equivalent in place, NPM internal proxy host serving on `10.20.30.154`, HTTP probe returned 200/302 from the internal path. `stream.lax.dog` was a pure orphan with no internal equivalent to verify.
+
+**Wildcard removal — backlogged.** The 6 media-stack services (`cleanuparr`, `prowlarr`, `qbittorrent`, `radarr`, `sabnzbd`, `sonarr`) resolve externally only via `*.lax.dog` — there are no explicit CF records for them. Removing the wildcard breaks their external path. They'll be migrated off the wildcard (either tailnet-only or explicit records) in a follow-up; see `docs/backlog.md`.
+
+
 ## Remote Access (Phase 1)
 - Tailscale subnet router/exit node VM: `tailscale-gateway` (`10.20.30.171`).
 - Advertised subnet route: `10.20.30.0/24`.
