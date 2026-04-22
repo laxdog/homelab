@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PluginConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <LdapUsers />
+  <LdapServer>{{ config.jellyfin.ldap.server }}</LdapServer>
+  <LdapPort>{{ config.jellyfin.ldap.port }}</LdapPort>
+  <UseSsl>{{ config.jellyfin.ldap.use_ssl | ternary('true', 'false') }}</UseSsl>
+  <UseStartTls>{{ config.jellyfin.ldap.use_starttls | ternary('true', 'false') }}</UseStartTls>
+  <SkipSslVerify>{{ config.jellyfin.ldap.skip_ssl_verify | ternary('true', 'false') }}</SkipSslVerify>
+  <LdapBindUser>{{ config.jellyfin.ldap.bind_user_dn }}</LdapBindUser>
+  <LdapBindPassword>{{ authentik_jellyfin_ldap_bind_password }}</LdapBindPassword>
+  <LdapBaseDn>{{ config.jellyfin.ldap.base_dn }}</LdapBaseDn>
+  <LdapSearchFilter>{{ config.jellyfin.ldap.search_filter }}</LdapSearchFilter>
+  <LdapAdminBaseDn />
+  <LdapAdminFilter>{{ config.jellyfin.ldap.admin_filter }}</LdapAdminFilter>
+  <EnableLdapAdminFilterMemberUid>false</EnableLdapAdminFilterMemberUid>
+  <LdapSearchAttributes>{{ config.jellyfin.ldap.search_attributes }}</LdapSearchAttributes>
+  <LdapClientCertPath />
+  <LdapClientKeyPath />
+  <LdapRootCaPath>/config/ldap/ldap-ca.pem</LdapRootCaPath>
+  <CreateUsersFromLdap>{{ config.jellyfin.ldap.create_users_from_ldap | ternary('true', 'false') }}</CreateUsersFromLdap>
+  <AllowPassChange>false</AllowPassChange>
+  <LdapUidAttribute>{{ config.jellyfin.ldap.uid_attribute }}</LdapUidAttribute>
+  <LdapUsernameAttribute>{{ config.jellyfin.ldap.username_attribute }}</LdapUsernameAttribute>
+  <LdapPasswordAttribute>{{ config.jellyfin.ldap.password_attribute }}</LdapPasswordAttribute>
+  <EnableLdapProfileImageSync>false</EnableLdapProfileImageSync>
+  <RemoveImagesNotInLdap>false</RemoveImagesNotInLdap>
+  <LdapProfileImageAttribute>jpegphoto</LdapProfileImageAttribute>
+  <LdapProfileImageFormat>0</LdapProfileImageFormat>
+  <EnableAllFolders>{{ config.jellyfin.ldap.enable_all_folders | ternary('true', 'false') }}</EnableAllFolders>
+  <EnabledFolders />
+  <PasswordResetUrl />
+</PluginConfiguration>

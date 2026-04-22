@@ -1281,6 +1281,24 @@ authentik:
   port: 9000
   internal_domain: auth.laxdog.uk
   external_domain: auth.lax.dog
+  ldap:
+    enabled: true
+    provider_name: Jellyfin LDAP
+    application_name: Jellyfin LDAP
+    application_slug: jellyfin-ldap
+    outpost_name: Jellyfin LDAP Outpost
+    outpost_container_name: authentik-ldap-outpost
+    base_dn: DC=jellyfin,DC=laxdog,DC=uk
+    bind_user:
+      username: jellyfin-ldap-bind
+      name: Jellyfin LDAP Bind
+    user_group_name: jellyfin-users
+    certificate_name: authentik Self-signed Certificate
+    bind_mode: direct
+    search_mode: direct
+    mfa_support: false
+    port: 389
+    ssl_port: 636
   proxy_apps:
   - name: Proxmox
     slug: proxmox
@@ -1359,6 +1377,29 @@ jellyfin:
   ui_culture: en-US
   enable_remote_access: true
   enable_automatic_port_mapping: false
+  ldap:
+    enabled: true
+    plugin:
+      guid: 958aad66-3784-4d2a-b89a-a7b6fab6e25c
+      version: 22.0.0.0
+      source_url: https://repo.jellyfin.org/files/plugin/ldap-authentication/ldap-authentication_22.0.0.0.zip
+      directory: ldapauth
+      config_file: Jellyfin.Plugin.LDAP_Auth.xml
+    server: 10.20.30.170
+    port: 636
+    use_ssl: true
+    use_starttls: false
+    skip_ssl_verify: true
+    bind_user_dn: cn=jellyfin-ldap-bind,ou=users,DC=jellyfin,DC=laxdog,DC=uk
+    base_dn: DC=jellyfin,DC=laxdog,DC=uk
+    search_filter: (memberOf=cn=jellyfin-users,ou=groups,DC=jellyfin,DC=laxdog,DC=uk)
+    search_attributes: cn, mail
+    uid_attribute: uidNumber
+    username_attribute: cn
+    password_attribute: userPassword
+    admin_filter: _disabled_
+    create_users_from_ldap: true
+    enable_all_folders: true
 home_assistant:
   admin_name: mrobinson
   admin_username: mrobinson
@@ -2193,6 +2234,7 @@ validation:
   - authentik_admin_password
   - authentik_postgres_password
   - authentik_secret_key
+  - authentik_jellyfin_ldap_bind_password
   - couchdb_admin_password
   - healthchecks_admin_password
   - healthchecks_secret_key

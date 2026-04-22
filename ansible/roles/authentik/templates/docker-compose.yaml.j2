@@ -47,3 +47,17 @@ services:
     depends_on:
       - postgresql
       - redis
+{% if config.authentik.ldap.enabled | default(false) and authentik_ldap_outpost_token is defined %}
+
+  ldap:
+    image: ghcr.io/goauthentik/ldap:{{ config.authentik.version }}
+    container_name: {{ config.authentik.ldap.outpost_container_name }}
+    restart: unless-stopped
+    env_file:
+      - ./ldap-outpost.env
+    ports:
+      - "{{ config.authentik.ldap.port }}:3389"
+      - "{{ config.authentik.ldap.ssl_port }}:6636"
+    depends_on:
+      - server
+{% endif %}

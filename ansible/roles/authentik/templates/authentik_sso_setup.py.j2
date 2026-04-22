@@ -1,8 +1,8 @@
 import json
 import os
 import sys
+from dataclasses import replace
 
-# Ensure the parent of the authentik package is on sys.path.
 sys.path.insert(0, "/")
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "authentik.root.settings")
 
@@ -10,22 +10,27 @@ import django  # noqa: E402
 
 django.setup()
 
-from authentik.core.models import Application  # noqa: E402
-from authentik.flows.models import Flow, FlowStageBinding  # noqa: E402
-from dataclasses import replace  # noqa: E402
+from django.contrib.auth.models import Permission  # noqa: E402
+from guardian.shortcuts import assign_perm  # noqa: E402
 
+from authentik.core.models import Application, Group, User  # noqa: E402
 from authentik.crypto.models import CertificateKeyPair  # noqa: E402
+from authentik.flows.models import Flow, FlowStageBinding  # noqa: E402
 from authentik.outposts.models import Outpost, OutpostConfig  # noqa: E402
-from authentik.providers.proxy.models import ProxyProvider  # noqa: E402
+from authentik.providers.ldap.models import LDAPProvider  # noqa: E402
 from authentik.providers.oauth2.models import OAuth2Provider  # noqa: E402
+from authentik.providers.proxy.models import ProxyProvider  # noqa: E402
 from authentik.stages.authenticator_totp.models import AuthenticatorTOTPStage  # noqa: E402
-from authentik.stages.authenticator_validate.models import AuthenticatorValidateStage  # noqa: E402
+from authentik.stages.authenticator_validate.models import (  # noqa: E402
+    AuthenticatorValidateStage,
+)
 from authentik.stages.identification.models import IdentificationStage  # noqa: E402
 from authentik.stages.password.models import PasswordStage  # noqa: E402
 from authentik.stages.user_login.models import UserLoginStage  # noqa: E402
 
 
-CONFIG = json.loads(r'''{{ {
+CONFIG = json.loads(
+    r'''{{ {
   "proxy_apps": config.authentik.proxy_apps | default([]),
   "authentik_host": "https://%s" % (config.authentik.external_domain),
   "proxmox_oidc": {
@@ -35,71 +40,83 @@ CONFIG = json.loads(r'''{{ {
     "client_id": proxmox_oidc_client_id,
     "client_secret": proxmox_oidc_client_secret,
     "enabled": config.proxmox.oidc.enabled | default(true)
-  }
-} | to_json }}''')
+  },
+  "ldap": (config.authentik.ldap | default({"enabled": false})) | combine({
+    "bind_password": authentik_jellyfin_ldap_bind_password | default("")
+  })
+} | to_json }}'''
+)
 
 
-def upsert_flow():
+def ensure_flow(slug, name, with_mfa):
     flow, _ = Flow.objects.update_or_create(
-        slug="homelab-auth-mfa",
+        slug=slug,
         defaults={
-            "name": "Homelab MFA",
-            "title": "Homelab MFA",
+            "name": name,
+            "title": name,
             "designation": "authentication",
-            "authentication": True,
+            "authentication": "none",
         },
     )
 
-    identification, _ = IdentificationStage.objects.update_or_create(
-        name="Homelab Identification",
-        defaults={
-            "name": "Homelab Identification",
-            "user_fields": ["username", "email"],
-        },
-    )
     password, _ = PasswordStage.objects.update_or_create(
-        name="Homelab Password",
+        name=f"{name} Password",
         defaults={
-            "name": "Homelab Password",
-            "allow_show_password": True,
-            "backends": ["authentik.core.auth.InbuiltBackend"],
+            "name": f"{name} Password",
+            "allow_show_password": False,
+            "backends": [
+                "authentik.core.auth.InbuiltBackend",
+                "authentik.sources.kerberos.auth.KerberosBackend",
+                "authentik.sources.ldap.auth.LDAPBackend",
+                "authentik.core.auth.TokenBackend",
+            ],
         },
     )
-    totp, _ = AuthenticatorTOTPStage.objects.update_or_create(
-        name="Homelab TOTP",
+    identification, _ = IdentificationStage.objects.update_or_create(
+        name=f"{name} Identification",
         defaults={
-            "name": "Homelab TOTP",
-            "friendly_name": "Homelab TOTP",
-            "digits": 6,
+            "name": f"{name} Identification",
+            "user_fields": ["username", "email"],
+            "password_stage": password,
         },
     )
-    mfa_validate, _ = AuthenticatorValidateStage.objects.update_or_create(
-        name="Homelab MFA Validate",
-        defaults={
-            "name": "Homelab MFA Validate",
-            "device_classes": ["totp"],
-            "not_configured_action": "configure",
-        },
-    )
-    mfa_validate.configuration_stages.set([totp])
     login, _ = UserLoginStage.objects.update_or_create(
-        name="Homelab Login",
-        defaults={"name": "Homelab Login"},
+        name=f"{name} Login",
+        defaults={"name": f"{name} Login"},
     )
 
     bindings = [
         (10, identification),
-        (20, password),
-        (30, mfa_validate),
-        (100, login),
     ]
+    if with_mfa:
+        totp, _ = AuthenticatorTOTPStage.objects.update_or_create(
+            name=f"{name} TOTP",
+            defaults={
+                "name": f"{name} TOTP",
+                "friendly_name": f"{name} TOTP",
+                "digits": 6,
+            },
+        )
+        mfa_validate, _ = AuthenticatorValidateStage.objects.update_or_create(
+            name=f"{name} MFA Validate",
+            defaults={
+                "name": f"{name} MFA Validate",
+                "device_classes": ["totp"],
+                "not_configured_action": "configure",
+            },
+        )
+        mfa_validate.configuration_stages.set([totp])
+        bindings.append((20, mfa_validate))
+        bindings.append((30, login))
+    else:
+        bindings.append((30, login))
+
     for order, stage in bindings:
         FlowStageBinding.objects.update_or_create(
             target=flow,
             stage=stage,
             defaults={"order": order, "target": flow, "stage": stage},
         )
-
     return flow
 
 
@@ -111,7 +128,9 @@ def ensure_proxy_app(flow, app):
             "mode": "forward_single",
             "external_host": app["external_host"],
             "authentication_flow": flow,
-            "authorization_flow": Flow.objects.get(slug="default-provider-authorization-implicit-consent"),
+            "authorization_flow": Flow.objects.get(
+                slug="default-provider-authorization-implicit-consent"
+            ),
         },
     )
 
@@ -122,17 +141,20 @@ def ensure_proxy_app(flow, app):
     return provider
 
 
-def update_outpost(providers):
-    outpost = Outpost.objects.filter(name="authentik Embedded Outpost").first()
+def update_outpost(name, outpost_type, providers, authentik_host):
+    outpost = Outpost.objects.filter(name=name).first()
     if not outpost:
         outpost = Outpost.objects.create(
-            name="authentik Embedded Outpost",
-            type="proxy",
-            config=OutpostConfig(authentik_host=CONFIG["authentik_host"]),
+            name=name,
+            type=outpost_type,
+            config=OutpostConfig(authentik_host=authentik_host),
         )
-    outpost.config = replace(outpost.config, authentik_host=CONFIG["authentik_host"])
+    outpost.type = outpost_type
+    outpost.config = replace(outpost.config, authentik_host=authentik_host)
     outpost.save()
     outpost.providers.set(providers)
+    _ = outpost.token
+    return outpost
 
 
 def ensure_oidc_app(flow, oidc):
@@ -143,14 +165,8 @@ def ensure_oidc_app(flow, oidc):
         return None
 
     redirect_uris = [
-        {
-            "matching_mode": "strict",
-            "url": uri,
-        }
-        for uri in oidc.get("redirect_uris", [])
+        {"matching_mode": "strict", "url": uri} for uri in oidc.get("redirect_uris", [])
     ]
-    # Without a signing key, Authentik's JWKS endpoint can be empty (`{}`),
-    # which breaks Proxmox OIDC parsing.
     signing_key = (
         CertificateKeyPair.objects.filter(name="authentik Internal JWT Certificate").first()
         or CertificateKeyPair.objects.filter(name="authentik Self-signed Certificate").first()
@@ -176,14 +192,95 @@ def ensure_oidc_app(flow, oidc):
     return provider
 
 
+def ensure_internal_user(username, password, name):
+    user, _ = User.objects.get_or_create(
+        username=username,
+        defaults={
+            "name": name,
+            "is_active": True,
+            "type": "internal",
+        },
+    )
+    dirty = False
+    if user.name != name:
+        user.name = name
+        dirty = True
+    if not user.is_active:
+        user.is_active = True
+        dirty = True
+    if user.type != "internal":
+        user.type = "internal"
+        dirty = True
+    if dirty:
+        user.save()
+    if password:
+        user.set_password(password)
+        user.save()
+    return user
+
+
+def ensure_ldap_provider():
+    ldap = CONFIG.get("ldap", {})
+    if not ldap.get("enabled"):
+        return None
+
+    bind_flow = Flow.objects.get(slug="default-authentication-flow")
+    certificate = CertificateKeyPair.objects.filter(name=ldap["certificate_name"]).first()
+
+    provider, _ = LDAPProvider.objects.update_or_create(
+        name=ldap["provider_name"],
+        defaults={
+            "name": ldap["provider_name"],
+            "authentication_flow": bind_flow,
+            "authorization_flow": Flow.objects.get(
+                slug="default-provider-authorization-implicit-consent"
+            ),
+            "base_dn": ldap["base_dn"],
+            "certificate": certificate,
+            "tls_server_name": "",
+            "bind_mode": ldap["bind_mode"],
+            "search_mode": ldap["search_mode"],
+            "mfa_support": ldap["mfa_support"],
+        },
+    )
+
+    Application.objects.update_or_create(
+        slug=ldap["application_slug"],
+        defaults={
+            "name": ldap["application_name"],
+            "slug": ldap["application_slug"],
+            "provider": provider,
+        },
+    )
+
+    Group.objects.update_or_create(name=ldap["user_group_name"])
+    bind_user = ensure_internal_user(
+        ldap["bind_user"]["username"],
+        ldap["bind_password"],
+        ldap["bind_user"]["name"],
+    )
+
+    if Permission.objects.filter(codename="search_full_directory").exists():
+        assign_perm("search_full_directory", bind_user, provider)
+
+    update_outpost(
+        ldap["outpost_name"],
+        "ldap",
+        [provider],
+        "http://server:9000",
+    )
+    return provider
+
+
 def main():
-    flow = upsert_flow()
-    ensure_oidc_app(flow, CONFIG.get("proxmox_oidc"))
-    providers = []
-    for app in CONFIG["proxy_apps"]:
-        providers.append(ensure_proxy_app(flow, app))
+    mfa_flow = ensure_flow("homelab-auth-mfa", "Homelab MFA", with_mfa=True)
+    ensure_oidc_app(mfa_flow, CONFIG.get("proxmox_oidc"))
+
+    providers = [ensure_proxy_app(mfa_flow, app) for app in CONFIG["proxy_apps"]]
     if providers:
-        update_outpost(providers)
+        update_outpost("authentik Embedded Outpost", "proxy", providers, CONFIG["authentik_host"])
+
+    ensure_ldap_provider()
 
 
 if __name__ == "__main__":

@@ -19,9 +19,38 @@ Both hostnames should point to the same Authentik instance via NPM.
 - LXC: `170` / `10.20.30.170`.
 - External hosts (`lax.dog`) are always protected via forward-auth.
 - Internal hosts (`laxdog.uk`) remain LAN-open unless the app supports OIDC and needs identity.
-- Apps with native client auth (Jellyfin, Plex) are not put behind forward-auth to avoid breaking
-  non-browser clients. They keep local logins and may optionally add OIDC for web SSO.
+- Apps with native client auth (Jellyfin, Plex) should not be put behind forward-auth to avoid
+  breaking non-browser clients. They should use native app auth instead.
 - Authentik config is managed by a container-side script (no click-ops).
+
+## LDAP provider pattern
+- Repo-managed LDAP groundwork for Jellyfin now exists.
+- Source of truth:
+  - `config/homelab.yaml` under `authentik.ldap`
+  - `ansible/roles/authentik/templates/authentik_sso_setup.py.j2`
+  - `ansible/roles/authentik/templates/docker-compose.yaml.j2`
+  - `ansible/roles/authentik/tasks/main.yml`
+- Managed pieces:
+  - LDAP application/provider: `Jellyfin LDAP`
+  - LDAP outpost: `Jellyfin LDAP Outpost`
+  - Dedicated bind user: `jellyfin-ldap-bind`
+  - Dedicated Jellyfin access group: `jellyfin-users`
+  - LDAPS listener on CT170 port `636`
+- Current runtime status:
+  - LDAP outpost container is up and healthy on CT170.
+  - Provider/application/outpost objects are created from repo.
+  - A dedicated bind secret is now vaulted as `authentik_jellyfin_ldap_bind_password`.
+  - Bind/search validation is still blocked: CT167 receives LDAP `Invalid credentials (49)` from
+    the outpost when attempting the configured bind.
+- Current certificate posture:
+  - The LDAP outpost uses Authentik's self-signed certificate.
+  - CT167 imports that certificate, but Jellyfin is currently configured with
+    `SkipSslVerify=true` as a temporary groundwork compromise until a dedicated trusted LDAP cert
+    or hostname is introduced.
+- Next-pass expectation:
+  - Fix LDAP bind validation first.
+  - Then create a non-admin pilot user in Authentik, add it to `jellyfin-users`, and test a full
+    Jellyfin login before any ingress cutover.
 
 ## Current protected hosts
 - `proxmox.lax.dog`
@@ -86,4 +115,8 @@ File sharing / collaboration:
 
 ## Open items
 - Decide which OIDC-capable apps to wire up first (Jellyfin and FreshRSS are good starters).
-- Jellyfin: keep local login enabled for client apps; consider OIDC SSO for web UI only.
+- Jellyfin: repo-managed LDAP groundwork exists, but pilot login is blocked on Authentik LDAP bind
+  returning `Invalid credentials (49)` for the dedicated bind account.
+- Jellyfin: `jellyfin.lax.dog` is still behind NPM forward-auth today, which will stack badly with
+  Jellyfin-native LDAP if left in place. Leave it unchanged until LDAP bind is fixed, then remove
+  forward-auth for the Jellyfin external host in a dedicated cutover pass.

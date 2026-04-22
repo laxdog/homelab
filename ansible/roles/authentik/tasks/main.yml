@@ -2,6 +2,7 @@
 - name: Set Authentik paths
   ansible.builtin.set_fact:
     authentik_compose_dir: "/docker/docker-compose-{{ inventory_hostname }}"
+    authentik_ldap_enabled: "{{ config.authentik.ldap.enabled | default(false) | bool }}"
 
 - name: Create Authentik application directory
   ansible.builtin.file:
@@ -32,28 +33,29 @@
 
 - name: Write Authentik environment file
   ansible.builtin.template:
-    src: "authentik.env.j2"
+    src: authentik.env.j2
     dest: "{{ authentik_compose_dir }}/.env"
     owner: root
     group: root
     mode: '0600'
   no_log: true
 
-- name: Write Authentik Docker Compose file
-  ansible.builtin.template:
-    src: "docker-compose.yaml.j2"
-    dest: "{{ authentik_compose_dir }}/docker-compose.yaml"
-    owner: root
-    group: root
-    mode: '0644'
-
 - name: Write Authentik SSO setup script
   ansible.builtin.template:
-    src: "authentik_sso_setup.py.j2"
+    src: authentik_sso_setup.py.j2
     dest: "{{ authentik_compose_dir }}/scripts/authentik_sso_setup.py"
     owner: root
     group: root
     mode: '0755'
+
+- name: Write Authentik LDAP export script
+  ansible.builtin.template:
+    src: authentik_ldap_export.py.j2
+    dest: "{{ authentik_compose_dir }}/scripts/authentik_ldap_export.py"
+    owner: root
+    group: root
+    mode: '0755'
+  when: authentik_ldap_enabled
 
 - name: Write Authentik readiness check script
   ansible.builtin.copy:
@@ -74,7 +76,27 @@
               time.sleep(2)
       sys.exit(1)
 
-- name: Deploy Authentik via Docker Compose
+- name: Remove Authentik LDAP outpost env file when LDAP is disabled
+  ansible.builtin.file:
+    path: "{{ authentik_compose_dir }}/ldap-outpost.env"
+    state: absent
+  when: not authentik_ldap_enabled
+
+- name: Remove Authentik LDAP CA export when LDAP is disabled
+  ansible.builtin.file:
+    path: "{{ authentik_compose_dir }}/ldap-ca.pem"
+    state: absent
+  when: not authentik_ldap_enabled
+
+- name: Write initial Authentik Docker Compose file
+  ansible.builtin.template:
+    src: docker-compose.yaml.j2
+    dest: "{{ authentik_compose_dir }}/docker-compose.yaml"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Deploy Authentik core services via Docker Compose
   ansible.builtin.command:
     cmd: docker compose up -d
   args:
@@ -116,3 +138,61 @@
   register: authentik_sso_apply
   changed_when: false
   failed_when: authentik_sso_apply.rc != 0
+
+- name: Export Authentik LDAP outpost runtime material
+  ansible.builtin.command:
+    cmd: >-
+      docker exec authentik-server /bin/sh -lc
+      'cd /authentik && /ak-root/venv/bin/python /scripts/authentik_ldap_export.py'
+  register: authentik_ldap_export
+  changed_when: false
+  no_log: true
+  when: authentik_ldap_enabled
+
+- name: Parse Authentik LDAP export payload
+  ansible.builtin.set_fact:
+    authentik_ldap_export_json: "{{ authentik_ldap_export.stdout | from_json }}"
+    authentik_ldap_outpost_token: "{{ (authentik_ldap_export.stdout | from_json).outpost_token }}"
+  no_log: true
+  when: authentik_ldap_enabled
+
+- name: Write Authentik LDAP outpost environment file
+  ansible.builtin.copy:
+    dest: "{{ authentik_compose_dir }}/ldap-outpost.env"
+    owner: root
+    group: root
+    mode: '0600'
+    content: |
+      AUTHENTIK_HOST=http://server:9000
+      AUTHENTIK_TOKEN={{ authentik_ldap_outpost_token }}
+      AUTHENTIK_HOST_BROWSER=
+  no_log: true
+  when: authentik_ldap_enabled
+
+- name: Write Authentik LDAP CA export
+  ansible.builtin.copy:
+    dest: "{{ authentik_compose_dir }}/ldap-ca.pem"
+    owner: root
+    group: root
+    mode: '0644'
+    content: "{{ authentik_ldap_export_json.certificate_pem | trim }}\n"
+  when:
+    - authentik_ldap_enabled
+    - authentik_ldap_export_json.certificate_pem | length > 0
+
+- name: Write final Authentik Docker Compose file with LDAP outpost
+  ansible.builtin.template:
+    src: docker-compose.yaml.j2
+    dest: "{{ authentik_compose_dir }}/docker-compose.yaml"
+    owner: root
+    group: root
+    mode: '0644'
+  when: authentik_ldap_enabled
+
+- name: Deploy Authentik LDAP outpost via Docker Compose
+  ansible.builtin.command:
+    cmd: docker compose up -d
+  args:
+    chdir: "{{ authentik_compose_dir }}"
+  changed_when: false
+  when: authentik_ldap_enabled

@@ -3,28 +3,20 @@
 #
 # Provisions the privileged LXC (CT167) created out-of-band by Terraform
 # import. Installs Intel VAAPI userspace, runs vainfo as a go/no-go gate,
-# then deploys Jellyfin via Docker Compose with QSV/VAAPI configured.
-#
-# This role assumes:
-#   - guest-baseline has already configured the apt-cacher proxy
-#   - docker-host has already installed Docker
-#   - /dev/dri/{card0,renderD128} are visible inside the LXC (set on the
-#     host via `pct set 167 -dev0 ... -dev1 ...`)
-#   - /mnt/media is bind-mounted from /tank/media on the host
-#
-# Run order in guests.yml: after guest-baseline + docker-host.
+# deploys Jellyfin via Docker Compose with QSV/VAAPI configured, and wires
+# in the LDAP auth plugin against Authentik's LDAP outpost.
 
-- name: Install Intel VAAPI userspace and tools
+- name: Install Intel VAAPI userspace and Jellyfin LDAP tooling
   ansible.builtin.apt:
     name:
       - intel-media-va-driver-non-free
-      - libva2
+      - ldap-utils
       - libva-drm2
-      - vainfo
+      - libva2
       - linux-firmware
+      - unzip
+      - vainfo
     state: present
-    update_cache: true
-  register: vaapi_packages
 
 - name: Verify vainfo can open the iHD driver via /dev/dri/renderD128
   ansible.builtin.command: vainfo --display drm --device /dev/dri/renderD128
@@ -62,8 +54,12 @@
     mode: '0755'
   loop:
     - /opt/jellyfin-hw
-    - /opt/jellyfin-hw/config
     - /opt/jellyfin-hw/cache
+    - /opt/jellyfin-hw/config
+    - /opt/jellyfin-hw/config/ldap
+    - /opt/jellyfin-hw/config/plugins
+    - /opt/jellyfin-hw/config/plugins/{{ config.jellyfin.ldap.plugin.directory }}
+    - /opt/jellyfin-hw/config/plugins/configurations
 
 - name: Deploy Jellyfin docker-compose
   ansible.builtin.template:
@@ -72,14 +68,12 @@
     owner: root
     group: root
     mode: '0644'
-  register: compose_deployed
 
 - name: Pull Jellyfin image
   ansible.builtin.command: docker compose pull
   args:
     chdir: /opt/jellyfin-hw
   changed_when: false
-  register: jellyfin_pull
 
 - name: Start Jellyfin container
   ansible.builtin.command: docker compose up -d
@@ -104,6 +98,148 @@
   changed_when: false
   register: container_vainfo
 
-- name: Show container vainfo summary (driver + a few HW encode entrypoints)
+- name: Show container vainfo summary
   ansible.builtin.debug:
     msg: "{{ container_vainfo.stdout_lines | select('search', 'VAEntrypointEncSliceLP|Driver version') | list }}"
+
+- name: Download Jellyfin LDAP plugin archive
+  ansible.builtin.command:
+    argv:
+      - curl
+      - -fsSL
+      - -o
+      - "/opt/jellyfin-hw/ldap-authentication-{{ config.jellyfin.ldap.plugin.version }}.zip"
+      - "{{ config.jellyfin.ldap.plugin.source_url }}"
+  args:
+    creates: "/opt/jellyfin-hw/ldap-authentication-{{ config.jellyfin.ldap.plugin.version }}.zip"
+  changed_when: true
+  when: config.jellyfin.ldap.enabled | default(false)
+
+- name: Unpack Jellyfin LDAP plugin
+  ansible.builtin.unarchive:
+    src: "/opt/jellyfin-hw/ldap-authentication-{{ config.jellyfin.ldap.plugin.version }}.zip"
+    dest: "/opt/jellyfin-hw/config/plugins/{{ config.jellyfin.ldap.plugin.directory }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0644'
+  register: jellyfin_ldap_plugin_unpack
+  when: config.jellyfin.ldap.enabled | default(false)
+
+- name: Fetch Authentik LDAP outpost certificate
+  ansible.builtin.shell: |
+    set -euo pipefail
+    openssl s_client -showcerts -connect {{ config.jellyfin.ldap.server }}:{{ config.jellyfin.ldap.port }} </dev/null 2>/dev/null \
+      | awk '/BEGIN CERTIFICATE/{flag=1} flag{print} /END CERTIFICATE/{exit}'
+  args:
+    executable: /bin/bash
+  register: jellyfin_ldap_ca
+  changed_when: false
+  when: config.jellyfin.ldap.enabled | default(false)
+
+- name: Write Jellyfin LDAP CA bundle
+  ansible.builtin.copy:
+    dest: /opt/jellyfin-hw/config/ldap/ldap-ca.pem
+    owner: root
+    group: root
+    mode: '0644'
+    content: "{{ jellyfin_ldap_ca.stdout | trim }}\n"
+  register: jellyfin_ldap_ca_file
+  when: config.jellyfin.ldap.enabled | default(false)
+
+- name: Write Jellyfin LDAP plugin configuration
+  ansible.builtin.template:
+    src: ldap-plugin-config.xml.j2
+    dest: "/opt/jellyfin-hw/config/plugins/configurations/{{ config.jellyfin.ldap.plugin.config_file }}"
+    owner: root
+    group: root
+    mode: '0600'
+  register: jellyfin_ldap_config
+  no_log: true
+  when: config.jellyfin.ldap.enabled | default(false)
+
+- name: Restart Jellyfin after LDAP plugin changes
+  ansible.builtin.command: docker compose restart jellyfin
+  args:
+    chdir: /opt/jellyfin-hw
+  changed_when: true
+  when:
+    - config.jellyfin.ldap.enabled | default(false)
+    - jellyfin_ldap_plugin_unpack.changed
+      or jellyfin_ldap_ca_file.changed
+      or jellyfin_ldap_config.changed
+
+- name: Wait for Jellyfin /health after LDAP changes
+  ansible.builtin.uri:
+    url: http://localhost:8097/health
+    return_content: true
+  register: jellyfin_health_post_ldap
+  retries: 30
+  delay: 2
+  until: jellyfin_health_post_ldap.status == 200 and 'Healthy' in jellyfin_health_post_ldap.content
+  when: config.jellyfin.ldap.enabled | default(false)
+
+- name: Authenticate local Jellyfin admin
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8097/Users/AuthenticateByName
+    method: POST
+    headers:
+      X-Emby-Authorization: 'MediaBrowser Client="ansible", Device="ansible", DeviceId="ansible", Version="1.0"'
+    body_format: json
+    body:
+      Username: "{{ config.jellyfin.admin_user }}"
+      Pw: "{{ jellyfin_admin_password }}"
+    status_code: 200
+  register: jellyfin_admin_auth
+  no_log: true
+
+- name: Query Jellyfin plugins as admin
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8097/Plugins
+    method: GET
+    headers:
+      X-Emby-Token: "{{ jellyfin_admin_auth.json.AccessToken }}"
+    status_code: 200
+  register: jellyfin_plugins
+  no_log: true
+  when: config.jellyfin.ldap.enabled | default(false)
+
+- name: Assert Jellyfin LDAP plugin is loaded
+  ansible.builtin.assert:
+    that:
+      - >-
+        jellyfin_plugins.json
+        | selectattr('Id', 'equalto', (config.jellyfin.ldap.plugin.guid | replace('-', '') | lower))
+        | list
+        | length > 0
+    fail_msg: "Jellyfin LDAP plugin {{ config.jellyfin.ldap.plugin.guid }} is not loaded."
+  when: config.jellyfin.ldap.enabled | default(false)
+
+- name: Validate Authentik LDAP bind from CT167
+  ansible.builtin.command:
+    argv:
+      - ldapsearch
+      - -x
+      - -H
+      - "ldaps://{{ config.jellyfin.ldap.server }}:{{ config.jellyfin.ldap.port }}"
+      - -D
+      - "{{ config.jellyfin.ldap.bind_user_dn }}"
+      - -w
+      - "{{ authentik_jellyfin_ldap_bind_password }}"
+      - -b
+      - "{{ config.jellyfin.ldap.base_dn }}"
+      - "{{ config.jellyfin.ldap.search_filter }}"
+      - cn
+  environment:
+    LDAPTLS_REQCERT: "never"
+  register: jellyfin_ldap_search
+  changed_when: false
+  no_log: true
+  when: config.jellyfin.ldap.enabled | default(false)
+
+- name: Assert Authentik LDAP search succeeds from CT167
+  ansible.builtin.assert:
+    that:
+      - jellyfin_ldap_search.rc == 0
+    fail_msg: "CT167 could not search Authentik LDAP outpost."
+  when: config.jellyfin.ldap.enabled | default(false)

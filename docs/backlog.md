@@ -12,7 +12,17 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
 
 ## High Priority
 
-_(none currently)_
+- [ ] Fix Authentik LDAP bind for Jellyfin groundwork
+  - Context: repo-managed LDAP provider/outpost on CT170 and Jellyfin LDAP plugin/config on CT167 are now in place, but CT167 validation still gets LDAP `Invalid credentials (49)` when binding as `cn=jellyfin-ldap-bind,ou=users,DC=jellyfin,DC=laxdog,DC=uk` against Authentik 2025.2.1. Outpost is healthy, provider/application/outpost objects exist, plugin is loaded, and local Jellyfin `admin` still works. This is the current blocker to a pilot LDAP user login.
+  - Effort: medium
+  - Scope: homelab
+  - Added: 2026-04-22
+
+- [ ] Jellyfin ingress cutover after LDAP bind works
+  - Context: `jellyfin.lax.dog` is still behind Authentik forward-auth today. That must be removed once Jellyfin-native LDAP login is validated, otherwise web/native clients will hit stacked auth. Keep `admin` as local break-glass.
+  - Effort: low
+  - Scope: homelab
+  - Added: 2026-04-22
 
 ## Medium Priority
 

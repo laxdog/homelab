@@ -7,9 +7,9 @@ For significant changes see `docs/changelog.md`.
 For runbooks see `docs/runbooks/`.
 
 ## Current session context
-- Last updated: 2026-04-17
-- Current HEAD: 674071e
-- Session summary: Loki log aggregation on CT172 (21 hosts + Promtail). VM133 fixed (Tailscale accept-routes conflict). rr-application-prod-vps joined to Tailnet (100.82.170.21), SSH hardened with UFW. Two rename passes to rr-type-env-location convention across all nodes and docs. CT173 (rr-worker-prod-proxmox) created with Docker/Tailscale/Nagios/Promtail. remote-node-baseline WiFi tasks extracted to conditional include (wifi_enabled). Mullvad device inventory documented (docs/vpn.md). Tailscale split DNS and exit node investigated and documented.
+- Last updated: 2026-04-22
+- Current HEAD: ced8f1b
+- Session summary: Authentik + CT167 Jellyfin LDAP groundwork pass. Read current repo/docs and verified live state first: CT167 is the active Jellyfin target with hardware transcoding healthy; `jellyfin.laxdog.uk` points to CT167 without forward-auth; `jellyfin.lax.dog` still points to CT167 with Authentik forward-auth. Added repo-managed Authentik LDAP provider/application/outpost pattern on CT170 plus repo-managed CT167 Jellyfin LDAP plugin/config deployment. Runtime status: Authentik LDAP outpost container is healthy on CT170, Jellyfin LDAP plugin is installed and loaded on CT167, and local Jellyfin `admin` still authenticates as break-glass. Remaining blocker: LDAP bind/search from CT167 to Authentik still fails with `Invalid credentials (49)`, so no pilot LDAP user login was cut over. Ingress intentionally left unchanged; next pass should fix LDAP bind first, then remove `jellyfin.lax.dog` forward-auth in a narrow cutover.
 
 ## Durable user preferences
 - Safety-first over speed

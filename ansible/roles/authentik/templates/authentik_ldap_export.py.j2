@@ -1,0 +1,31 @@
+import json
+import os
+import sys
+
+sys.path.insert(0, "/")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "authentik.root.settings")
+
+import django  # noqa: E402
+
+django.setup()
+
+from authentik.outposts.models import Outpost  # noqa: E402
+from authentik.providers.ldap.models import LDAPProvider  # noqa: E402
+
+
+OUTPOST_NAME = {{ config.authentik.ldap.outpost_name | to_json }}
+PROVIDER_NAME = {{ config.authentik.ldap.provider_name | to_json }}
+
+
+def main():
+    provider = LDAPProvider.objects.get(name=PROVIDER_NAME)
+    outpost = Outpost.objects.get(name=OUTPOST_NAME)
+    payload = {
+        "outpost_token": outpost.token.key,
+        "certificate_pem": provider.certificate.certificate_data if provider.certificate else "",
+    }
+    print(json.dumps(payload))
+
+
+if __name__ == "__main__":
+    main()
