@@ -24,6 +24,38 @@
     line: "127.0.1.1 {{ remote_node_desired_hostname }}"
     state: present
 
+# Docker daemon config — currently only needed for nodes whose egress
+# traverses the VM171 Mullvad exit path, where the double-WireGuard
+# encap (Tailscale + Mullvad wg0) forces an end-to-end MTU of ~1228.
+# Docker's default bridge MTU is 1500, so containers on the default
+# bridge (and on user-defined bridges that don't override their own
+# MTU) silently lose large packets because PMTU-discovery doesn't
+# propagate back through the double-encap path. Setting `mtu` in
+# daemon.json lowers the default-bridge driver MTU; user-defined
+# networks (compose project bridges) inherit this value at creation
+# time unless they explicitly override it.
+# Homelab does NOT install Docker on remote nodes (RR's role does),
+# but /etc/docker/daemon.json is infrastructure config (MTU is a
+# network-path concern) so this file lives in the homelab baseline.
+- name: Ensure /etc/docker exists for remote nodes with a docker block
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: (remote_node_cfg.docker | default({})) | length > 0
+
+- name: Render /etc/docker/daemon.json for remote nodes with a docker block
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: '0644'
+    content: "{{ remote_node_cfg.docker | to_nice_json }}\n"
+  when: (remote_node_cfg.docker | default({})) | length > 0
+  notify: Restart docker
+
 - name: Install remote-node baseline packages
   ansible.builtin.apt:
     name:

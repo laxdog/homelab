@@ -19,6 +19,11 @@
     state: restarted
   listen: Restart TLP
 
+- name: Restart docker
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+
 - name: Reload Nagios on VM133
   ansible.builtin.service:
     name: nagios
