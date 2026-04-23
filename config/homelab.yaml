@@ -1723,6 +1723,46 @@ home_assistant:
       - climate.dining_area
       - climate.front_window
       - climate.bathroom
+  lights_dashboard:
+    title: Lights
+    dashboard_url_path: house-lights
+    view_path: overview
+    icon: mdi:lightbulb-group
+    style: mushroom
+    quick_actions:
+    - name: All House Lights On
+      service: light.turn_on
+      icon: mdi:lightbulb-group
+      icon_color: amber
+      target_entities:
+      - light.philips_lct015
+      - light.aurora_fwbulb01
+      - light.philips_lct015_2
+      - light.philips_lwa001
+    - name: All House Lights Off
+      service: light.turn_off
+      icon: mdi:lightbulb-group-off
+      icon_color: blue-grey
+      target_entities:
+      - light.philips_lct015
+      - light.aurora_fwbulb01
+      - light.philips_lct015_2
+      - light.philips_lwa001
+    sections:
+    - title: Living Room
+      entities:
+      - light.philips_lct015
+    - title: Dining Area
+      entities:
+      - light.aurora_fwbulb01
+    - title: Bedroom
+      entities:
+      - light.philips_lct015_2
+    - title: Unassigned
+      entities:
+      - light.philips_lwa001
+    excluded_entities:
+    - light.philips_lct012
   heating_control:
     deadband_c: 0.5
     hvac_action_max_above_target_c: 0.0

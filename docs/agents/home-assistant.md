@@ -33,6 +33,11 @@ All automations, scripts, dashboards, and helpers should be defined in `config/h
 
 ## Backlog
 
+- [ ] Revisit Sonoff ambient/TRV dashboard layout and placement
+  - Context: the current Sonoff ambient card placement on the heating dashboard is not right. Rework the presentation later rather than continuing to iterate on that layout ad hoc.
+  - Effort: low
+  - Added: 2026-04-23
+
 - [ ] Review HA repo-management boundary and docs alignment
   - Context: `docs/home-assistant.md` already documents the current repo-vs-runtime boundary, but it should get a later HA-focused review to confirm the boundary is still accurate after the recent heating/status-light refactors and to capture any remaining UI-managed exceptions cleanly.
   - Effort: medium

@@ -1472,6 +1472,244 @@ def cmd_sync_heating_dashboard() -> None:
         print(f"{action} Heating dashboard view at /{dashboard_url_path}/{saved_path}")
 
 
+def cmd_sync_lights_dashboard() -> None:
+    cfg, base, token = ha_auth_from_config()
+    dashboard_cfg = cfg.get("home_assistant", {}).get("lights_dashboard", {})
+    if not dashboard_cfg:
+        print("No home_assistant.lights_dashboard configured; nothing to do.")
+        return
+
+    title = str(dashboard_cfg.get("title", "Lights")).strip()
+    dashboard_url_path = str(dashboard_cfg.get("dashboard_url_path", "lights")).strip()
+    view_path = str(dashboard_cfg.get("view_path", "overview")).strip()
+    icon = str(dashboard_cfg.get("icon", "mdi:lightbulb-group")).strip()
+    style = str(dashboard_cfg.get("style", "mushroom")).strip()
+    sections = dashboard_cfg.get("sections", []) or []
+    excluded_entities = {
+        str(entity_id).strip()
+        for entity_id in dashboard_cfg.get("excluded_entities", []) or []
+        if str(entity_id).strip()
+    }
+    quick_actions = dashboard_cfg.get("quick_actions", []) or []
+
+    resources = ws_call(base, token, "lovelace/resources")
+    mushroom_present = any(
+        isinstance(resource, dict) and "lovelace-mushroom" in str(resource.get("url", ""))
+        for resource in resources
+    )
+    if style == "mushroom" and not mushroom_present:
+        raise RuntimeError(
+            "Mushroom card resource is missing. Install HACS + Mushroom first, then rerun sync-lights-dashboard."
+        )
+
+    headers = {"Authorization": f"Bearer {token}"}
+    states_response = requests.get(f"{base}/api/states", headers=headers, timeout=20)
+    states_response.raise_for_status()
+    states_by_entity = {
+        item["entity_id"]: item
+        for item in states_response.json()
+        if isinstance(item, dict) and item.get("entity_id", "").startswith("light.")
+    }
+
+    referenced_entities: List[str] = []
+    for section in sections:
+        referenced_entities.extend(str(entity_id).strip() for entity_id in section.get("entities", []) or [])
+    for action in quick_actions:
+        referenced_entities.extend(str(entity_id).strip() for entity_id in action.get("target_entities", []) or [])
+
+    invalid_entities = sorted(
+        {
+            entity_id
+            for entity_id in referenced_entities
+            if entity_id and not entity_id.startswith("light.")
+        }
+    )
+    if invalid_entities:
+        raise RuntimeError(
+            "lights_dashboard only supports light.* entities right now: "
+            + ", ".join(invalid_entities)
+        )
+
+    missing_entities = sorted(
+        {
+            entity_id
+            for entity_id in referenced_entities
+            if entity_id and entity_id not in states_by_entity
+        }
+    )
+    if missing_entities:
+        raise RuntimeError(f"Configured light entities not found in HA: {', '.join(missing_entities)}")
+
+    def light_card(entity_id: str) -> Dict[str, Any]:
+        state = states_by_entity[entity_id]
+        attrs = state.get("attributes", {}) or {}
+        supported_color_modes = set(attrs.get("supported_color_modes") or [])
+        supports_brightness = bool(
+            supported_color_modes & {"brightness", "color_temp", "xy", "rgb", "rgbw", "rgbww", "hs", "white"}
+        )
+        supports_color = bool(supported_color_modes & {"xy", "rgb", "rgbw", "rgbww", "hs"})
+        supports_color_temp = "color_temp" in supported_color_modes
+        supports_effects = bool(attrs.get("effect_list"))
+        name = str(
+            attrs.get("friendly_name") or entity_id.split(".", 1)[1].replace("_", " ").title()
+        ).strip()
+
+        if style == "mushroom":
+            return {
+                "type": "custom:mushroom-light-card",
+                "entity": entity_id,
+                "name": name,
+                "use_light_color": True,
+                "show_brightness_control": supports_brightness,
+                "show_color_temp_control": supports_color_temp,
+                "show_color_control": supports_color,
+                "show_effect_control": supports_effects,
+                "collapsible_controls": False,
+                "fill_container": False,
+            }
+
+        return {"type": "entities", "title": name, "entities": [entity_id]}
+
+    def summary_chip(content: str, icon_name: str, template: str, icon_color: str) -> Dict[str, Any]:
+        return {
+            "type": "template",
+            "icon": icon_name,
+            "icon_color": icon_color,
+            "content": "{{ " + template + " }} " + content,
+        }
+
+    included_entities: List[str] = []
+    section_cards: List[Dict[str, Any]] = []
+    for section in sections:
+        entity_ids = [
+            str(entity_id).strip()
+            for entity_id in section.get("entities", []) or []
+            if str(entity_id).strip() and str(entity_id).strip() not in excluded_entities
+        ]
+        if not entity_ids:
+            continue
+        included_entities.extend(entity_ids)
+        section_cards.append({"type": "markdown", "content": "## " + str(section.get("title", "Lights")).strip()})
+        section_cards.append(
+            {
+                "type": "grid",
+                "columns": 2,
+                "square": False,
+                "cards": [light_card(entity_id) for entity_id in entity_ids],
+            }
+        )
+
+    if not included_entities:
+        raise RuntimeError("home_assistant.lights_dashboard.sections resolved to no included light entities")
+
+    quick_action_cards: List[Dict[str, Any]] = []
+    for action in quick_actions:
+        target_entities = [
+            str(entity_id).strip() for entity_id in action.get("target_entities", []) or [] if str(entity_id).strip()
+        ]
+        if not target_entities:
+            continue
+        quick_action_cards.append(
+            {
+                "type": "custom:mushroom-template-card",
+                "primary": str(action.get("name", "Light Action")).strip(),
+                "secondary": ", ".join(
+                    str(states_by_entity[entity_id].get("attributes", {}).get("friendly_name", entity_id))
+                    for entity_id in target_entities
+                ),
+                "icon": str(action.get("icon", "mdi:lightbulb")).strip(),
+                "icon_color": str(action.get("icon_color", "amber")).strip(),
+                "multiline_secondary": True,
+                "tap_action": {
+                    "action": "call-service",
+                    "service": str(action.get("service", "light.turn_on")).strip(),
+                    "target": {"entity_id": target_entities if len(target_entities) > 1 else target_entities[0]},
+                },
+            }
+        )
+
+    view_cards: List[Dict[str, Any]] = []
+    if style == "mushroom":
+        on_template = (
+            "["
+            + ", ".join("states('" + entity_id + "')" for entity_id in included_entities)
+            + "] | select('equalto', 'on') | list | count"
+        )
+        unavailable_template = (
+            "["
+            + ", ".join("states('" + entity_id + "')" for entity_id in included_entities)
+            + "] | select('equalto', 'unavailable') | list | count"
+        )
+        view_cards.append(
+            {
+                "type": "custom:mushroom-chips-card",
+                "chips": [
+                    summary_chip("on", "mdi:lightbulb-on", on_template, "amber"),
+                    summary_chip("unavailable", "mdi:lightbulb-alert", unavailable_template, "red"),
+                ],
+            }
+        )
+    if quick_action_cards:
+        view_cards.append(
+            {
+                "type": "grid",
+                "title": "Quick Actions",
+                "columns": 2,
+                "square": False,
+                "cards": quick_action_cards,
+            }
+        )
+    view_cards.extend(section_cards)
+
+    dashboard_view = {
+        "title": title,
+        "path": view_path,
+        "icon": icon,
+        "panel": True,
+        "cards": [{"type": "vertical-stack", "cards": view_cards}],
+        "badges": [],
+    }
+
+    dashboards = ws_call(base, token, "lovelace/dashboards/list")
+    if not any(d.get("url_path") == dashboard_url_path for d in dashboards):
+        ws_call(
+            base,
+            token,
+            "lovelace/dashboards/create",
+            url_path=dashboard_url_path,
+            title=title,
+            icon=icon,
+            show_in_sidebar=True,
+            require_admin=False,
+        )
+
+    try:
+        lovelace_config = ws_call(base, token, "lovelace/config", url_path=dashboard_url_path)
+    except RuntimeError as exc:
+        if "config_not_found" in str(exc):
+            lovelace_config = {"views": []}
+        else:
+            raise
+    if not isinstance(lovelace_config, dict):
+        lovelace_config = {"views": []}
+    views = lovelace_config.get("views", [])
+    if not isinstance(views, list):
+        views = []
+
+    replaced = False
+    for idx, view in enumerate(views):
+        if isinstance(view, dict) and view.get("path") == view_path:
+            views[idx] = dashboard_view
+            replaced = True
+            break
+    if not replaced:
+        views.append(dashboard_view)
+
+    lovelace_config["views"] = views
+    ws_call(base, token, "lovelace/config/save", url_path=dashboard_url_path, config=lovelace_config)
+    print(f"{'Updated' if replaced else 'Created'} Lights dashboard view at /{dashboard_url_path}/{view_path}")
+
+
 def cmd_sync_status_lights() -> None:
     cfg, base, token = ha_auth_from_config()
     status_cfg = cfg.get("home_assistant", {}).get("status_lights", {})
@@ -4238,6 +4476,7 @@ def main() -> None:
     sub.add_parser("apply-core")
     sub.add_parser("sync-devices")
     sub.add_parser("add-tplink")
+    sub.add_parser("sync-lights-dashboard")
     sub.add_parser("sync-heating-dashboard")
     sub.add_parser("sync-heating-control")
     sub.add_parser("sync-light-routines")
@@ -4255,6 +4494,8 @@ def main() -> None:
         cmd_sync_devices()
     elif args.command == "add-tplink":
         cmd_add_tplink()
+    elif args.command == "sync-lights-dashboard":
+        cmd_sync_lights_dashboard()
     elif args.command == "sync-heating-dashboard":
         cmd_sync_heating_dashboard()
     elif args.command == "sync-heating-control":

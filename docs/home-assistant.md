@@ -241,6 +241,14 @@ Source of truth:
 - `python3 scripts/home_assistant.py add-tplink`
   - Attempts TP-Link integration for `config.home_assistant.tplink.hubs`.
   - Requires vault vars referenced by `config.home_assistant.tplink.username_var` and `config.home_assistant.tplink.password_var`.
+- `python3 scripts/home_assistant.py sync-lights-dashboard`
+  - Ensures a dedicated Lights dashboard exists in Lovelace using `config.home_assistant.lights_dashboard`.
+  - Current default URL path is `/house-lights/overview`.
+  - Current implementation is control-first rather than diagnostic:
+    - quick whole-house on/off actions for the included user-facing lights
+    - room/area sections rendered as compact two-column grids
+    - capability-aware Mushroom light cards so brightness, color, color temperature, and effects only appear where the live light entity supports them
+  - Current repo-managed exclusion: the dedicated status bulb can be omitted from this general-use lighting page via `excluded_entities`.
 - `python3 scripts/home_assistant.py sync-heating-dashboard`
   - Ensures a dedicated Heating dashboard exists in Lovelace using `config.home_assistant.heating_dashboard`.
   - Keeps the existing `overview` page intact and can also generate additional review concepts for side-by-side UI comparison.

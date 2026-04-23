@@ -28,6 +28,8 @@
   - `python3 scripts/home_assistant.py sync-devices`
 - TP-Link/Kasa hub integration:
   - `python3 scripts/home_assistant.py add-tplink`
+- Lights dashboard:
+  - `python3 scripts/home_assistant.py sync-lights-dashboard`
 - Heating control automations/scripts:
   - `python3 scripts/home_assistant.py sync-heating-control`
 - Light routines:
