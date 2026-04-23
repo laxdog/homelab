@@ -50,6 +50,12 @@ Both hostnames should point to the same Authentik instance via NPM.
     `SkipSslVerify=true` as a temporary groundwork compromise until a dedicated trusted LDAP cert
     or hostname is introduced.
 
+## Admin UI hostname — forced onto auth.lax.dog
+- Invite links in the Authentik admin UI are built client-side as `${window.location.host}/if/flow/<slug>/?itoken=<uuid>` (see `/web/dist/admin/InvitationListPage-*.js`). There is no server-side override of this host value in Authentik 2025.2.1 — the brand model has no `external_url` field, and `request.build_absolute_uri` is not used for invite-link rendering.
+- Consequence: whichever hostname the operator loads `/if/admin/` at becomes the host baked into every invite URL generated from that session. If the operator uses `auth.laxdog.uk`, invitees get internal-only links.
+- Fix: NPM's internal proxy host `auth.laxdog.uk` 301-redirects `/if/admin/` → `https://auth.lax.dog/if/admin/` (via `advanced_config` in `config.npm.proxy_hosts`). Flow paths (`/if/flow/*`), outpost paths (`/outpost.goauthentik.io/*`), and user paths (`/if/user/*`) are NOT redirected — they stay on `auth.laxdog.uk` for internal use.
+- Result: an operator opening `auth.laxdog.uk/if/admin/` ends up on `auth.lax.dog/if/admin/`; any invite they generate contains the externally-reachable hostname.
+
 ## Jellyfin self-service workflow
 - Repo-managed flow `jellyfin-user-enrollment` is the current safe path for future Jellyfin users.
 - Flow shape:

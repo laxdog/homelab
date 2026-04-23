@@ -1001,6 +1001,19 @@ npm:
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
+    # Redirect the Authentik admin UI to the external hostname.
+    # Invitation links are built client-side in InvitationListPage
+    # as `${window.location.host}/if/flow/...`, so whichever
+    # hostname the operator loads the admin at becomes the host
+    # baked into invite URLs sent to external users. Forcing the
+    # admin UI onto auth.lax.dog makes invite links reachable from
+    # off-LAN even when the operator navigates in via the internal
+    # auth.laxdog.uk bookmark. End-user flow paths (/if/flow/*,
+    # /outpost.goauthentik.io/*) stay on auth.laxdog.uk.
+    advanced_config: |
+      location ~ ^/if/admin/ {
+        return 301 https://auth.lax.dog$request_uri;
+      }
   - name: Home Assistant
     domain: ha.laxdog.uk
     forward_host: 10.20.30.122
