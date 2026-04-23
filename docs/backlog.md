@@ -33,6 +33,17 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Scope: homelab
   - Added: 2026-04-23
 
+- [ ] VM171 Mullvad egress monitoring (detect silent wg-quick policy-routing loss)
+  - Context: on 2026-04-22 06:32 unattended-upgrades triggered a `systemd-networkd` restart that flushed ip-rules. Tailscale self-healed its rules; wg-quick didn't, and the role's pri 5200/5208/5209 rules stayed gone for ~30 h before being detected by an unrelated audit. VM171's own egress silently fell back to home NAT (`212.56.120.65`) and `rr-worker-staging-home`'s exit-node-forwarded traffic black-holed at the kill-switch tail DROP. Commit 1ab02e9 on 2026-04-23 installs a `PartOf=systemd-networkd.service` drop-in so wg-quick follows networkd's lifecycle, which closes the specific regression — but a monitor that would have caught the outage on detection rather than audit is still missing.
+  - Proposed check: a Nagios `VM171 Mullvad Egress` service that periodically confirms VM171 is egressing through Mullvad. Two plausible shapes:
+    - **A — SSH-driven from VM133.** Add a `check_vm171_egress.sh` that `ssh`es into VM171 (needs a dedicated read-only nagios key + matching `authorized_keys` entry) and runs `curl -s --max-time 5 https://am.i.mullvad.net/json | jq -e '.mullvad_exit_ip == true and (.ip | startswith("141.98.252."))'`. Reuses the existing `check_raffle_raptor.py` pattern of a custom check on VM133 + a service definition in `homelab.cfg.j2`. Blast radius: new SSH key plumbing, one script, one service entry. Alert thresholds: CRITICAL if `mullvad_exit_ip: false`, WARNING if IP outside the expected `141.98.252.0/24` pool.
+    - **B — HTTP-health endpoint on VM171.** Run a tiny systemd timer on VM171 that every N minutes writes current egress state to a static file served by a minimal HTTP service (or Caddy), then use the existing `http_backend_checks` mechanism to probe it. Cleaner, no SSH key, but more new surface (HTTP service on VM171, log rotation, etc.).
+  - Recommendation: option A is the cheaper first pass, option B only if we later want a shared "per-host egress observability" pattern.
+  - Priority: medium. The 2026-04-23 drop-in covers the known trigger; this is for the class of failure modes we haven't enumerated (rule-flushing triggers we haven't seen yet, Mullvad server rotation away from `gb-lon-wg-001`, wg0 handshake failures that still leave the interface up, etc.).
+  - Effort: low–medium
+  - Scope: homelab
+  - Added: 2026-04-23
+
 - [ ] VM171 Mullvad kill-switch re-verification (wg0-down test)
   - Context: the mullvad-exit killswitch template changed 2026-04-21 (commit 8a0d76f) — subnet-route rules flipped from terminal `ACCEPT` to `RETURN` so subnet-routed packets fall through to `ts-forward` for SNAT marking. Chain structure proves the kill-switch DROP at the tail still catches any non-subnet / non-Mullvad tailscale0 forwarding, but the end-to-end test (bring wg0 down → confirm exit-node-client traffic drops at eth0) was NOT exercised post-change to avoid interrupting staging-home's live exit-node traffic.
   - Scope: schedule a ~30s maintenance blip on VM171 wg0, verify that (a) staging-home's egress to internet via VM171 drops during the outage, (b) subnet-route traffic to 10.20.30.0/24 continues to work, (c) once wg0 is back, everything recovers without manual intervention.
