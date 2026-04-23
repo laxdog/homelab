@@ -365,6 +365,20 @@ remote_nodes:
         accept_routes: false  # MUST stay false — staging-home is LAN-resident via WiFi (10.20.30.153); AGENTS.md LAN-adjacency gotcha. Enforced by tailscale-node role assertion.
         exit_node: tailscale-gateway
         exit_node_allow_lan_access: true
+      docker:
+        # 2026-04-23: staging-home egresses via VM171 Mullvad exit. Double-
+        # WireGuard encap (Tailscale + wg0) drops end-to-end MTU to ~1228.
+        # Default Docker bridge MTU is 1500; clamping to 1280 (matches
+        # tailscale0) unblocks container HTTPS that was stalling on TLS
+        # handshake.
+        # `mtu` alone only affects docker0 (verified 2026-04-23: a fresh
+        # user-defined bridge still got 1500 and timed out). Compose
+        # creates a user-defined bridge per project — so `default-network-opts`
+        # is needed to make new bridges inherit 1280 too.
+        mtu: 1280
+        default-network-opts:
+          bridge:
+            com.docker.network.driver.mtu: "1280"
       battery:
         enabled: true
         start_threshold: 40
