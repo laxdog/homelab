@@ -1138,7 +1138,6 @@ npm:
     access_list: External Public
     ssl: true
     certificate: laxdog-external-le
-    authentik_protect: true
   - name: Prowlarr External
     domain: prowlarr.lax.dog
     forward_host: 10.20.30.120
