@@ -21,6 +21,14 @@ The live playback Jellyfin runs on CT167 (`jellyfin-hw`) and is exposed via NPM.
   - `8097` -> Jellyfin HTTP
   - `8920` -> Jellyfin HTTPS
 
+## Current auth model (2026-04-23)
+- **Both hostnames present native Jellyfin login.** No NPM forward-auth in front of either:
+  - `jellyfin.laxdog.uk` — LAN/Tailscale, never had forward-auth.
+  - `jellyfin.lax.dog` — external; forward-auth removed 2026-04-23 after Jellyfin-native LDAP was validated.
+- **LDAP-backed login** via the Authentik LDAP outpost on CT170:636. Jellyfin's LDAP Authentication plugin on CT167 binds as `cn=jellyfin-ldap-bind,ou=users,DC=jellyfin,DC=laxdog,DC=uk` and filters to `cn=jellyfin-users`. Pilot user `ldapservice` succeeds on both hostnames.
+- **Local `admin`** remains as permanent break-glass (independent of Authentik/LDAP health).
+- **Local `cjess`** remains local for now — migration to LDAP is a separate decision and has not been taken.
+
 ## Repo-managed LDAP groundwork
 - Source of truth:
   - `config/homelab.yaml` under `jellyfin.ldap`
@@ -31,13 +39,3 @@ The live playback Jellyfin runs on CT167 (`jellyfin-hw`) and is exposed via NPM.
   - Plugin configuration file
   - LDAP CA export on CT167
   - Local admin validation after changes
-- Current runtime status:
-  - LDAP plugin is installed and loaded on CT167.
-  - Local `admin` authentication still works after the plugin/config rollout.
-  - Existing local users `admin` and `cjess` remain local in this pass.
-  - Pilot LDAP login is not ready yet because Authentik LDAP bind/search validation is still
-    failing from CT167.
-
-## Current caveat
-- `jellyfin.lax.dog` is still behind Authentik forward-auth at NPM today. That is not the desired
-  long-term Jellyfin auth model and will need a dedicated cutover pass after LDAP login works.

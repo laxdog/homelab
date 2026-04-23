@@ -15,6 +15,11 @@ Do not touch:
 - CT167 (jellyfin-hw) — homelab agent scope
 - `/srv/data/media` or `/srv/data/downloads` (tank virtiofs mounts — do not delete or reorganise)
 
+## Auth model — ownership boundary
+Media-stack owns the auth-model **decisions** for the services it runs (Jellyfin, the arr stack, downloaders): which auth provider, which clients need to keep working, forward-auth vs app-native, which users/groups have access. Homelab owns the **implementation** — NPM proxy host config, Authentik providers/applications/outposts, Jellyfin LDAP plugin install on CT167, group/user provisioning in Authentik.
+
+Coordination pattern: media-stack states the intent and constraints; homelab wires it up via `ansible/` + `config/homelab.yaml`. Example (2026-04-23): decision to drop NPM forward-auth on `jellyfin.lax.dog` in favour of Jellyfin-native LDAP via the Authentik LDAP outpost on CT170 — media-stack called the direction, homelab implemented it across the `authentik.ldap` and `jellyfin.ldap` config blocks and the NPM external proxy host.
+
 ## Entry points
 - VM120: `ssh ubuntu@10.20.30.120`
 - Compose files: `/opt/media-stack/`

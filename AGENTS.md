@@ -22,6 +22,17 @@ Both Claude and Codex agents pick up AGENTS.md automatically. All agents operati
 | batocera | Inactive | 10.20.30.212, CRT setup | docs/agents/batocera.md |
 | raffle-raptor | Consumer only | Uses CT163, Nagios checks, Tailscale DB proxy — does NOT commit here | docs/agents/raffle-raptor.md |
 
+## Cross-agent boundaries: SSO / auth
+
+Auth-model **decisions** for a service (forward-auth vs app-native, which provider, which clients must keep working, who has access) live with the agent that owns that service:
+- media-stack → Jellyfin + arr stack + downloaders (`docs/agents/media-stack.md`)
+- home-assistant → HA (`docs/agents/home-assistant.md`)
+- homelab → everything else it runs (Proxmox UI, Nagios, NetAlertX, router, NPM itself, etc.)
+
+Auth **implementation** is always homelab's: NPM proxy host config, Authentik providers/applications/outposts, LDAP plugin installs on the backing host, group/user provisioning in Authentik, secrets vaulting. The owning agent asks for a change; homelab wires it up in `config/homelab.yaml` + `ansible/`.
+
+Worked example (2026-04-23): media-stack called the direction on Jellyfin — use Authentik LDAP outpost + Jellyfin-native LDAP plugin, drop NPM forward-auth so Android/TV clients keep working. homelab implemented it across `authentik.ldap`, `jellyfin.ldap`, the `authentik` + `jellyfin-hw` Ansible roles, and the Jellyfin External NPM entry. See `docs/authentik.md`, `docs/jellyfin.md`, `docs/media-routing.md`.
+
 ## Estate overview
 
 ### Proxmox host

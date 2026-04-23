@@ -16,17 +16,17 @@ Source of truth: `config/homelab.yaml`.
   - `qbittorrent.laxdog.uk` -> `10.20.30.120:8080`
 
 ## External (`*.lax.dog`)
-- Purpose: externally addressable hostnames guarded by Authentik forward auth at NPM.
-- Guard: NPM `authentik_protect: true` on each media external host.
-- Hosts prepared in NPM/Authentik:
-  - `plex.lax.dog`
-  - `jellyfin.lax.dog`
+- Purpose: externally addressable hostnames, forward-auth-guarded where the client can handle a browser redirect flow.
+- Guard: NPM `authentik_protect: true`, applied per-host.
+- Forward-auth-guarded hosts:
   - `prowlarr.lax.dog`
   - `sonarr.lax.dog`
   - `radarr.lax.dog`
   - `cleanuparr.lax.dog`
   - `sabnzbd.lax.dog`
   - `qbittorrent.lax.dog`
+- NOT forward-auth-guarded (app-native auth instead, so non-browser clients keep working):
+  - `jellyfin.lax.dog` → `10.20.30.167:8097` (CT167). Jellyfin LDAP plugin against Authentik LDAP outpost on CT170:636. See `docs/jellyfin.md`.
 
 ## Implementation Notes
 - NPM config path: `config.npm.proxy_hosts` + `config.npm.external_proxy_hosts`.
@@ -34,14 +34,12 @@ Source of truth: `config/homelab.yaml`.
 - Dashboard links are generated from `config.npm.proxy_hosts` (internal URLs).
 - Downloader VPN boundary is unchanged: SABnzbd and qBittorrent still run behind Gluetun.
 
-## Jellyfin caveat
-- Current live state is inconsistent with the intended client-friendly model:
-  - `jellyfin.laxdog.uk` is LAN-open at NPM and points to CT167.
-  - `jellyfin.lax.dog` is still behind Authentik forward-auth and points to CT167.
-- Once Jellyfin-native LDAP login is working, `jellyfin.lax.dog` should be removed from the
-  forward-auth path in a narrow ingress cutover pass. Leaving forward-auth in front of Jellyfin
-  creates stacked auth and is hostile to native clients.
-- No routing or forward-auth change was made during the LDAP groundwork pass.
+## Jellyfin ingress (current, 2026-04-23)
+- Both hostnames route to the same backend — CT167 (`jellyfin-hw`) at `10.20.30.167:8097`:
+  - `jellyfin.laxdog.uk` — LAN/Tailscale, LAN-open at NPM, no forward-auth.
+  - `jellyfin.lax.dog` — external via Cloudflare, no forward-auth. Native Jellyfin login with LDAP plugin against Authentik LDAP outpost on CT170:636.
+- Local `admin` is the permanent break-glass account (independent of Authentik/LDAP health).
+- Verified on cutover day with `/System/Info/Public` (identical `ServerId` on both hostnames) and `/Users/AuthenticateByName` with local admin (HTTP 200 + `AccessToken` on both).
 
 ## Validation Approach
 - Internal DNS checks should use authoritative resolver directly (`dig @10.20.30.53 ...`) and cross-check when resolver drift is suspected.

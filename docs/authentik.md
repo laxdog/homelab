@@ -39,27 +39,28 @@ Both hostnames should point to the same Authentik instance via NPM.
 - Current runtime status:
   - LDAP outpost container is up and healthy on CT170.
   - Provider/application/outpost objects are created from repo.
-  - A dedicated bind secret is now vaulted as `authentik_jellyfin_ldap_bind_password`.
-  - Bind/search validation is still blocked: CT167 receives LDAP `Invalid credentials (49)` from
-    the outpost when attempting the configured bind.
+  - A dedicated bind secret is vaulted as `authentik_jellyfin_ldap_bind_password`.
+  - Bind/search validation works; CT167 binds as `cn=jellyfin-ldap-bind,ou=users,DC=jellyfin,DC=laxdog,DC=uk` and filters to the `jellyfin-users` group.
+  - Pilot LDAP login (`ldapservice`) succeeds against Jellyfin via the plugin on both `jellyfin.lax.dog` and `jellyfin.laxdog.uk` (2026-04-23).
+  - **Jellyfin no longer sits behind NPM forward-auth.** External access via `jellyfin.lax.dog` uses native Jellyfin login with the LDAP plugin; `authentik_protect` was removed from the Jellyfin External NPM entry on 2026-04-23.
 - Current certificate posture:
   - The LDAP outpost uses Authentik's self-signed certificate.
   - CT167 imports that certificate, but Jellyfin is currently configured with
     `SkipSslVerify=true` as a temporary groundwork compromise until a dedicated trusted LDAP cert
     or hostname is introduced.
-- Next-pass expectation:
-  - Fix LDAP bind validation first.
-  - Then create a non-admin pilot user in Authentik, add it to `jellyfin-users`, and test a full
-    Jellyfin login before any ingress cutover.
 
 ## Current protected hosts
-- `proxmox.lax.dog`
-- `nagios.lax.dog`
-- `netalertx.lax.dog`
+`authentik_protect: true` at NPM (source: `config.npm.external_proxy_hosts`):
 - `ha.lax.dog`
-- `router.laxdog.uk`
-- `unifi-primary.laxdog.uk`
-- `unifi-secondary.laxdog.uk`
+- `lax.dog` (apex → Heimdall)
+- `prowlarr.lax.dog`
+- `sonarr.lax.dog`
+- `radarr.lax.dog`
+- `cleanuparr.lax.dog`
+- `sabnzbd.lax.dog`
+- `qbittorrent.lax.dog`
+
+No internal (`laxdog.uk`) proxy host is forward-auth-protected today.
 
 ## High-level plan
 1. Provision Authentik LXC and install via Docker Compose.
@@ -114,9 +115,6 @@ File sharing / collaboration:
 - ownCloud (OIDC user auth).
 
 ## Open items
-- Decide which OIDC-capable apps to wire up first (Jellyfin and FreshRSS are good starters).
-- Jellyfin: repo-managed LDAP groundwork exists, but pilot login is blocked on Authentik LDAP bind
-  returning `Invalid credentials (49)` for the dedicated bind account.
-- Jellyfin: `jellyfin.lax.dog` is still behind NPM forward-auth today, which will stack badly with
-  Jellyfin-native LDAP if left in place. Leave it unchanged until LDAP bind is fixed, then remove
-  forward-auth for the Jellyfin external host in a dedicated cutover pass.
+- Decide which OIDC-capable apps to wire up next (FreshRSS is the obvious starter now that Jellyfin LDAP is shipped).
+- LDAP TLS: current posture uses Authentik's self-signed cert with `SkipSslVerify=true` on CT167. Swap in a dedicated trusted LDAP cert or hostname, then flip SkipSslVerify off.
+- `cjess` migration from local to LDAP — media-stack-owned decision, not yet taken.
