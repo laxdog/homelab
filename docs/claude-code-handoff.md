@@ -7,9 +7,9 @@ For significant changes see `docs/changelog.md`.
 For runbooks see `docs/runbooks/`.
 
 ## Current session context
-- Last updated: 2026-04-22
-- Current HEAD: b5961a6
-- Session summary: Authentik + CT167 Jellyfin LDAP pilot-auth follow-up completed. Exact Authentik root cause was provider wiring: the LDAP outpost bind flow was effectively being read from `authorization_flow`, while the repo had set the intended bind flow on `authentication_flow`; updating the repo-managed provider setup to set `authorization_flow: default-authentication-flow` fixed CT167 LDAP bind/search. Exact Jellyfin root cause was plugin config drift: CT167 had been managed with `Jellyfin.Plugin.LDAP_Auth.xml`, but the live LDAP plugin was reading `LDAP-Auth.xml`, and the managed XML serialized `LdapProfileImageFormat` as `0`, which caused the plugin to fall back to its built-in sample config (`CN=BindUser,DC=contoso,DC=com`). Updated repo config/template to manage `LDAP-Auth.xml` and serialize `LdapProfileImageFormat` as `Default`, then re-applied CT167 narrowly. Runtime status now: Authentik LDAP bind/search from CT167 works, local Jellyfin `admin` still works as break-glass, and a non-admin pilot LDAP Jellyfin login for `ldapservice` succeeds end-to-end. `cjess` remains local and untouched. Ingress intentionally unchanged: `jellyfin.lax.dog` still has Authentik forward-auth and the next narrow pass should remove that to avoid auth stacking before migrating real users.
+- Last updated: 2026-04-23
+- Current HEAD: 33774b7
+- Session summary: Home Assistant-only follow-up. Re-verified the live HA endpoint directly: `10.20.30.122:8123` returned HTTP 200 and the older `10.20.30.134` address failed with `No route to host`, so current repo docs/config remain correct on VM122. Queried HA runtime state via the existing repo helper auth path and identified the newly added living-room Sonoff sensor as ZHA device `eWeLink SNZB-02P` with `sensor.ewelink_snzb_02p_temperature` and `sensor.ewelink_snzb_02p_humidity`. Added a narrow repo-managed heating-dashboard extension so the overview can render that ambient sensor alongside the related downstairs TRVs (`climate.dining_area`, `climate.front_window`) without changing any heating-control logic, and recorded two later backlog items in the HA agent backlog: repo-management boundary review and backup/recovery hardening.
 
 ## Durable user preferences
 - Safety-first over speed

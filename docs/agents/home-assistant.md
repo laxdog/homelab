@@ -33,6 +33,16 @@ All automations, scripts, dashboards, and helpers should be defined in `config/h
 
 ## Backlog
 
+- [ ] Review HA repo-management boundary and docs alignment
+  - Context: `docs/home-assistant.md` already documents the current repo-vs-runtime boundary, but it should get a later HA-focused review to confirm the boundary is still accurate after the recent heating/status-light refactors and to capture any remaining UI-managed exceptions cleanly.
+  - Effort: medium
+  - Added: 2026-04-23
+
+- [ ] Harden HA backup and recovery posture
+  - Context: current repo/docs evidence shows partial recovery coverage only. Follow-up should verify native backup scheduling/retention, off-box export, and a practical restore path rather than assuming repo-managed HA behavior is a full backup.
+  - Effort: medium
+  - Added: 2026-04-23
+
 - [ ] Install HA SSH addon for CLI access
   - Context: no SSH to HAOS currently. Addon enables `ha` CLI for automation.
   - Effort: low

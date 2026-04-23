@@ -487,6 +487,7 @@ def cmd_sync_heating_dashboard() -> None:
     )
     boiler_entity = dashboard_cfg.get("boiler_entity")
     climate_entities = dashboard_cfg.get("climate_entities", [])
+    ambient_sensors = dashboard_cfg.get("ambient_sensors", [])
     groups = dashboard_cfg.get("groups", {})
     upstairs_climates = groups.get("upstairs", [])
     downstairs_climates = groups.get("downstairs", [])
@@ -544,6 +545,18 @@ def cmd_sync_heating_dashboard() -> None:
             + " if "
             + ("is_state('" + downstairs_timer_entity + "', 'active')" if entity_ids == downstairs_climates else "is_state('" + bedroom_timer_entity + "', 'active')")
             + " else 0 }}"
+        )
+
+    def climate_snapshot_secondary(entity_ids: List[str]) -> str:
+        return (
+            "{% set ns = namespace(items=[]) %}"
+            + f"{{% for entity_id in {climate_list_literal(entity_ids)} %}}"
+            + "{% set name = state_attr(entity_id, 'friendly_name') or entity_id %}"
+            + "{% set current = state_attr(entity_id, 'current_temperature') %}"
+            + "{% set target = state_attr(entity_id, 'temperature') %}"
+            + "{% set ns.items = ns.items + [name ~ ' ' ~ (current | round(1)) ~ '/' ~ (target | round(1)) ~ 'C'] %}"
+            + "{% endfor %}"
+            + "{{ ns.items | join(', ') }}"
         )
 
     def timer_secondary(timer_entity: str) -> str:
@@ -752,6 +765,28 @@ def cmd_sync_heating_dashboard() -> None:
                 ],
             }
 
+    def ambient_sensor_card(sensor_cfg: Dict[str, Any]) -> Dict[str, Any]:
+        temperature_entity = str(sensor_cfg.get("temperature_entity", "")).strip()
+        if not temperature_entity:
+            raise RuntimeError("home_assistant.heating_dashboard.ambient_sensors entries need temperature_entity")
+        humidity_entity = str(sensor_cfg.get("humidity_entity", "")).strip()
+        related_climates = sensor_cfg.get("related_climates", []) or []
+        secondary = "{{ states('" + temperature_entity + "') }}C ambient"
+        if humidity_entity:
+            secondary += " • {{ states('" + humidity_entity + "') }}% RH"
+        if related_climates:
+            secondary += "\nTRVs: " + climate_snapshot_secondary(related_climates)
+        return {
+            "type": "custom:mushroom-template-card",
+            "entity": temperature_entity,
+            "primary": str(sensor_cfg.get("name", "Ambient Sensor")).strip(),
+            "secondary": secondary,
+            "icon": str(sensor_cfg.get("icon", "mdi:home-thermometer")).strip(),
+            "icon_color": "green",
+            "multiline_secondary": True,
+            "tap_action": {"action": "more-info"},
+        }
+
     def summary_chips() -> Dict[str, Any]:
         return {
             "type": "custom:mushroom-chips-card",
@@ -953,7 +988,7 @@ def cmd_sync_heating_dashboard() -> None:
         return [
             action_card(
                 "Boost Downstairs",
-                "Front Window, Dining Area, Bathroom to 23C",
+                "Front Window and Dining Area to 23C",
                 "mdi:fire",
                 "red",
                 downstairs_boost_script,
@@ -1088,10 +1123,11 @@ def cmd_sync_heating_dashboard() -> None:
         section_cards.append(
             {
                 "type": "grid",
-                "title": "TRVs",
+                "title": "TRVs and Ambient" if ambient_sensors else "TRVs",
                 "columns": 4,
                 "square": False,
-                "cards": [climate_control_card(entity_id) for entity_id in climate_entities],
+                "cards": [climate_control_card(entity_id) for entity_id in climate_entities]
+                + [ambient_sensor_card(sensor_cfg) for sensor_cfg in ambient_sensors],
             }
         )
         if mini_graph_present:

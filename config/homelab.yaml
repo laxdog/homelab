@@ -1668,6 +1668,14 @@ home_assistant:
     - climate.office
     - climate.games_room
     - climate.front_window
+    ambient_sensors:
+    - name: Living Room Ambient
+      icon: mdi:sofa-outline
+      temperature_entity: sensor.ewelink_snzb_02p_temperature
+      humidity_entity: sensor.ewelink_snzb_02p_humidity
+      related_climates:
+      - climate.dining_area
+      - climate.front_window
     temp_helpers:
       house: input_number.house_target
       upstairs: input_number.upstairs_target
