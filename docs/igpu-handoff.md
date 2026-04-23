@@ -3,6 +3,11 @@
 Status: research complete, implementation plan ready, awaiting media-stack decisions.
 Last updated: 2026-04-01
 
+Superseded note on `2026-04-13`:
+- This document is now historical context for the VM `120` Jellyfin hardware-transcoding investigation.
+- Production Jellyfin has moved to CT `167` (`jellyfin-hw`).
+- VM `120` Jellyfin has been retired and should not be treated as the current playback or fallback target.
+
 ---
 
 ## 1. Hardware Summary
