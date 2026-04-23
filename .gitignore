@@ -2,3 +2,6 @@ ansible/inventory.yml
 ansible/*.retry
 .terraform/
 __pycache__/
+
+# Codex agent workspace marker (empty file dropped at project root on session start).
+.codex
