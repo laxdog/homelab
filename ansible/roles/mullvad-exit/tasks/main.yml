@@ -89,6 +89,47 @@
     enabled: true
     state: started
 
+# Rebind the tunnel whenever systemd-networkd restarts. wg-quick's policy-routing
+# rules (pri 5208 suppress_prefixlength, pri 5209 not-fwmark → table 51820) and
+# this role's PostUp rules (pri 5200 tailnet-CGNAT → table 52) live in the kernel
+# as plain ip-rules; a networkd restart flushes them and wg-quick is fire-and-
+# forget, so nothing reinstalls them. Tailscale's daemon self-heals its own rules
+# but doesn't touch ours. Outage 2026-04-22 06:32–2026-04-23 14:47 (~30 h, silent)
+# traced to unattended-upgrades restarting networkd via a systemctl daemon-reexec
+# after libcap/libpam updates. PartOf= makes wg-quick@wg0 follow networkd's cycle;
+# on every networkd restart we re-run wg-quick's Up (which re-creates the
+# interface + reinstalls all the rules). See docs/changelog.md 2026-04-23.
+- name: Ensure wg-quick drop-in directory exists
+  ansible.builtin.file:
+    path: "/etc/systemd/system/wg-quick@{{ mullvad_exit.interface }}.service.d"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install wg-quick restart-on-networkd drop-in
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/wg-quick@{{ mullvad_exit.interface }}.service.d/restart-on-networkd.conf"
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      # Follow systemd-networkd's lifecycle. If networkd restarts (e.g. from
+      # unattended-upgrades of PAM/cap-adjacent packages), this restarts too
+      # so wg-quick's and the role's PostUp policy-routing rules are re-laid
+      # against a freshly-flushed kernel rule table. See tasks/main.yml for
+      # the full incident reference.
+      PartOf=systemd-networkd.service
+      After=systemd-networkd.service
+  register: wg_quick_networkd_dropin
+
+- name: Reload systemd if wg-quick drop-in changed
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: wg_quick_networkd_dropin.changed
+  notify: Restart wg-quick
+
 - name: Enable and start wg-quick@{{ mullvad_exit.interface }}
   ansible.builtin.systemd:
     name: "wg-quick@{{ mullvad_exit.interface }}"
