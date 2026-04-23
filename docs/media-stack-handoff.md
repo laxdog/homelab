@@ -2,6 +2,12 @@
 
 Scope: VM `120` infra foundation plus day-1 app-layer deployment state.
 
+Current status note on `2026-04-13`:
+- Plex has been retired from VM `120` and is no longer used.
+- Jellyfin on VM `120` has been retired.
+- Production Jellyfin now lives on CT `167` (`jellyfin-hw`).
+- VM `120` now retains the Arr stack, Bazarr, Tdarr, and downloaders only.
+
 ## VM Identity
 - Name: `media-stack`
 - VMID: `120`
@@ -56,8 +62,6 @@ Scope: VM `120` infra foundation plus day-1 app-layer deployment state.
   - `/opt/media-stack/arr/docker-compose.yaml`
   - `/opt/media-stack/downloaders/docker-compose.yaml`
 - Appdata:
-  - `/opt/media-stack/appdata/jellyfin`
-  - `/opt/media-stack/appdata/plex`
   - `/opt/media-stack/appdata/prowlarr`
   - `/opt/media-stack/appdata/sonarr`
   - `/opt/media-stack/appdata/radarr`
@@ -69,8 +73,8 @@ Scope: VM `120` infra foundation plus day-1 app-layer deployment state.
 
 ## Day-1 Services
 - `core`
-  - Plex on `10.20.30.120:32400`
-  - Jellyfin on `10.20.30.120:8096`
+  - retired on `2026-04-13`
+  - `docker-compose.yaml` on VM `120` no longer contains `plex` or `jellyfin`
 - `arr`
   - Prowlarr on `10.20.30.120:9696`
   - Sonarr on `10.20.30.120:8989`
@@ -116,11 +120,11 @@ Scope: VM `120` infra foundation plus day-1 app-layer deployment state.
   - Radarr -> `movies`
   - Sonarr -> `tv`
   - Readarr -> `ebooks-downloads` (documented only; Readarr is not in scope on VM `120`)
-- Plex and Jellyfin both receive `/dev/dri` for Intel Quick Sync
+- historical note: Plex and the old VM `120` Jellyfin previously received `/dev/dri` for Intel Quick Sync
 
 ## Secrets Still Required
 - Optional but recommended:
-  - `ansible/secrets.yml` -> `plex_claim_token`
+  - `ansible/secrets.yml` -> `plex_claim_token` is now historical only because Plex has been retired
 - Downloader inputs now configured and active:
   - `config/homelab.yaml` -> `media_stack.apps.gluetun.provider: mullvad`
   - `config/homelab.yaml` -> `media_stack.apps.gluetun.vpn_type: wireguard`
@@ -258,6 +262,135 @@ Scope: VM `120` infra foundation plus day-1 app-layer deployment state.
   - qBittorrent config normalization is repo-managed in the media-stack role and now sets:
     - `DefaultSavePath=/data/downloads/torrents/`
     - `TempPath=/data/downloads/incomplete/`
+- Tdarr guarded rollout follow-up on `2026-04-07`:
+  - Tdarr server and a CPU-only `tdarr-node` are up on VM `120` inside the `arr` compose project
+  - live media roots in scope remain:
+    - `/media/tv`
+    - `/media/movies`
+  - current guarded validation libraries are isolated under `/media/tv/Tdarr Samples/Season 1`
+  - current validated sample outcomes:
+    - AVC/H.264 Mr. Robot sample:
+      - `H.264 MKV` -> staged `HEVC MKV`
+      - `1920x1080` preserved
+      - embedded English subtitle preserved
+      - output was `75.04%` smaller and passed the `<=85%` replacement guardrail
+    - AV1 sample:
+      - current AVC-only rule set now skips AV1 cleanly as `Not required`
+      - earlier validation showed the AV1 -> HEVC path increased size by `127%`, so AV1 is intentionally deferred
+    - Dolby Vision sample:
+      - source `HEVC/DV P8.1` with HDR10 compatibility metadata
+      - current AVC-only rule set now skips HEVC/DV cleanly as `Not required`
+  - current Tdarr conclusion:
+    - safe for AVC-only guarded promotion later
+    - AV1 and DV still need separate handling before promotion
+    - node should remain paused for now
+  - operational caveat:
+    - if Tdarr replacements are later accepted into live libraries, Jellyfin refresh behavior must be watched carefully because stale library paths previously broke Mr. Robot playback until a targeted refresh fixed them
+- Jellyfin playback fix for `Mr. Robot` Season 2 on `2026-04-06`:
+  - the immediate playback failure was not caused by Quick Sync or subtitle burn-in
+  - Jellyfin had stale library entries for Season 2 still pointing at removed BluRay/PiR8 filenames under `/media/tv/Mr. Robot/Season 2`
+  - current files on disk were already the newer `1080p AMZN WEB-DL DDP 5.1 H.264` files, so the broken state was a library metadata/path mismatch
+  - evidence chain:
+    - direct stream/transcode logs showed `Could not find file ... AVC-PiR8.mkv`
+    - Jellyfin API item paths for Season 2 also still referenced those removed BluRay paths
+    - the real files on disk under `/srv/data/media/tv/Mr. Robot/Season 2` did not match those names
+  - fix applied:
+    - targeted Jellyfin API refresh for the `Mr. Robot` series only (`POST /Items/{seriesId}/Refresh?Recursive=true&MetadataRefreshMode=FullRefresh&ImageRefreshMode=None`)
+    - Jellyfin removed the stale episode entries and re-registered all 12 Season 2 episodes against the current AMZN file paths
+  - post-fix validation:
+    - Jellyfin API now reports Season 2 episode paths under `/media/tv/Mr. Robot/Season 2/Mr.Robot.S02E0X...AMZN.WEB-DL...mkv`
+    - a direct file stream probe for S02E07 returned `HTTP 200` with MKV bytes from the correct file
+    - playback validation for this pass is therefore a working direct-play path rather than the previous missing-file failure
+  - Tdarr work was paused for this investigation and can resume after this playback fix
+- Bazarr subtitle follow-up for `Mr. Robot` Season 2 on `2026-04-13`:
+  - root cause was Bazarr profile drift, not a proven global subtitle-sync failure
+  - the only active Bazarr language profile was named `English + French + German`, but live state had drifted to:
+    - English set to `HI=true`
+    - French present
+    - German missing from the actual profile items
+  - because `use_embedded_subs=true`, Bazarr was also treating embedded English tracks as satisfying English while still downloading external `en.hi.srt` sidecars
+  - representative evidence on `S02E07`:
+    - the MKV already contains one embedded English subtitle stream with `default=1`, `forced=0`, `hearing_impaired=0`
+    - extracted content from that embedded stream is full-dialogue English, not foreign-parts-only
+    - Bazarr had nevertheless downloaded a separate external `en.hi.srt` for the same episode
+  - fix applied:
+    - corrected the Bazarr language profile so it now truly requests:
+      - English
+      - French
+      - German
+    - removed the tracked external English HI sidecars for `Mr. Robot` Season 2 where a plain embedded English track already exists
+  - post-fix validation:
+    - `S02E07` now presents:
+      - embedded plain English only
+      - external French
+      - German as the only missing subtitle in Bazarr
+    - all tracked `Mr. Robot` Season 2 episodes now show no external English HI sidecar in Bazarr
+  - operational caveat:
+    - one unmatched legacy file still exists on disk:
+      - `/srv/data/media/tv/Mr. Robot/Season 2/03.02.2017.2.en.hi.srt`
+    - it is not currently tracked by Bazarr, so it was left untouched in this pass
+    - if subtitle oddities persist on a specific title later, investigate the exact embedded/external track set first and only then use Bazarr subtitle sync or redownload tools
+- Tdarr guarded rollout follow-up on `2026-04-07`:
+  - Tdarr is now running repo-managed in the `arr` compose project on VM `120`:
+    - `tdarr` server on `8265/8266`
+    - `tdarr-node` CPU worker
+  - current Tdarr runtime layout:
+    - appdata:
+      - `/opt/media-stack/appdata/tdarr/server`
+      - `/opt/media-stack/appdata/tdarr/configs`
+      - `/opt/media-stack/appdata/tdarr/logs`
+    - media mount:
+      - `/srv/data/media` -> `/media`
+    - cache mount:
+      - `/srv/data/tdarr/cache` -> `/temp`
+  - current live playback target to keep in mind is no longer the old VM `120` Jellyfin:
+    - playback Jellyfin now lives on CT `167`
+    - Tdarr still remains on VM `120`
+  - guarded test libraries currently configured in Tdarr:
+    - `tdarr_test_mr_robot_s2` -> `/media/tv/Mr. Robot/Season 2`
+    - `tdarr_test_mr_robot_sample` -> `/media/tv/Tdarr Samples/Season 1`
+  - current classic plugin stack:
+    - `Tdarr_Plugin_lmg1_Reorder_Streams`
+    - `Tdarr_Plugin_MC93_MigzImageRemoval`
+    - `Tdarr_Plugin_vdka_Tiered_CPU_CRF_Based_Configurable`
+    - `Tdarr_Plugin_a9he_New_file_size_check`
+  - current first-pass policy:
+    - CPU `libx265`
+    - preset `medium`
+    - CRF `21`
+    - convert `h264` -> `hevc`
+    - convert `av1` -> `hevc`
+    - leave `vp9` alone for now
+    - preserve source resolution
+    - copy audio
+    - copy embedded subtitles
+    - keep `mkv`
+    - only keep outputs at or below `85%` of original size (the current runtime implementation of the 15% savings rule)
+  - guarded Mr. Robot validation result:
+    - a full-episode CPU transcode on `S02E01` was intentionally cancelled after about two minutes because it was too slow for a tight validation loop
+    - an isolated 120-second sample was then created from `S02E07` under:
+      - `/srv/data/media/tv/Tdarr Samples/Season 1/Mr.Robot.S02E07.sample.120s.mkv`
+    - Tdarr produced a staged output in cache with:
+      - `h264 mkv` -> `hevc mkv`
+      - original `eac3 5.1` copied
+      - embedded English `subrip` subtitle preserved
+      - resolution preserved at `1920x1080`
+    - measured sample result:
+      - source size `105,927,195` bytes
+      - staged output size `26,441,373` bytes
+      - savings `79,485,822` bytes (`75.04%`)
+      - staged output created about `183.8s` after job start
+    - the size-check plugin passed cleanly:
+      - staged log recorded the new file as `24%` of the original size
+    - the sample output remains in staged/manual-review state; no live media file was auto-replaced in this pass
+  - current guarded state:
+    - `tdarr` server is up
+    - `tdarr-node` is up
+    - the node has been paused again after validation
+    - no broad unattended processing is enabled yet
+  - current known Tdarr caveat:
+    - if Tdarr replacements are later accepted into the live library, Jellyfin refresh behavior must be watched
+    - stale library paths already caused one Mr. Robot playback issue earlier, so targeted Jellyfin refresh may be required after file replacement
   - Sonarr root folders are now seeded repo-managed via API and currently contain:
     - `/data/media/tv` (`accessible: true`)
   - Radarr root folders are now seeded repo-managed via API and currently contain:
