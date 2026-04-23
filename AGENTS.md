@@ -97,6 +97,14 @@ LAN-resident VMs/LXCs that join the Tailnet should NOT have `--accept-routes` en
 
 This was discovered when VM133 (Nagios) went unreachable after Tailscale was installed. Packets arrived on eth0 but replies were routed out tailscale0. All current Tailscale guests (VM133, CT163, VM171) have been verified with `RouteAll: false`.
 
+### Known gotcha: router "Domain Name" field must stay blank
+
+Do not set the ASUS RT-AC86U's LAN → DHCP Server → "Domain Name" field to `lax.dog` or `laxdog.uk` (or anything else). Any value is pushed to DHCP clients as a DNS search domain; glibc/macOS resolvers then append it to failed lookups, and because we own a Cloudflare wildcard on `*.lax.dog`, a failed internal resolve expands and hits the wildcard — returning a Cloudflare `1016` that resolvers cache.
+
+Example of the bad path: client resolves `grafana.laxdog.uk`, AdGuard NXDOMAINs (e.g. transient), resolver retries `grafana.laxdog.uk.lax.dog`, wildcard → apex → home NAT → CF `1016`, cached.
+
+**Fix:** blank the field on the router (LAN → DHCP Server → Domain Name), apply, and let client leases renew. Done 2026-04-21 after this surfaced during an AdGuard apply-risk incident.
+
 ### Tailscale prefs — config is source of truth
 
 For nodes with the `tailscale_router` role (currently VM171, CT163, rr-worker-staging-home, rr-worker-prod-mums, plus new RR workers provisioned via `docs/runbooks/add-rr-worker-node.md`), per-node Tailscale prefs — `accept_dns`, `accept_routes`, `advertise_exit_node`, `advertise_routes`, `exit_node`, `exit_node_allow_lan_access` — are declared in `config/homelab.yaml` and reconciled by `tailscale set` on every `scripts/run.py guests` (or equivalent ansible apply).

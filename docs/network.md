@@ -12,6 +12,7 @@ Source of truth: `config/homelab.yaml`.
 - SSH: `ssh admin@10.20.30.1` (key-based, uses `~/.ssh/id_rsa`)
 - DHCP static reservations: `nvram get dhcp_staticlist` / `nvram set dhcp_staticlist=...` then `nvram commit` and `service restart_dnsmasq`
 - Format: `<MAC>IP>>` entries concatenated, e.g. `<A0:9A:8E:35:E5:02>10.20.30.83>>`
+- **"Domain Name" field (LAN → DHCP Server) must stay blank.** Do NOT set it to `lax.dog` or `laxdog.uk`. Any value here is advertised to DHCP clients as a DNS search domain, which glibc/macOS resolvers append to failed lookups. Combined with the `*.lax.dog` Cloudflare wildcard, a failed internal resolve for `<svc>.laxdog.uk` gets retried as `<svc>.laxdog.uk.lax.dog`, hits the wildcard → apex → home NAT, and returns a Cloudflare `1016` back to the client — which resolvers then cache. Blanked 2026-04-21 after this foot-gun surfaced during the AdGuard apply-risk incident (see AGENTS.md "Running Ansible applies").
 
 ## Reserved
 - AdGuard/DNS: 10.20.30.53
