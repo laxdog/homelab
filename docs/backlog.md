@@ -127,11 +127,15 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Effort: medium
   - Added: 2026-04-14
 
-- [ ] Investigate VM133 (Nagios) SSH unreachable
-  - Context: Promtail deployment failed because SSH to 10.20.30.133 is unreachable. Nagios checks work via Tailscale (100.120.89.28) but direct LAN SSH is failing. Investigate why and fix so Promtail can be deployed and VM133 logs flow into Loki.
-  - Effort: low
+- [ ] Fix VM133 (Nagios) direct-LAN SSH — Permission denied (publickey)
+  - Context: SSH to `mrobinson@10.20.30.133` fails with `Permission denied (publickey)`. TCP reachability is fine — the handshake completes and sshd rejects the key. Ansible reports this as `UNREACHABLE!` in play output, which is misleading (earlier backlog wording called it "unreachable" — it is not). Nagios monitoring itself still works because its checks come over Tailscale (100.120.89.28) with a different key path; only direct LAN SSH as the unprivileged `mrobinson` user is broken.
+  - Known consequences:
+    - Promtail deployment to VM133 fails — no VM133 journal logs in Loki.
+    - Any `remote-nodes.yml` apply that reaches the nagios-delegate tasks (`Deploy Nagios remote-node check scripts to VM133` + `Deploy Nagios remote-nodes.cfg to VM133` + `Ensure remote-nodes.cfg is included in nagios.cfg`) aborts with UNREACHABLE on the delegation. Remote-node-baseline tasks that precede those still apply; tasks after don't. Working around this today by ordering other `remote-node-baseline` tasks before the nagios-delegate block (did this 2026-04-23 when adding Docker daemon.json management to the role).
+  - Fix direction: either distribute the nagios-admin ssh key to VM133 under `mrobinson`'s `authorized_keys` (it clearly was, then wasn't), or switch the delegations to use `ubuntu@10.20.30.133` with sudo/become, or delegate via the tailscale IP instead of the LAN IP.
+  - Effort: low once diagnosed
   - Scope: homelab
-  - Added: 2026-04-15
+  - Added: 2026-04-15, re-scoped 2026-04-23 after remote-nodes.yml consequence surfaced
 
 - [ ] Verify mum's house external IP for prod VPS SSH firewall
   - Context: 109.155.65.157 is a residential BT/EE dynamic IP. If it changes, SSH from mum's house to the prod VPS will break. Periodically verify the IP matches the firewall rule. Long-term fix is Tailscale-only SSH which eliminates this entirely.
