@@ -25,8 +25,11 @@ from authentik.stages.authenticator_validate.models import (  # noqa: E402
     AuthenticatorValidateStage,
 )
 from authentik.stages.identification.models import IdentificationStage  # noqa: E402
+from authentik.stages.invitation.models import InvitationStage  # noqa: E402
 from authentik.stages.password.models import PasswordStage  # noqa: E402
+from authentik.stages.prompt.models import Prompt, PromptStage  # noqa: E402
 from authentik.stages.user_login.models import UserLoginStage  # noqa: E402
+from authentik.stages.user_write.models import UserCreationMode, UserWriteStage  # noqa: E402
 
 
 CONFIG = json.loads(
@@ -276,6 +279,124 @@ def ensure_ldap_provider():
     return provider
 
 
+def ensure_prompt(
+    name,
+    field_key,
+    label,
+    field_type,
+    required=True,
+    placeholder="",
+    initial_value="",
+):
+    prompt, _ = Prompt.objects.update_or_create(
+        name=name,
+        defaults={
+            "name": name,
+            "field_key": field_key,
+            "label": label,
+            "type": field_type,
+            "required": required,
+            "placeholder": placeholder,
+            "initial_value": initial_value,
+        },
+    )
+    return prompt
+
+
+def ensure_jellyfin_invite_flow():
+    ldap = CONFIG.get("ldap", {})
+    if not ldap.get("enabled"):
+        return None
+
+    user_group = Group.objects.get(name=ldap["user_group_name"])
+
+    flow, _ = Flow.objects.update_or_create(
+        slug="jellyfin-user-enrollment",
+        defaults={
+            "name": "Jellyfin User Enrollment",
+            "title": "Create your Jellyfin account",
+            "designation": "enrollment",
+            "authentication": "none",
+        },
+    )
+
+    invitation_stage, _ = InvitationStage.objects.update_or_create(
+        name="Jellyfin Invite Gate",
+        defaults={
+            "name": "Jellyfin Invite Gate",
+            "continue_flow_without_invitation": False,
+        },
+    )
+
+    prompt_stage, _ = PromptStage.objects.update_or_create(
+        name="Jellyfin Enrollment Prompt",
+        defaults={"name": "Jellyfin Enrollment Prompt"},
+    )
+    prompt_stage.fields.set(
+        [
+            ensure_prompt(
+                "Jellyfin Enrollment Username",
+                "username",
+                "Username",
+                "username",
+                placeholder="Choose a Jellyfin username",
+            ),
+            ensure_prompt(
+                "Jellyfin Enrollment Name",
+                "name",
+                "Display name",
+                "text",
+                placeholder="Your name",
+            ),
+            ensure_prompt(
+                "Jellyfin Enrollment Email",
+                "email",
+                "Email address",
+                "email",
+                placeholder="you@example.com",
+            ),
+            ensure_prompt(
+                "Jellyfin Enrollment Password",
+                "password",
+                "Password",
+                "password",
+            ),
+        ]
+    )
+
+    user_write_stage, _ = UserWriteStage.objects.update_or_create(
+        name="Jellyfin Enrollment Write",
+        defaults={
+            "name": "Jellyfin Enrollment Write",
+            "user_creation_mode": UserCreationMode.CREATE_WHEN_REQUIRED,
+            "create_users_as_inactive": False,
+            "create_users_group": user_group,
+            "user_type": "internal",
+            "user_path_template": "users",
+        },
+    )
+
+    user_login_stage, _ = UserLoginStage.objects.update_or_create(
+        name="Jellyfin Enrollment Login",
+        defaults={"name": "Jellyfin Enrollment Login"},
+    )
+
+    bindings = [
+        (10, invitation_stage),
+        (20, prompt_stage),
+        (30, user_write_stage),
+        (40, user_login_stage),
+    ]
+    for order, stage in bindings:
+        FlowStageBinding.objects.update_or_create(
+            target=flow,
+            stage=stage,
+            defaults={"order": order, "target": flow, "stage": stage},
+        )
+
+    return flow
+
+
 def main():
     mfa_flow = ensure_flow("homelab-auth-mfa", "Homelab MFA", with_mfa=True)
     ensure_oidc_app(mfa_flow, CONFIG.get("proxmox_oidc"))
@@ -285,6 +406,7 @@ def main():
         update_outpost("authentik Embedded Outpost", "proxy", providers, CONFIG["authentik_host"])
 
     ensure_ldap_provider()
+    ensure_jellyfin_invite_flow()
 
 
 if __name__ == "__main__":

@@ -39,6 +39,7 @@ Source of truth: `config/homelab.yaml`.
   - `jellyfin.laxdog.uk` — LAN/Tailscale, LAN-open at NPM, no forward-auth.
   - `jellyfin.lax.dog` — external via Cloudflare, no forward-auth. Native Jellyfin login with LDAP plugin against Authentik LDAP outpost on CT170:636.
 - Local `admin` is the permanent break-glass account (independent of Authentik/LDAP health).
+- Future normal users should come in via Authentik invitation flow `jellyfin-user-enrollment`, not as manual Jellyfin-local users.
 - Verified on cutover day with `/System/Info/Public` (identical `ServerId` on both hostnames) and `/Users/AuthenticateByName` with local admin (HTTP 200 + `AccessToken` on both).
 
 ## Validation Approach

@@ -20,6 +20,11 @@ Media-stack owns the auth-model **decisions** for the services it runs (Jellyfin
 
 Coordination pattern: media-stack states the intent and constraints; homelab wires it up via `ansible/` + `config/homelab.yaml`. Example (2026-04-23): decision to drop NPM forward-auth on `jellyfin.lax.dog` in favour of Jellyfin-native LDAP via the Authentik LDAP outpost on CT170 — media-stack called the direction, homelab implemented it across the `authentik.ldap` and `jellyfin.ldap` config blocks and the NPM external proxy host.
 
+Current Jellyfin user-state direction:
+- local Jellyfin `admin` stays permanently as break-glass
+- normal users should be invited and enrolled through Authentik
+- local legacy users that should move to central auth should be deleted in Jellyfin first, then re-added through the Authentik invite flow
+
 ## Entry points
 - VM120: `ssh ubuntu@10.20.30.120`
 - Compose files: `/opt/media-stack/`

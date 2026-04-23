@@ -3,6 +3,7 @@
 Significant infrastructure changes by date. Agents should add entries here for major changes.
 
 ## 2026-04-23
+- Jellyfin/AuthentiK follow-through completed for CT167. Repo-managed Authentik now creates a dedicated invitation-only Jellyfin enrollment flow (`jellyfin-user-enrollment`) that creates internal Authentik users directly into `jellyfin-users`; operator/user workflow documented in `docs/runbooks/jellyfin-user-management.md`. Runtime validation re-confirmed both `jellyfin.laxdog.uk` and `jellyfin.lax.dog` route straight to CT167 and present native Jellyfin login with no NPM forward-auth in front, and local Jellyfin `admin` still authenticates on both hostnames. Local Jellyfin `cjess` was removed so she can return later through the Authentik invite flow. Forgot-password remains intentionally unimplemented because the estate has no repo-managed Authentik SMTP/email stage or recovery flow.
 - Home Assistant endpoint truth re-verified live: `http://10.20.30.122:8123` returned HTTP 200, while the old `10.20.30.134` address failed with `No route to host`. Current HA docs/config were already aligned to VM122, so no IP correction was needed beyond preserving that evidence.
 - Home Assistant heating dashboard config now includes the new living-room Sonoff ambient sensor (`sensor.ewelink_snzb_02p_temperature` + `sensor.ewelink_snzb_02p_humidity`) as a repo-managed overview card rendered alongside the relevant downstairs TRV data (`climate.dining_area`, `climate.front_window`). No heating-control semantics changed.
 

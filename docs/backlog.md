@@ -18,13 +18,20 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Outcome: CT167 LDAP bind/search now works, local Jellyfin `admin` still works, and a non-admin pilot LDAP-backed Jellyfin login for `ldapservice` now succeeds. `cjess` remains local and untouched.
   - Added: 2026-04-22, Completed: 2026-04-22
 
-- [ ] Jellyfin ingress cutover after LDAP bind works
-  - Context: `jellyfin.lax.dog` is still behind Authentik forward-auth today. That must be removed once Jellyfin-native LDAP login is validated, otherwise web/native clients will hit stacked auth. Keep `admin` as local break-glass.
+- [x] Jellyfin ingress cutover after LDAP bind works — DONE 2026-04-23
+  - Context: `jellyfin.lax.dog` had been behind Authentik forward-auth after the LDAP groundwork landed. Final cutover removed the stacked forward-auth layer, re-validated native Jellyfin login on both hostnames, and kept local `admin` as break-glass.
+  - Outcome: both `jellyfin.laxdog.uk` and `jellyfin.lax.dog` now present native Jellyfin login directly against CT167, with LDAP-backed normal users and a local break-glass admin.
   - Effort: low
   - Scope: homelab
-  - Added: 2026-04-22
+  - Added: 2026-04-22, Completed: 2026-04-23
 
 ## Medium Priority
+
+- [ ] Authentik SMTP + recovery flow for Jellyfin users
+  - Context: Authentik now has a repo-managed invitation-only Jellyfin enrollment flow, but forgot-password remains blocked. Current runtime has no repo-managed SMTP/email delivery, no Authentik email stage, and no recovery flow bound to the default brand. Until mail exists, password resets stay operator-driven.
+  - Effort: medium
+  - Scope: homelab
+  - Added: 2026-04-23
 
 - [ ] VM171 Mullvad kill-switch re-verification (wg0-down test)
   - Context: the mullvad-exit killswitch template changed 2026-04-21 (commit 8a0d76f) — subnet-route rules flipped from terminal `ACCEPT` to `RETURN` so subnet-routed packets fall through to `ts-forward` for SNAT marking. Chain structure proves the kill-switch DROP at the tail still catches any non-subnet / non-Mullvad tailscale0 forwarding, but the end-to-end test (bring wg0 down → confirm exit-node-client traffic drops at eth0) was NOT exercised post-change to avoid interrupting staging-home's live exit-node traffic.

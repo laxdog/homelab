@@ -35,6 +35,7 @@ Both hostnames should point to the same Authentik instance via NPM.
   - LDAP outpost: `Jellyfin LDAP Outpost`
   - Dedicated bind user: `jellyfin-ldap-bind`
   - Dedicated Jellyfin access group: `jellyfin-users`
+  - Invitation-only Jellyfin enrollment flow: `jellyfin-user-enrollment`
   - LDAPS listener on CT170 port `636`
 - Current runtime status:
   - LDAP outpost container is up and healthy on CT170.
@@ -48,6 +49,27 @@ Both hostnames should point to the same Authentik instance via NPM.
   - CT167 imports that certificate, but Jellyfin is currently configured with
     `SkipSslVerify=true` as a temporary groundwork compromise until a dedicated trusted LDAP cert
     or hostname is introduced.
+
+## Jellyfin self-service workflow
+- Repo-managed flow `jellyfin-user-enrollment` is the current safe path for future Jellyfin users.
+- Flow shape:
+  - Invitation stage (`Jellyfin Invite Gate`)
+  - Prompt stage for `username`, `name`, `email`, and `password`
+  - User-write stage that creates an **internal** Authentik user and adds it to `jellyfin-users`
+  - User-login stage
+- Invite links use:
+  - `https://auth.lax.dog/if/flow/jellyfin-user-enrollment/?itoken=<invite_uuid>`
+- This keeps signup closed by default and only allows operator-issued invites.
+- Operator/user steps are documented in `docs/runbooks/jellyfin-user-management.md`.
+
+## Recovery posture
+- Authentik recovery is **not** self-service yet for Jellyfin users.
+- Current runtime blockers:
+  - no repo-managed SMTP/email settings in this estate
+  - no Authentik email stage configured
+  - no recovery flow bound to the default Authentik brand
+- Do not implement a non-mail recovery flow for Jellyfin users; that would be an unsafe reset path.
+- Current operator fallback: reset the user's Authentik password manually.
 
 ## Current protected hosts
 `authentik_protect: true` at NPM (source: `config.npm.external_proxy_hosts`):
@@ -117,4 +139,4 @@ File sharing / collaboration:
 ## Open items
 - Decide which OIDC-capable apps to wire up next (FreshRSS is the obvious starter now that Jellyfin LDAP is shipped).
 - LDAP TLS: current posture uses Authentik's self-signed cert with `SkipSslVerify=true` on CT167. Swap in a dedicated trusted LDAP cert or hostname, then flip SkipSslVerify off.
-- `cjess` migration from local to LDAP — media-stack-owned decision, not yet taken.
+- Repo-managed SMTP + recovery flow for Authentik-backed Jellyfin users.

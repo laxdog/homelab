@@ -27,7 +27,19 @@ The live playback Jellyfin runs on CT167 (`jellyfin-hw`) and is exposed via NPM.
   - `jellyfin.lax.dog` — external; forward-auth removed 2026-04-23 after Jellyfin-native LDAP was validated.
 - **LDAP-backed login** via the Authentik LDAP outpost on CT170:636. Jellyfin's LDAP Authentication plugin on CT167 binds as `cn=jellyfin-ldap-bind,ou=users,DC=jellyfin,DC=laxdog,DC=uk` and filters to `cn=jellyfin-users`. Pilot user `ldapservice` succeeds on both hostnames.
 - **Local `admin`** remains as permanent break-glass (independent of Authentik/LDAP health).
-- **Local `cjess`** remains local for now — migration to LDAP is a separate decision and has not been taken.
+- **Local `cjess`** has been deleted from Jellyfin and should only be re-added later through the Authentik invite flow.
+
+## User management workflow
+- Normal Jellyfin users should be created in Authentik, not manually inside Jellyfin.
+- Repo-managed Authentik flow `jellyfin-user-enrollment` exists for invitation-based self-enrollment into group `jellyfin-users`.
+- The invite flow creates an internal Authentik user; Jellyfin auto-creates the Jellyfin profile on first successful LDAP login.
+- Runbook: `docs/runbooks/jellyfin-user-management.md`
+
+## Password reset posture
+- Local `admin` remains the only permanent Jellyfin-local account.
+- Authentik-backed Jellyfin users do **not** have self-service forgot-password yet.
+- Exact blocker: no repo-managed Authentik SMTP/email delivery and no recovery flow bound to the Authentik brand.
+- Until SMTP exists, operators must reset Jellyfin-user passwords in Authentik.
 
 ## Repo-managed LDAP groundwork
 - Source of truth:

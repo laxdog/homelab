@@ -31,7 +31,7 @@ Auth-model **decisions** for a service (forward-auth vs app-native, which provid
 
 Auth **implementation** is always homelab's: NPM proxy host config, Authentik providers/applications/outposts, LDAP plugin installs on the backing host, group/user provisioning in Authentik, secrets vaulting. The owning agent asks for a change; homelab wires it up in `config/homelab.yaml` + `ansible/`.
 
-Worked example (2026-04-23): media-stack called the direction on Jellyfin — use Authentik LDAP outpost + Jellyfin-native LDAP plugin, drop NPM forward-auth so Android/TV clients keep working. homelab implemented it across `authentik.ldap`, `jellyfin.ldap`, the `authentik` + `jellyfin-hw` Ansible roles, and the Jellyfin External NPM entry. See `docs/authentik.md`, `docs/jellyfin.md`, `docs/media-routing.md`.
+Worked example (2026-04-23): media-stack called the direction on Jellyfin — use Authentik LDAP outpost + Jellyfin-native LDAP plugin, drop NPM forward-auth so Android/TV clients keep working, keep local `admin` as break-glass, and bring future normal users in through Authentik invites instead of Jellyfin-local accounts. homelab implemented it across `authentik.ldap`, `jellyfin.ldap`, the `authentik` + `jellyfin-hw` Ansible roles, the Jellyfin External NPM entry, and the Jellyfin user-management runbook. See `docs/authentik.md`, `docs/jellyfin.md`, `docs/media-routing.md`, `docs/runbooks/jellyfin-user-management.md`.
 
 ## Estate overview
 
