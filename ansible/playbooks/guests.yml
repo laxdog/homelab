@@ -28,14 +28,14 @@
   roles:
     - docker-host
 
-- name: Configure Tailscale gateway
-  hosts: tailscale_router_hosts
+- name: Configure Tailscale-joined nodes
+  hosts: tailscale_node_hosts
   become: true
   gather_facts: true
   vars:
     config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"
   roles:
-    - tailscale-router
+    - tailscale-node
 
 - name: Configure Mullvad exit node
   hosts: mullvad_exit_hosts

@@ -26,7 +26,7 @@ Role split:
 - inventory generation: `scripts/run.py` (`remote_nodes` -> `remote_nodes_hosts`)
 - apply playbook: `ansible/playbooks/remote-nodes.yml`
 - baseline role: `ansible/roles/remote-node-baseline`
-- tailscale role (reused): `ansible/roles/tailscale-router`
+- tailscale role (reused): `ansible/roles/tailscale-node`
 - vaulted WiFi secrets: `ansible/secrets.yml` (per-value vault entries)
 
 ## What The Baseline Configures

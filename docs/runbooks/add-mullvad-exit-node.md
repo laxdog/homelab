@@ -13,7 +13,7 @@ Source role: `ansible/roles/mullvad-exit`.
 
 ## Prerequisites
 
-- Host already configured as a Tailscale subnet router / exit node (`tailscale-router` role).
+- Host already configured as a Tailscale subnet router / exit node (`tailscale-node` role).
 - A free Mullvad device slot (check `docs/vpn.md` §Device Inventory).
 - SSH + Proxmox console access to the target host (for recovery).
 
@@ -62,7 +62,7 @@ Under the target host, add `mullvad_exit` to `roles` and populate `mullvad_exit`
 <hostname>:
   ...
   roles:
-  - tailscale_router
+  - tailscale_node
   - mullvad_exit
   mullvad_exit:
     interface_addresses:

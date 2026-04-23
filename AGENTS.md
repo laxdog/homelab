@@ -87,7 +87,7 @@ Worked example (2026-04-23): media-stack called the direction on Jellyfin — us
 | rr-worker-staging-home | 10.20.30.153 | 100.88.35.124 | ThinkPad X270 / Ubuntu 24.04 | staging |
 | rr-worker-prod-mums | 10.20.30.75 | 100.118.218.126 | MacBook Pro 12,1 (2015) / Ubuntu 24.04 | remote (Mum's House) |
 
-Both managed by `remote-node-baseline` + `tailscale-router` roles. Battery management (TLP on X270), powertop, chrony, WiFi sync, Nagios monitoring all deployed.
+Both managed by `remote-node-baseline` + `tailscale-node` roles. Battery management (TLP on X270), powertop, chrony, WiFi sync, Nagios monitoring all deployed.
 
 ### Known gotcha: --accept-routes on LAN guests
 
@@ -95,7 +95,7 @@ LAN-resident VMs/LXCs that join the Tailnet should NOT have `--accept-routes` en
 
 **Fix:** `tailscale set --accept-routes=false` on the affected guest.
 
-This was discovered when VM133 (Nagios) went unreachable after Tailscale was installed. Packets arrived on eth0 but replies were routed out tailscale0. All current Tailscale guests (VM133, CT163, VM171) have been verified with `RouteAll: false`.
+This was discovered when VM133 (Nagios) went unreachable after Tailscale was installed. Packets arrived on eth0 but replies were routed out tailscale0. All current LAN-resident Tailscale guests (VM133, VM171, CT163, CT172, CT173) have been verified with `RouteAll: false`, and the role's config-layer assertion (LAN-resident + `accept_routes: true`) catches any future drift at apply time.
 
 ### Known gotcha: router "Domain Name" field must stay blank
 
@@ -107,7 +107,7 @@ Example of the bad path: client resolves `grafana.laxdog.uk`, AdGuard NXDOMAINs 
 
 ### Tailscale prefs — config is source of truth
 
-For nodes with the `tailscale_router` role (currently VM171, CT163, rr-worker-staging-home, rr-worker-prod-mums, plus new RR workers provisioned via `docs/runbooks/add-rr-worker-node.md`), per-node Tailscale prefs — `accept_dns`, `accept_routes`, `advertise_exit_node`, `advertise_routes`, `exit_node`, `exit_node_allow_lan_access` — are declared in `config/homelab.yaml` and reconciled by `tailscale set` on every `scripts/run.py guests` (or equivalent ansible apply).
+The `tailscale_node` role carries reconciliation for every tailnet-joined infrastructure host (both subnet-router / exit-node advertisers and leaf consumers). Per-host Tailscale prefs — `accept_dns`, `accept_routes`, `advertise_exit_node`, `advertise_routes`, `exit_node`, `exit_node_allow_lan_access` — are declared in `config/homelab.yaml` and reconciled by `tailscale set` on every `scripts/run.py guests` (or equivalent ansible apply). Current membership: VM171, CT163, CT172, CT173, VM133, rr-worker-staging-home, rr-worker-prod-mums, rr-application-prod-vps.
 
 Manual `tailscale set` on these nodes is **ephemeral** — the next ansible apply will revert it to declared values. For persistent changes, edit the config and re-run the play.
 
@@ -115,7 +115,7 @@ Two config-layer assertions run at role-apply time and fail fast on bad config:
 - `advertise_exit_node: true` + `exit_node: <nonempty>` — Tailscale rejects this combination at runtime. Caught at config time with a clearer error.
 - LAN-resident node (IP in `10.20.30.0/24`) + `accept_routes: true` — triggers the LAN-adjacency gotcha above. Caught at config time.
 
-Nodes **without** the `tailscale_router` role are NOT reconciled today — their runtime Tailscale prefs can drift silently from declared values. Extending reconciliation to non-router nodes is backlogged.
+The role previously lived as `tailscale-router` and only attached to subnet-router / exit-node advertisers; the rest of the tailnet drifted silently. Renamed and extended 2026-04-23 so every tailnet-joined infra host reconciles declared prefs.
 
 ### Firewall testing
 

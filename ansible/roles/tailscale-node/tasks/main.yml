@@ -110,7 +110,7 @@
     mode: '0755'
     content: |
       #!/usr/bin/env bash
-      # Managed by tailscale-router role. Flags reflect declared config
+      # Managed by tailscale-node role. Flags reflect declared config
       # in homelab.yaml (global + per-host). Post-join, prefs are kept
       # in sync by the "Reconcile tailscale runtime prefs" task on every
       # ansible apply.

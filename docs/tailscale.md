@@ -17,11 +17,11 @@ Out of scope in phase 1:
 - Dedicated VM: `tailscale-gateway`
 - VMID: `171`
 - LAN IP: `10.20.30.171`
-- Role: `tailscale_router`
+- Role: `tailscale_node`
 - Service LXC: `rr-application-staging-proxmox`
 - CT ID: `163`
 - LAN IP: `10.20.30.163`
-- Role: `tailscale_router`
+- Role: `tailscale_node`
 - Node override:
   - no advertised routes
   - no exit-node advertisement
@@ -30,7 +30,7 @@ Out of scope in phase 1:
 This keeps Tailscale off the Proxmox host and limits routing changes to one guest VM.
 
 ## Repo-managed behavior
-The `tailscale-router` role configures:
+The `tailscale-node` role configures:
 - Tailscale package/repository
 - `tailscaled` service enabled/running
 - forwarding sysctls:

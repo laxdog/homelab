@@ -17,7 +17,7 @@
      ssh_user: <username>
      hostname: <hostname>
      environment: staging|prod
-     roles: [remote_node_baseline, tailscale_router]
+     roles: [remote_node_baseline, tailscale_node]
      battery:
        enabled: true|false
        start_threshold: 40  # ThinkPad only

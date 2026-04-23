@@ -19,4 +19,4 @@
         - lookup('file', playbook_dir ~ '/../secrets-wifi.yml', errors='ignore') | length > 0
   roles:
     - remote-node-baseline
-    - tailscale-router
+    - tailscale-node

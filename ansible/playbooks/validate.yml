@@ -155,8 +155,8 @@
         port: 22
         timeout: 5
 
-- name: Validate Tailscale gateway basics (pre-join safe)
-  hosts: tailscale_router_hosts
+- name: Validate Tailscale node basics (pre-join safe)
+  hosts: tailscale_node_hosts
   gather_facts: false
   vars:
     config: "{{ lookup('file', playbook_dir ~ '/../../config/homelab.yaml') | from_yaml }}"

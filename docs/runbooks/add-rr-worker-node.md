@@ -54,7 +54,7 @@ rr-worker-<env>-<location>:
   tun_required: true
   roles:
   - docker
-  - tailscale_router  # installs Tailscale + renders phase1-up helper + reconciles prefs. Role name is misleading for leaf workers (see backlog item on broader rename); functionally it's what we want.
+  - tailscale_node  # installs Tailscale + renders phase1-up helper + reconciles prefs on every apply.
 ```
 
 Under `remote_nodes.nodes`:
@@ -121,9 +121,9 @@ ansible-playbook ansible/playbooks/guests.yml --limit rr-worker-<env>-<location>
 
 This runs guest-baseline, docker-host, log-policy, and promtail roles automatically.
 
-### 7. Install Tailscale + render phase1-up helper (via `tailscale_router` role)
+### 7. Install Tailscale + render phase1-up helper (via `tailscale_node` role)
 
-The role assignment in Step 2 means Step 6's ansible apply already did this — the `tailscale-router` role installs the `tailscale` package, enables `tailscaled`, sets forwarding sysctls, renders `/usr/local/sbin/tailscale-phase1-up` from the declared config, and runs config-layer assertions (e.g. LAN-adjacency gotcha).
+The role assignment in Step 2 means Step 6's ansible apply already did this — the `tailscale-node` role installs the `tailscale` package, enables `tailscaled`, sets forwarding sysctls, renders `/usr/local/sbin/tailscale-phase1-up` from the declared config, and runs config-layer assertions (e.g. LAN-adjacency gotcha).
 
 Verify the helper exists:
 

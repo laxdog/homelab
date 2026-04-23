@@ -327,7 +327,7 @@ remote_nodes:
       environment: prod
       roles:
       - remote_node_baseline
-      - tailscale_router
+      - tailscale_node
       wifi_only: true
       tailscale:
         advertise_routes: []
@@ -356,13 +356,13 @@ remote_nodes:
       environment: staging
       roles:
       - remote_node_baseline
-      - tailscale_router
+      - tailscale_node
       wifi_only: true
       tailscale:
         advertise_routes: []
         advertise_exit_node: false  # 2026-04-20: staging-home now CONSUMES VM171 as exit; Tailscale forbids simultaneous advertise+use.
         accept_dns: false
-        accept_routes: false  # MUST stay false — staging-home is LAN-resident via WiFi (10.20.30.153); AGENTS.md LAN-adjacency gotcha. Enforced by tailscale-router role assertion.
+        accept_routes: false  # MUST stay false — staging-home is LAN-resident via WiFi (10.20.30.153); AGENTS.md LAN-adjacency gotcha. Enforced by tailscale-node role assertion.
         exit_node: tailscale-gateway
         exit_node_allow_lan_access: true
       battery:
@@ -390,7 +390,7 @@ remote_nodes:
       environment: prod
       roles:
       - rr_db_access
-      - tailscale_router
+      - tailscale_node
       wifi_only: false
       tailscale:
         advertise_routes: []
@@ -431,10 +431,10 @@ remote_nodes:
       roles: []
       wifi_enabled: false
       wifi_only: false
-      tailscale:
-        advertise_routes: []
-        advertise_exit_node: false
-        accept_dns: false
+      # tailscale block moved to services.lxcs.rr-worker-prod-proxmox on 2026-04-23
+      # as part of the tailscale-router → tailscale-node role rename. CT173 is a
+      # proxmox LXC, not a true remote node; having a tailscale block in both
+      # locations risks merge-order drift.
       battery:
         enabled: false
       powertop:
@@ -494,6 +494,12 @@ services:
       ip: 10.20.30.133
       roles:
       - nagios
+      - tailscale_node
+      tailscale:
+        advertise_routes: []
+        advertise_exit_node: false
+        accept_dns: false
+        accept_routes: false  # LAN-resident — AGENTS.md LAN-adjacency gotcha
       os: ubuntu
       cores: 2
       memory_mb: 2048
@@ -502,7 +508,7 @@ services:
       id: 171
       ip: 10.20.30.171
       roles:
-      - tailscale_router
+      - tailscale_node
       - mullvad_exit
       os: ubuntu
       cores: 1
@@ -591,7 +597,7 @@ services:
       roles:
       - docker
       - rr_db_access
-      - tailscale_router
+      - tailscale_node
       tailscale:
         advertise_routes: []
         advertise_exit_node: false
@@ -660,7 +666,7 @@ services:
       disk_gb: 20
       roles:
       - docker
-      - tailscale_router
+      - tailscale_node
       tailscale:
         advertise_routes: []
         advertise_exit_node: false
@@ -681,6 +687,13 @@ services:
       tun_required: true
       roles:
       - docker
+      - tailscale_node
+      tailscale:
+        advertise_routes: []
+        advertise_exit_node: false
+        accept_dns: false
+        accept_routes: false  # LAN-resident — AGENTS.md LAN-adjacency gotcha
+        exit_node_allow_lan_access: false
       users:
       - name: mrobinson
         groups:

@@ -95,15 +95,13 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
   - Both app-node migrations complete. CT163 → gb-lon-wg-002, prod VPS → gb-lon-wg-003. Prod VPS Phase 5 confirmed: allowlist `185.195.232.0/24`, observed egress `185.195.232.135`. `docs/vpn.md` updated. Original backlog rationale (get both app nodes off rented-provider servers onto Mullvad-owned ones) fully satisfied.
   - Added: 2026-04-20, Completed: 2026-04-20
 
-- [ ] Extend tailscale pref reconciliation to non-router nodes (partial progress)
-  - **Done 2026-04-20** for nodes with the `tailscale_router` role (VM171, CT163, staging-home, mums — and new RR workers going forward, which now carry the role per the updated runbook). The role has: config-merge → pre-flight assertions (advertise+consume collision, LAN-adjacency gotcha) → idempotent `tailscale set` gated on BackendState=Running. Schema extended with `exit_node`, `exit_node_allow_lan_access`, `accept_routes`.
-  - **Still TODO**: nodes on the tailnet that do NOT have the `tailscale_router` role. Current examples: CT173 (if role ever removed), VM133 nagios, rr-application-prod-vps, CT172 observability. These ignore their declared `tailscale` config — runtime prefs can drift silently. Options: (a) rename `tailscale-router` → `tailscale-node` and apply to every tailnet-joined guest (clean but big refactor — touches inventory groups, playbook wiring, every guest's roles list), (b) add `tailscale_router` role to every tailnet-joined guest one at a time (less invasive, but the name becomes a misnomer estate-wide), (c) extract the "assert + reconcile" tasks into a new `tailscale-node` role that runs on every tailnet-joined guest, keeping `tailscale-router` for routers only (cleanest split but introduces a new role to maintain).
-  - Effort: medium (any of the above)
-  - Scope: homelab
-  - Added: 2026-04-17, router-node part completed 2026-04-20
+- [x] Extend tailscale pref reconciliation to non-router nodes — DONE 2026-04-23
+  - Context: the original `tailscale_router` role only attached to subnet-router / exit-node advertisers (VM171, CT163, staging-home, mums, prod-vps, CT172). Tailnet-joined leaves (CT173 rr-worker-prod-proxmox, VM133 nagios) had no reconciliation and could drift silently — VM133 was showing `CorpDNS=true` and CT173 had `ExitNodeAllowLANAccess=true` against declared defaults.
+  - Resolved by Option C: renamed `ansible/roles/tailscale-router` → `ansible/roles/tailscale-node`, renamed inventory group `tailscale_router_hosts` → `tailscale_node_hosts`, updated all role-list references in `config/homelab.yaml` (+playbooks, AGENTS.md, runbooks, tailscale.md). Moved CT173's `tailscale:` block from `remote_nodes.nodes.rr-worker-prod-proxmox` into `services.lxcs.rr-worker-prod-proxmox` (the LXC's real home) and added `tailscale_node` to its roles. Added a `tailscale:` block + `tailscale_node` role to `services.vms.nagios` for VM133. All 8 infra tailnet hosts now reconcile their declared prefs on every ansible apply and pass the role's two config-layer assertions.
+  - Added: 2026-04-17, router-node part completed 2026-04-20, full coverage completed 2026-04-23
 
 - [x] Runbook add-rr-worker-node.md Step 8 missing `--accept-dns=false` — DONE 2026-04-20
-  - Resolved by replacing the hardcoded `tailscale up` command with a reference to `/usr/local/sbin/tailscale-phase1-up`, which is rendered from declared config by the `tailscale_router` role. New workers now add `tailscale_router` to their roles list in Step 2, so phase1-up exists at Step 8 time. Eliminates the join→first-apply window.
+  - Resolved by replacing the hardcoded `tailscale up` command with a reference to `/usr/local/sbin/tailscale-phase1-up`, which is rendered from declared config by the `tailscale_node` role (renamed from `tailscale_router` on 2026-04-23). New workers now add `tailscale_node` to their roles list in Step 2, so phase1-up exists at Step 8 time. Eliminates the join→first-apply window.
   - Added: 2026-04-17, Completed: 2026-04-20
 
 - [ ] NPM upstream healthcheck on restart
