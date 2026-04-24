@@ -15,11 +15,11 @@ Keep this up to date whenever devices are added or removed.
 | known eel | CT163 rr-application-staging-proxmox (Gluetun) | `eFY1vCT...` | Mullvad UK London (gb-lon-wg-002, Mullvad-owned) | 2026-02-26 |
 | well raven | rr-application-prod-vps (Gluetun) | `WqjCL+V...` | Mullvad UK London (gb-lon-wg-003, Mullvad-owned, pinned) | 2026-02-26 |
 | holy llama | Operator phone/laptop (Mullvad app direct, not via Gluetun) | `T+saClF...` | — | 2026-02-06 |
-| normal koala | VM171 tailscale-gateway (wg-quick, role `mullvad-exit`) | `smCBm+S...` | Mullvad UK London (gb-lon-wg-001, pinned — Mullvad-owned) | 2026-04-20 |
+| normal koala | VM171 tailscale-gateway (wg-quick, role `mullvad-exit`) | `smCBm+S...` | Mullvad Ireland Dublin (ie-dub-wg-101, pinned — rented M247; Mullvad has no owned servers in IE) | 2026-04-20 (key), 2026-04-24 (pin moved from gb-lon-wg-001 → ie-dub-wg-101) |
 
 **5/5 device slots used** — account is full. Must delete a device before registering a new WireGuard key.
 
-**Mapping verified 2026-04-17** (live panda, known eel, well raven) and **2026-04-20** (normal koala) by deriving the X25519 public key from each node's WireGuard private key and matching against the Mullvad account. `holy llama` is the only device not tied to a homelab-managed node — presumed to be the operator's Mullvad app on phone or laptop connecting directly.
+**Mapping verified 2026-04-17** (live panda, known eel, well raven) and **2026-04-20** (normal koala) by deriving the X25519 public key from each node's WireGuard private key and matching against the Mullvad account. `holy llama` is the only device not tied to a homelab-managed node — presumed to be the operator's Mullvad app on phone or laptop connecting directly. The `normal koala` keypair is unchanged on 2026-04-24; only the pinned peer changed — Mullvad WireGuard keys are not bound to a specific server, so switching from gb-lon-wg-001 to ie-dub-wg-101 did not consume a device slot.
 
 > **Caveat — RR-managed Gluetun config**: CT163 and prod VPS run their Gluetun containers from RR's compose (not this repo). The `Server` column here reflects what the RR orchestrator reports; homelab Ansible does not independently verify `SERVER_HOSTNAMES` or the peer pubkey on these nodes. Pin changes are driven by the RR orchestrator. CT163 migration to `gb-lon-wg-002` completed 2026-04-20; prod VPS migration to `gb-lon-wg-003` completed 2026-04-20 with RR's Phase 5 allowlist update landing the same day.
 
@@ -41,7 +41,7 @@ VM171 itself has `CorpDNS: false` (`--accept-dns=false`) — it does not apply T
 ### Using VM171 as exit node
 
 When using VM171 as exit node:
-- All internet traffic routes through Mullvad UK London (`gb-lon-wg-001`, egress IP in `141.98.252.0/24` pool) — **not** the homelab public IP.
+- All internet traffic routes through Mullvad Ireland Dublin (`ie-dub-wg-101`, egress IP in `146.70.189.0/24` pool) — **not** the homelab public IP.
 - All DNS goes to AdGuard (10.20.30.53) — ad blocking active, internal services accessible
 - MagicDNS is disabled on this tailnet — Tailscale node names cannot be resolved via DNS (use Tailscale IPs instead)
 
@@ -64,7 +64,7 @@ Previous split DNS rule (`laxdog.uk → 10.20.30.53`) has been removed — redun
 ### Phone exit node behaviour (VM171)
 
 When using VM171 as Tailscale exit node:
-1. All traffic exits via Mullvad UK London (`gb-lon-wg-001`, egress in `141.98.252.0/24` pool) — VM171's own outbound plus all forwarded exit-node traffic.
+1. All traffic exits via Mullvad Ireland Dublin (`ie-dub-wg-101`, egress in `146.70.189.0/24` pool) — VM171's own outbound plus all forwarded exit-node traffic.
 2. All DNS goes to AdGuard (`10.20.30.53`) — ad blocking active, internal services accessible
 3. `laxdog.uk` resolves via AdGuard rewrites, `lax.dog` via Cloudflare, everything else via Quad9/Cloudflare DoH
 
@@ -74,15 +74,15 @@ VM171 has `accept_dns: false` (`CorpDNS: false`) — it ignores Tailscale-pushed
 
 ### Adding Mullvad to VM171
 
-**DONE 2026-04-20.** VM171 egresses via Mullvad UK London `gb-lon-wg-001` as Mullvad device `normal koala`.
+**DONE 2026-04-20.** VM171 egresses via Mullvad as device `normal koala`. Originally pinned to UK London `gb-lon-wg-001`; pin moved to Ireland Dublin `ie-dub-wg-101` on 2026-04-24 per operator intent. Same keypair (no device-slot churn).
 
 - Ansible role: `ansible/roles/mullvad-exit/`
 - Runbook: `docs/runbooks/add-mullvad-exit-node.md`
 - Vault key: `mullvad_vm171_wg_private_key` in `ansible/secrets.yml`
 
 Current behaviour:
-- VM171's own outbound traffic → Mullvad (egress `141.98.252.208` observed 2026-04-20, in `141.98.252.0/24` SNAT pool).
-- Forwarded Tailscale exit-node traffic → Mullvad (same pool).
+- VM171's own outbound traffic → Mullvad (egress `146.70.189.65` observed 2026-04-24 post-cutover, in `146.70.189.0/24` SNAT pool).
+- Forwarded Tailscale exit-node traffic → Mullvad (same pool — staging-home verified reporting the same `146.70.189.65` on 2026-04-24).
 - LAN subnet routing (Tailscale → `10.20.30.0/24`) → eth0, unchanged.
 - Kill-switch iptables rules (chain `MULLVAD-EXIT-FWD`, installed by `mullvad-exit-killswitch.service` before `wg-quick@wg0`) drop forwarded traffic on eth0 if wg0 is down, preventing leak.
 
@@ -90,7 +90,7 @@ Current behaviour:
 
 Tailscale's `Self.Online: false` for VM171 post-Mullvad is **expected**, not a bug.
 
-Root cause: VM171's NAT-discovered public IP moved from `212.56.120.65` (home router, UDP-hole-punchable) to `141.98.252.208` (Mullvad — strict NAT, blocks inbound UDP from arbitrary sources). UDP hole-punching no longer works for peers that don't share the LAN.
+Root cause: VM171's NAT-discovered public IP moved from `212.56.120.65` (home router, UDP-hole-punchable) to a Mullvad SNAT pool IP (`141.98.252.208` while pinned to gb-lon-wg-001; `146.70.189.65` while pinned to ie-dub-wg-101 as of 2026-04-24). Mullvad applies strict NAT on both pools, blocking inbound UDP from arbitrary sources. UDP hole-punching no longer works for peers that don't share the LAN.
 
 Functional impact:
 - **LAN peers** (CT163, CT173, staging-home, VM133 nagios, CT172 observability, etc. at `10.20.30.x`): unaffected. Direct P2P still works via the LAN address — confirmed with `tailscale ping` showing `via 10.20.30.171:41641`.
@@ -111,10 +111,10 @@ LAN clients (CT163, CT173, staging-home, etc.) are unaffected either way — the
 | Node | Egress IP | Method | Notes |
 |---|---|---|---|
 | VM120 media-stack | 193.32.126.214 | Mullvad FR (unpinned) | arr stack downloads |
-| VM171 tailscale-gateway | 141.98.252.208 | Mullvad UK London (gb-lon-wg-001, **pinned**) | Host egress + Tailscale exit-node forwarded traffic. Snapshot 2026-04-20; SNAT pool so egress IP can shift within 141.98.252.0/24. |
+| VM171 tailscale-gateway | 146.70.189.65 | Mullvad Ireland Dublin (ie-dub-wg-101, **pinned** — rented M247) | Host egress + Tailscale exit-node forwarded traffic. Snapshot 2026-04-24 post-cutover from gb-lon-wg-001; SNAT pool so egress IP can shift within 146.70.189.0/24. |
 | rr-application-staging-proxmox (CT163) | 141.98.252.239 | Mullvad UK London via Gluetun (gb-lon-wg-002, Mullvad-owned, **pinned**) | RR staging scraper. Migrated off `gb-lon-wg-201` (xtom, inactive) on 2026-04-20 — RR-reported. SNAT pool so egress IP can shift within `141.98.252.0/24`. |
 | rr-application-prod-vps | 185.195.232.135 | Mullvad UK London (gb-lon-wg-003, Mullvad-owned, **pinned**) | RR prod scraper. Migrated 2026-04-20 off gb-lon-wg-301 (M247); RR allowlist now `185.195.232.0/24`. SNAT pool — observed egress can shift within that /24. |
-| rr-worker-staging-home | 141.98.252.208 | Mullvad UK London via VM171 (Tailscale exit node) | Cut over 2026-04-20. `--exit-node-allow-lan-access=true` keeps LAN-direct paths (CT163 DB proxy, AdGuard, NPM). SNAT pool — snapshot IP. |
+| rr-worker-staging-home | 146.70.189.65 | Mullvad Ireland Dublin via VM171 (Tailscale exit node) | Cut over 2026-04-20; egress follows VM171, which moved from gb-lon-wg-001 → ie-dub-wg-101 on 2026-04-24. `--exit-node-allow-lan-access=true` keeps LAN-direct paths (CT163 DB proxy, AdGuard, NPM). SNAT pool — snapshot IP. |
 | rr-worker-prod-proxmox (CT173) | 212.56.120.65 | Bare NAT | Operator home static IP (unique — staging-home moved to Mullvad via VM171 on 2026-04-20) |
 | rr-worker-prod-mums | 109.155.65.157 | Bare NAT | mum's residential IP (unique) |
 | rr-application-prod-vps (host) | 159.195.59.97 | Direct VPS IP | SSH, Tailscale, HTTPS |
@@ -125,20 +125,21 @@ LAN clients (CT163, CT173, staging-home, etc.) are unaffected either way — the
 
 - **Every RR worker gets a unique egress IP. No sharing.**
 - **Prod workers**: bare NAT, no VPN.
-- **Staging workers**: VPN, unique exit IP per worker. `rr-worker-staging-home` egresses via VM171 tailscale-gateway → Mullvad UK London (cut over 2026-04-20).
+- **Staging workers**: VPN, unique exit IP per worker. `rr-worker-staging-home` egresses via VM171 tailscale-gateway → Mullvad (cut over 2026-04-20 on gb-lon-wg-001; VM171 re-pinned to Ireland Dublin ie-dub-wg-101 on 2026-04-24, staging-home's egress followed transparently).
 - **App nodes**: Mullvad via Gluetun. IPs rotate within Mullvad UK because `SERVER_HOSTNAMES` is unpinned — **documented IPs are snapshots, not stable identifiers**.
 
 ## Notes
 
 - VM120 Gluetun is unpinned (Mullvad France, no `SERVER_HOSTNAMES`) — consider pinning to prevent exit IP rotation
 - VM120 media-stack egress rotates within Mullvad FR because its Gluetun is unpinned (no `SERVER_HOSTNAMES`). CT163 (`gb-lon-wg-002`) and prod VPS (`gb-lon-wg-003`) are both pinned — no server rotation expected, subject to Mullvad's SNAT behaviour documented below. Do not build allow-lists against VM120 egress without pinning first.
-- **Mullvad egress NAT model — confirmed across three Mullvad-owned servers.**
-  - Ingress endpoint (`ipv4_addr_in` from the Mullvad API) and external egress are *different IPs within the same /24* **on each server** — but the /24 varies by server. The Mullvad-owned block for London (`gb-lon-wg-001..008`) spans at least two /24s.
-  - VM171 (gb-lon-wg-001): ingress `141.98.252.130`, egress `141.98.252.208` — `141.98.252.0/24`.
-  - CT163 (gb-lon-wg-002): ingress `141.98.252.222`, egress `141.98.252.239` — `141.98.252.0/24` (RR-reported 2026-04-20).
-  - Prod VPS (gb-lon-wg-003): ingress `185.195.232.66`, egress `185.195.232.135` — `185.195.232.0/24` (RR-reported 2026-04-20 Phase 5).
-  - Pattern confirmed: same-server ingress and egress live in the same /24. Pool mapping is per-server, not per-provider — gb-lon-wg-001/002 share `141.98.252.0/24`, gb-lon-wg-003 is in `185.195.232.0/24`.
-  - Egress appears **stable per-session**: VM171 held `141.98.252.208` across 3+ days and one kill-switch bounce. Behaviour across `wg-quick` restart or key rotation is not tested.
+- **Mullvad egress NAT model — confirmed across four pinned servers (three Mullvad-owned, one M247-rented).**
+  - Ingress endpoint (`ipv4_addr_in` from the Mullvad API) and external egress are *different IPs within the same /24* **on each server** — but the /24 varies by server.
+  - VM171 (ie-dub-wg-101, M247-rented): ingress `146.70.189.2`, egress `146.70.189.65` — `146.70.189.0/24` (observed 2026-04-24 post-cutover).
+  - VM171 (gb-lon-wg-001, Mullvad-owned) — historical: ingress `141.98.252.130`, egress `141.98.252.208` — `141.98.252.0/24` (2026-04-20 → 2026-04-24).
+  - CT163 (gb-lon-wg-002, Mullvad-owned): ingress `141.98.252.222`, egress `141.98.252.239` — `141.98.252.0/24` (RR-reported 2026-04-20).
+  - Prod VPS (gb-lon-wg-003, Mullvad-owned): ingress `185.195.232.66`, egress `185.195.232.135` — `185.195.232.0/24` (RR-reported 2026-04-20 Phase 5).
+  - Pattern confirmed: same-server ingress and egress live in the same /24. Pool mapping is per-server, not per-provider — gb-lon-wg-001/002 share `141.98.252.0/24`, gb-lon-wg-003 is in `185.195.232.0/24`, ie-dub-wg-101 is in `146.70.189.0/24`.
+  - Egress appears **stable per-session**: VM171 held `141.98.252.208` across 3+ days and one kill-switch bounce while on gb-lon-wg-001. Behaviour across `wg-quick` restart, server switch, or key rotation is not tested long-term on ie-dub-wg-101 yet — `146.70.189.65` is a post-cutover snapshot.
   - **RR uses /24 CIDR allowlist matching** on Gluetun `VPN_EGRESS_IP_ALLOWLIST` (in line with the safer-than-single-IP recommendation below). Prod VPS allowlist is `185.195.232.0/24`.
   - If single-IP pinning of egress becomes load-bearing anywhere, verify the guarantee with Mullvad support. For allow-lists, **/24 granularity is safer** than pinning a single egress IP — and the per-server /24 mapping means one node's allow-list can't be reused for another server.
 - Mullvad device inventory should be audited whenever a device is added or removed

@@ -534,13 +534,21 @@ services:
         advertise_exit_node: true
         accept_dns: false
       mullvad_exit:
+        # Device is still `normal koala` (same WireGuard keypair, same assigned
+        # device addresses). Only the chosen Mullvad peer changed.
+        # 2026-04-24: switched from gb-lon-wg-001 (Mullvad-owned, London) to
+        # ie-dub-wg-101 (M247-rented, Dublin). Mullvad has no owned servers in
+        # Ireland, so the operator-preferred owned-only posture relaxes here;
+        # see docs/vpn.md for the tradeoff (rented pool re-introduces the
+        # silent-inactive-server failure mode that caused the earlier
+        # gb-lon-wg-201 / known-eel incident).
         interface_addresses:
         - "10.73.245.82/32"
         - "fc00:bbbb:bbbb:bb01::a:f551/128"
-        endpoint_host: "gb-lon-wg-001.mullvad.net"
-        endpoint_ip: "141.98.252.130"
+        endpoint_host: "ie-dub-wg-101.mullvad.net"
+        endpoint_ip: "146.70.189.2"
         endpoint_port: 51820
-        peer_public_key: "IJJe0TQtuQOyemL4IZn6oHEsMKSPqOuLfD5HoAWEPTY="
+        peer_public_key: "2r0vPpM71ZXpseWXTXw3iwn2sjIHOTpw1V9sp03bLWw="
   lxcs:
     adguard:
       id: 153
