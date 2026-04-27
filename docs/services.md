@@ -12,6 +12,7 @@ Source of truth: `config/homelab.yaml`.
 - adguard
 - nginx-proxy-manager
 - couchdb
+- obsidian
 - apt-cacher-ng
 - freshrss
 - netalertx
@@ -51,6 +52,8 @@ Internal (`laxdog.uk`):
 - `netalertx.laxdog.uk`
 - `health.laxdog.uk`
 - `couchdb.laxdog.uk`
+- `obsidian.laxdog.uk`
+- `obsidian-api.laxdog.uk`
 - `browser.laxdog.uk`
 - `apt.laxdog.uk`
 - `sites.laxdog.uk`
@@ -94,6 +97,7 @@ Internal (`laxdog.uk`):
   - guest checks verify `/dev/dri/renderD128` for later Docker media containers
 - Internal proxy hosts use HTTPS via Let's Encrypt (DNS-01) in NPM.
 - `couchdb.lax.dog` is externally reachable for Obsidian LiveSync clients (CORS enabled for the Obsidian origin set).
+- CT175 `obsidian` runs the linuxserver/obsidian Webtop image and joins the existing `obsidian_main` CouchDB DB on CT128 as another LiveSync peer. The Local REST API plugin is exposed at `obsidian-api.laxdog.uk` (internal only) for MCP integrations. See `docs/obsidian.md` for the one-time GUI bootstrap (plugin install, setup URI, REST API key extraction).
 - Authentik is active as IdP and forward-auth provider for selected admin endpoints.
 - Proxmox OIDC login has been disabled; use local Proxmox realms (`pam`/`pve`).
 - Home Assistant reverse-proxy trust (`use_x_forwarded_for` + `trusted_proxies`) is repo-managed from `config.home_assistant.http`.

@@ -1,0 +1,19 @@
+services:
+  obsidian:
+    image: {{ config.obsidian.image }}
+    container_name: obsidian
+    restart: unless-stopped
+    shm_size: 1gb
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: "{{ config.homelab.timezone }}"
+      CUSTOM_USER: "{{ config.obsidian.webtop_user }}"
+      PASSWORD: "{{ obsidian_webtop_password }}"
+    volumes:
+      - ./config:/config
+    ports:
+      - "{{ config.obsidian.webtop_port_http }}:3000"
+      - "{{ config.obsidian.rest_api_port_http }}:{{ config.obsidian.rest_api_port_http }}"

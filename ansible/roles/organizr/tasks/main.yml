@@ -113,6 +113,11 @@
       browser.laxdog.uk: filebrowser.png
       couchdb.laxdog.uk: couchpotato.png
 
+- name: Define Organizr excluded domains
+  ansible.builtin.set_fact:
+    organizr_excluded_domains:
+      - obsidian-api.laxdog.uk
+
 - name: Build Organizr tab list from proxy hosts
   ansible.builtin.set_fact:
     organizr_tabs: "{{ organizr_tabs | default([]) + [tab_entry] }}"
@@ -123,6 +128,7 @@
       url: "https://{{ item.domain }}"
       image: "plugins/images/tabs/{{ icon_name }}"
   loop: "{{ config.npm.proxy_hosts }}"
+  when: item.domain not in organizr_excluded_domains
 
 - name: Read existing Organizr tabs
   ansible.builtin.uri:

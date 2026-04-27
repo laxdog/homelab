@@ -79,6 +79,7 @@ Worked example (2026-04-23): media-stack called the direction on Jellyfin — us
 | 167 | jellyfin-hw | 10.20.30.167 | ssd-mirror | Jellyfin with iGPU hardware transcoding |
 | 170 | authentik | 10.20.30.170 | ssd-fast | Authentik identity provider |
 | 172 | observability | 10.20.30.172 | ssd-mirror | Prometheus + Grafana + json-exporter |
+| 175 | obsidian | 10.20.30.175 | ssd-mirror | linuxserver/obsidian Webtop — LiveSync peer + Local REST API for MCP |
 
 ### Remote nodes
 

@@ -53,6 +53,7 @@
     heimdall_excluded_domains:
       - heimdall.laxdog.uk
       - couchdb.laxdog.uk
+      - obsidian-api.laxdog.uk
       - sites.laxdog.uk
 
 - name: Build Heimdall item list from proxy hosts

@@ -1,0 +1,35 @@
+- name: Set Obsidian paths
+  ansible.builtin.set_fact:
+    obsidian_compose_dir: "/docker/docker-compose-{{ inventory_hostname }}"
+
+- name: Create Obsidian application directory
+  ansible.builtin.file:
+    path: "{{ obsidian_compose_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create Obsidian config directory
+  ansible.builtin.file:
+    path: "{{ obsidian_compose_dir }}/config"
+    state: directory
+    owner: "1000"
+    group: "1000"
+    mode: '0755'
+
+- name: Copy Obsidian Docker Compose file
+  ansible.builtin.template:
+    src: docker-compose.yaml.j2
+    dest: "{{ obsidian_compose_dir }}/docker-compose.yaml"
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: true
+
+- name: Deploy Obsidian via Docker Compose
+  ansible.builtin.command:
+    cmd: docker compose up -d
+  args:
+    chdir: "{{ obsidian_compose_dir }}"
+  changed_when: false

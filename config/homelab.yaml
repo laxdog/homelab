@@ -204,6 +204,10 @@ adguard:
     answer: 10.20.30.154
   - domain: couchdb.laxdog.uk
     answer: 10.20.30.154
+  - domain: obsidian.laxdog.uk
+    answer: 10.20.30.154
+  - domain: obsidian-api.laxdog.uk
+    answer: 10.20.30.154
   - domain: browser.laxdog.uk
     answer: 10.20.30.154
   - domain: apt.laxdog.uk
@@ -569,6 +573,14 @@ services:
       roles:
       - docker
       - couchdb
+    obsidian:
+      id: 175
+      ip: 10.20.30.175
+      memory_mb: 2048
+      disk_gb: 16
+      roles:
+      - docker
+      - obsidian
     apt-cacher-ng:
       id: 156
       ip: 10.20.30.156
@@ -775,6 +787,13 @@ proxmox_metadata:
     - label: ssh
       username: root
       password_var: root_password
+    obsidian:
+    - label: ui
+      username: obsidian
+      password_var: obsidian_webtop_password
+    - label: ssh
+      username: root
+      password_var: root_password
     apt-cacher-ng:
     - label: ssh
       username: root
@@ -880,6 +899,8 @@ npm:
     - netalertx.laxdog.uk
     - health.laxdog.uk
     - couchdb.laxdog.uk
+    - obsidian.laxdog.uk
+    - obsidian-api.laxdog.uk
     - browser.laxdog.uk
     - apt.laxdog.uk
     - sites.laxdog.uk
@@ -994,6 +1015,21 @@ npm:
       add_header Access-Control-Allow-Methods "GET, PUT, POST, HEAD, DELETE, OPTIONS" always;
       add_header Access-Control-Allow-Headers "Authorization, Content-Type, Origin, Accept, Referer" always;
       add_header Access-Control-Allow-Credentials "true" always;
+  - name: Obsidian
+    domain: obsidian.laxdog.uk
+    forward_host: 10.20.30.175
+    forward_port: 3000
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+  - name: Obsidian REST API
+    domain: obsidian-api.laxdog.uk
+    forward_host: 10.20.30.175
+    forward_port: 27123
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+    monitor_http: false
   - name: Firefox
     domain: browser.laxdog.uk
     forward_host: 10.20.30.162
@@ -1372,6 +1408,18 @@ couchdb:
     methods: GET, PUT, POST, HEAD, DELETE, OPTIONS
     headers: Authorization, Content-Type, Origin, Accept, Referer
     credentials: true
+obsidian:
+  # linuxserver/obsidian Webtop image — full Obsidian.app over KasmVNC.
+  # Internal-only access via obsidian.laxdog.uk (UI) and obsidian-api.laxdog.uk
+  # (Local REST API plugin). LiveSync joins the existing CT128 CouchDB DB
+  # `obsidian_main` as another peer. See docs/obsidian.md for one-time GUI
+  # bootstrap (plugin install, setup URI paste, REST API key extraction).
+  image: lscr.io/linuxserver/obsidian:latest
+  webtop_user: obsidian
+  webtop_port_http: 3000
+  webtop_port_https: 3001
+  rest_api_port_http: 27123
+  rest_api_port_https: 27124
 freshrss:
   port: 80
 netalertx:
@@ -2302,6 +2350,7 @@ validation:
   - authentik_secret_key
   - authentik_jellyfin_ldap_bind_password
   - couchdb_admin_password
+  - obsidian_webtop_password
   - healthchecks_admin_password
   - healthchecks_secret_key
   - nagios_admin_password
@@ -2406,6 +2455,12 @@ validation:
   - name: couchdb
     host: 10.20.30.128
     port: 5984
+  - name: obsidian-webtop
+    host: 10.20.30.175
+    port: 3000
+  - name: obsidian-rest-api
+    host: 10.20.30.175
+    port: 27123
   - name: browser
     host: 10.20.30.162
     port: 5800
