@@ -27,6 +27,21 @@ Homelab agent scope only. Per-agent backlogs live in `docs/agents/<name>.md`.
 
 ## Medium Priority
 
+- [ ] NPM `nginx-proxy-manager-config` role: cert issuance OOM + Update task halts Create task
+  - Context: Surfaced 2026-04-27 during CT175 obsidian rollout (and previously on 2026-04-20 with `loki.laxdog.uk`). When the laxdog-internal-le cert SAN list grows and a new cert needs issuing, NPM's backend (`max_old_space_size=250` MB) gets OOM-killed under the cert-create + nginx-reload-storm load. After NPM auto-restarts, the role's "Update proxy host when needed" task starts hitting NPM 502s on existing external proxy hosts (specifically the `*.lax.dog` ones with `laxdog-external-le`); when the loop fails, Ansible removes the host from subsequent tasks for that play, so "Create AdGuard proxy host when missing" never runs and any new proxy hosts in `config/homelab.yaml` don't get materialised in NPM. Today worked around by creating proxy hosts directly via `POST /api/nginx/proxy-hosts` with the new cert id.
+  - Proposed fix: split the role's loops so a Create-missing-hosts pass runs *before* the Update-existing pass (so net-new entries land even if updates trip), and/or bump NPM's `node --max_old_space_size` so cert work doesn't OOM the API. Both changes are small, but need testing against the live NPM dataset (47+ proxy hosts, 24 certs).
+  - Effort: low–medium
+  - Scope: homelab
+  - Added: 2026-04-27
+
+- [ ] AdGuard role's template render task silently skipped on multi-host applies
+  - Context: 2026-04-27 ran `ansible-playbook guests.yml --limit "obsidian,nginx-proxy-manager,adguard,heimdall,organizr,nagios"` to roll out CT175. Recap reported `adguard ok=9 changed=0`, but the new `obsidian.laxdog.uk` and `obsidian-api.laxdog.uk` rewrites declared in `config/homelab.yaml` did NOT make it into `/opt/AdGuardHome/AdGuardHome.yaml` (file mtime stayed on 2026-04-21). Re-running with `--limit adguard` produced `ok=42 changed=3` and the rewrites appeared as expected. The "Render AdGuardHome configuration" task has no `when:` clause, so it should always run — repro mechanism unclear. Possibly related to the NPM play's `failed=1` earlier in the same playbook run interacting with shared facts or with the `meta: flush_handlers` + `notify: Restart AdGuardHome` chain.
+  - Risk: silent — recap looks clean. If a future apply renders ALL of AdGuard's declared state but selectively skips it, drift accumulates without notice. Same `template render` task is also the load-bearing path that 2026-04-20's incident classified as "high-risk" (it can wipe rewrites entirely if it renders empty).
+  - Proposed fix: add an explicit drift-detection assertion at the end of the AdGuard play that re-reads the rendered file and fails if any declared rewrite/user_rule isn't present. Cheap belt-and-braces. Repro the original skip first to understand the mechanism.
+  - Effort: low (assertion); medium (root-cause)
+  - Scope: homelab
+  - Added: 2026-04-27
+
 - [ ] Authentik SMTP + recovery flow for Jellyfin users
   - Context: Authentik now has a repo-managed invitation-only Jellyfin enrollment flow, but forgot-password remains blocked. Current runtime has no repo-managed SMTP/email delivery, no Authentik email stage, and no recovery flow bound to the default brand. Until mail exists, password resets stay operator-driven.
   - Effort: medium
