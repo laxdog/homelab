@@ -208,6 +208,8 @@ adguard:
     answer: 10.20.30.154
   - domain: obsidian-api.laxdog.uk
     answer: 10.20.30.154
+  - domain: print.laxdog.uk
+    answer: 10.20.30.154
   - domain: browser.laxdog.uk
     answer: 10.20.30.154
   - domain: apt.laxdog.uk
@@ -581,6 +583,18 @@ services:
       roles:
       - docker
       - obsidian
+    print:
+      # CT174 — Brother HL-1110 USB-attached print server. Created out-of-band
+      # via `pct create` + raw lxc.mount.entry edit on /etc/pve/lxc/174.conf
+      # for /dev/bus/usb passthrough, then `terraform import`. Same dance as
+      # jellyfin-hw (terraform/jellyfin_hw.tf) — see docs/print.md.
+      id: 174
+      ip: 10.20.30.174
+      cores: 1
+      memory_mb: 512
+      disk_gb: 4
+      roles:
+      - cups
     apt-cacher-ng:
       id: 156
       ip: 10.20.30.156
@@ -794,6 +808,13 @@ proxmox_metadata:
     - label: ssh
       username: root
       password_var: root_password
+    print:
+    - label: ui
+      username: cups-admin
+      password_var: cups_admin_password
+    - label: ssh
+      username: root
+      password_var: root_password
     apt-cacher-ng:
     - label: ssh
       username: root
@@ -901,6 +922,7 @@ npm:
     - couchdb.laxdog.uk
     - obsidian.laxdog.uk
     - obsidian-api.laxdog.uk
+    - print.laxdog.uk
     - browser.laxdog.uk
     - apt.laxdog.uk
     - sites.laxdog.uk
@@ -1026,6 +1048,19 @@ npm:
     domain: obsidian-api.laxdog.uk
     forward_host: 10.20.30.175
     forward_port: 27123
+    access_list: Internal Access
+    ssl: true
+    certificate: laxdog-internal-le
+    monitor_http: false
+  - name: Print
+    # CUPS web UI on CT174 :631. CUPS terminates HTTPS itself with a
+    # self-signed cert and forces redirects on /admin, so NPM proxies upstream
+    # over HTTPS with backend cert verification disabled. monitor_http off —
+    # Nagios covers liveness via the validation.service_ports entry on :631.
+    domain: print.laxdog.uk
+    forward_scheme: https
+    forward_host: 10.20.30.174
+    forward_port: 631
     access_list: Internal Access
     ssl: true
     certificate: laxdog-internal-le
@@ -1420,6 +1455,20 @@ obsidian:
   webtop_port_https: 3001
   rest_api_port_http: 27123
   rest_api_port_https: 27124
+cups:
+  # CUPS print server for the Brother HL-1110 USB-attached on the Proxmox
+  # host, bind-mounted into CT174 via /dev/bus/usb. IPP on :631 with avahi
+  # mDNS for AirPrint/Mopria auto-discovery. Internal-only via
+  # print.laxdog.uk. See docs/print.md for the one-time pct create + USB
+  # passthrough bootstrap (raw lxc.mount.entry edit on /etc/pve/lxc/174.conf,
+  # then terraform import).
+  port: 631
+  admin_user: cups-admin
+  admin_password_var: cups_admin_password
+  printer:
+    name: HL1110
+    location: "Carrickfergus office"
+    model_keyword: "HL-1110"
 freshrss:
   port: 80
 netalertx:
@@ -2351,6 +2400,7 @@ validation:
   - authentik_jellyfin_ldap_bind_password
   - couchdb_admin_password
   - obsidian_webtop_password
+  - cups_admin_password
   - healthchecks_admin_password
   - healthchecks_secret_key
   - nagios_admin_password
@@ -2461,6 +2511,9 @@ validation:
   - name: obsidian-rest-api
     host: 10.20.30.175
     port: 27123
+  - name: print
+    host: 10.20.30.174
+    port: 631
   - name: browser
     host: 10.20.30.162
     port: 5800
