@@ -43,14 +43,14 @@ Retired (2026-04-14): Plex and Jellyfin on VM120 — CT167 Jellyfin is productio
 - **Bazarr SQLAlchemy patch**: was required, now resolved upstream. Patch file at `/opt/media-stack/appdata/bazarr/fix/ui.py` is no longer applied. Safe to remove.
 
 ## Principle
-Docker compose files should be committed to this repo and deployed via Ansible. Currently compose files live directly on VM120 — moving them to the repo is a backlog item.
+Docker compose files should be committed to this repo and deployed via Ansible. Current live state on VM120 is repo-managed through the `ansible/roles/media-stack` compose templates.
 
 ## Backlog
 
-- [ ] Move docker compose files into repo
-  - Context: compose files currently live on VM120 at /opt/media-stack/. They should be in the repo and deployed via Ansible to follow the source-of-truth principle.
+- [x] Move docker compose files into repo — DONE 2026-04-29
+  - Context: compose files for the media stack are now repo-managed through `ansible/roles/media-stack/templates/*.j2` and deployed onto VM120 via Ansible, so the older note claiming they only lived on VM120 was stale.
   - Effort: high
-  - Added: 2026-04-14
+  - Added: 2026-04-14, Completed: 2026-04-29
 
 - [ ] Remove stale Bazarr patch file
   - Context: /opt/media-stack/appdata/bazarr/fix/ui.py no longer needed. Safe to delete.

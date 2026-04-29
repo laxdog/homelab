@@ -24,7 +24,9 @@ Tdarr runs on VM `120` as part of the existing `arr` compose project.
   - `healthcheckcpuWorkers=1`
   - `transcodegpuWorkers=0`
   - `healthcheckgpuWorkers=0`
-- Current runtime node ID on VM `120`: `QyKZlyoUY`
+- Current live runtime node ID changes across restarts.
+  - Verified on `2026-04-29`: `gps47_OkU`
+  - Historical staged/job records from the `2026-04-07` validation still reference the older runtime node ID `QyKZlyoUY`
 - Current node name: `MediaStackTdarrCpuNode`
 
 ## Current Watch Scope
@@ -105,7 +107,7 @@ python3 - <<'PY'
 import json, urllib.request
 payload = {
     "data": {
-        "nodeID": "QyKZlyoUY",
+        "nodeID": "<live nodeID from /api/v2/get-nodes>",
         "nodeUpdates": {"nodePaused": True},
     }
 }
@@ -164,6 +166,11 @@ sudo docker logs --tail 120 tdarr-node
 - Tdarr is up.
 - The CPU node is currently paused after the first successful sample run.
 - No broad automatic replacement has been enabled yet.
+- Runtime re-verified on `2026-04-29`:
+  - `tdarr` and `tdarr-node` containers are both up on VM `120`
+  - Tdarr API status is healthy on `2.67.01`
+  - live node `MediaStackTdarrCpuNode` is connected and paused with zero active queues
+  - the Tdarr DB still contains the guarded validation libraries and the staged Mr. Robot sample output
 - Current validation status:
   - AVC/H.264 -> HEVC on the Mr. Robot sample is working and staged cleanly.
   - AV1 sample is now skipped cleanly as `Not required`.
