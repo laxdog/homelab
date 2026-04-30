@@ -282,9 +282,13 @@ tailscale:
   advertise_exit_node: true
   accept_dns: false
   require_joined: false
-  split_dns:
-    domain: laxdog.uk
-    nameserver: 10.20.30.53
+  # Tailnet DNS lives in the Tailscale admin console — no Ansible role
+  # reconciles it from here. Live posture (set 2026-04-29): AdGuard
+  # 10.20.30.53 as global nameserver with "Override local DNS" = ON, so
+  # every Tailscale-connected client uses AdGuard for ALL DNS (laxdog.uk
+  # rewrites + adblocking). See docs/adguard.md "Tailnet DNS" for the
+  # full explanation; the earlier `split_dns:` block here was
+  # unimplemented intent.
 remote_nodes:
   defaults:
     ssh_user: mrobinson
