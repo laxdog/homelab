@@ -148,6 +148,15 @@ adguard:
     ids:
     - a0:9a:8e:35:e5:02
     - 10.20.30.83
+    # 10.20.30.1 = LAN router. Charlotte's MBP cannot have its DNS pointed
+    # directly at AdGuard, so some of her queries arrive via the router and
+    # AdGuard sees the source as 10.20.30.1. Tagging the router as
+    # charlotte-mbp lets the per-client allow rules below match those
+    # forwarded queries too. CAVEAT: any other device that DNS-resolves via
+    # the router will also be seen as charlotte-mbp and inherit her full
+    # allowlist — do not add sensitive per-client rules to charlotte-mbp
+    # without remembering this leak.
+    - 10.20.30.1
   - name: nvidia-shield
     ids:
     - 48:b0:2d:58:da:2c
